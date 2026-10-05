@@ -16,9 +16,9 @@ export const InternSyncLogo: React.FC<InternSyncLogoProps> = ({
   to,
 }) => {
   const iconSizes = {
-    sm: 'w-7 h-7',
-    md: 'w-9 h-9',
-    lg: 'w-11 h-11',
+    sm: 'w-6 h-6',
+    md: 'w-7 h-7',
+    lg: 'w-9 h-9',
   }
 
   const titleSizes = {
@@ -33,36 +33,34 @@ export const InternSyncLogo: React.FC<InternSyncLogoProps> = ({
     lg: 'text-xs',
   }
 
+  const isDark = variant === 'dark'
+
   const content = (
     <div className={cn('inline-flex items-center gap-2.5 select-none group', className)}>
-      {/* Brand Mark SVG Symbol */}
-      <div
-        className={cn(
-          'relative rounded-xl bg-gradient-to-tr from-indigo-600 via-violet-600 to-indigo-700 flex items-center justify-center shrink-0 shadow-xs shadow-indigo-600/20 group-hover:scale-105 transition-transform duration-200',
-          iconSizes[size]
-        )}
+      {/* Brand Mark: Geometric Convergence Vector */}
+      <svg
+        viewBox="0 0 32 32"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className={cn('shrink-0 group-hover:scale-105 transition-transform duration-200', iconSizes[size])}
+        aria-label="InternSync Logo"
       >
-        <svg
-          viewBox="0 0 32 32"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-3/5 h-3/5"
-        >
-          {/* Synchronized nodes */}
-          <circle cx="10" cy="16" r="3.2" fill="#FFFFFF" fillOpacity="0.95" />
-          <circle cx="22" cy="16" r="3.2" fill="#FFFFFF" fillOpacity="0.95" />
-          {/* Readiness bridge */}
-          <path
-            d="M10 16C10 11.5 22 11.5 22 16C22 20.5 10 20.5 10 16Z"
-            stroke="#FFFFFF"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          {/* Spark of fit */}
-          <circle cx="16" cy="16" r="1.6" fill="#38BDF8" />
-        </svg>
-      </div>
+        {/* Top trajectory: Student Profile & Skills */}
+        <path
+          d="M4 7H11L18 14H12.5L4 7Z"
+          fill={isDark ? '#F8FAFC' : '#0F172A'}
+        />
+        {/* Bottom trajectory: Industry Opportunities */}
+        <path
+          d="M4 25H11L18 18H12.5L4 25Z"
+          fill={isDark ? '#F8FAFC' : '#0F172A'}
+        />
+        {/* Convergent Forward Vector: Opportunity Readiness */}
+        <path
+          d="M17 11.5L28 16L17 20.5L20 16L17 11.5Z"
+          fill={isDark ? '#818CF8' : '#4F46E5'}
+        />
+      </svg>
 
       {/* Typography for "full" and "dark" variants */}
       {variant !== 'mark' && (
@@ -70,16 +68,16 @@ export const InternSyncLogo: React.FC<InternSyncLogoProps> = ({
           <span
             className={cn(
               'font-extrabold tracking-tight leading-none',
-              variant === 'dark' ? 'text-white' : 'text-slate-900',
+              isDark ? 'text-white' : 'text-slate-900',
               titleSizes[size]
             )}
           >
-            Intern<span className={variant === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}>Sync</span>
+            Intern<span className={isDark ? 'text-indigo-400' : 'text-indigo-600'}>Sync</span>
           </span>
           <span
             className={cn(
               'font-semibold uppercase tracking-wider mt-0.5',
-              variant === 'dark' ? 'text-slate-400' : 'text-slate-400',
+              isDark ? 'text-slate-400' : 'text-slate-500',
               subSizes[size]
             )}
           >

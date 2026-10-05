@@ -49,11 +49,12 @@ export const Topbar: React.FC<TopbarProps> = ({
 
       {/* Right: Actions */}
       <div className="flex items-center gap-3">
-        {/* Live Engine Status */}
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 border border-slate-200 text-slate-700">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <span>Live Readiness Active</span>
-        </div>
+        {profile.fullName && (
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>Profile ready</span>
+          </div>
+        )}
 
         {/* Comparison floating button if active */}
         {comparisonIds.length > 0 && (

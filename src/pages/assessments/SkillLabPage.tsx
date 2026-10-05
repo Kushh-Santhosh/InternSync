@@ -30,10 +30,10 @@ export const SkillLabPage: React.FC = () => {
 
   // Current verified skill signals from profile
   const skillSignalSummary = [
-    { name: 'Python', score: skills.find((s) => s.skillName === 'Python')?.assessmentScore || 86, color: 'text-indigo-600', status: 'Verified Strong' },
-    { name: 'React', score: skills.find((s) => s.skillName === 'React')?.assessmentScore || 74, color: 'text-emerald-600', status: 'Verified Strong' },
-    { name: 'SQL', score: skills.find((s) => s.skillName === 'SQL')?.assessmentScore || 43, color: 'text-amber-600', status: 'Needs Preparation' },
-    { name: 'Machine Learning', score: skills.find((s) => s.skillName === 'Machine Learning')?.assessmentScore || 58, color: 'text-blue-600', status: 'Moderate Signal' },
+    { name: 'Python', score: skills.find((s) => s.skillName === 'Python')?.assessmentScore || 86, color: 'text-indigo-600', status: 'Strong' },
+    { name: 'React', score: skills.find((s) => s.skillName === 'React')?.assessmentScore || 74, color: 'text-emerald-600', status: 'Developing' },
+    { name: 'SQL', score: skills.find((s) => s.skillName === 'SQL')?.assessmentScore || 43, color: 'text-amber-600', status: 'Needs preparation' },
+    { name: 'Machine Learning', score: skills.find((s) => s.skillName === 'Machine Learning')?.assessmentScore || 58, color: 'text-blue-600', status: 'Developing' },
   ]
 
   // Filter questions for the active skill
@@ -91,7 +91,7 @@ export const SkillLabPage: React.FC = () => {
           <span>Skill Lab & Validation</span>
         </div>
         <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-          Validate your skills
+          VALIDATE YOUR SKILLS
         </h1>
         <p className="text-sm text-slate-600 mt-2 max-w-2xl leading-relaxed">
           You don't need to prove everything. We'll validate the skills most relevant to the

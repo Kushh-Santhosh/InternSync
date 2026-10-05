@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Briefcase,
-  CheckCircle2,
   Columns3,
   Globe,
   RefreshCw,
@@ -30,7 +29,6 @@ export const OpportunitiesPage: React.FC = () => {
     clearComparison,
     searchLiveOpportunities,
     searchProgress,
-    liveCounts,
   } = useApp()
 
   const [isSearching, setIsSearching] = useState(false)
@@ -136,10 +134,10 @@ export const OpportunitiesPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 mb-1">
             <Briefcase className="w-3.5 h-3.5" />
-            <span>Opportunity Intelligence Engine</span>
+            <span>Opportunity Readiness</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Verified Opportunities ({opportunities.length})
+            Best Internships For You
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Every listing shows your deterministic fit score, why you match, and whether to Apply, Prepare, or Skip.
@@ -157,7 +155,7 @@ export const OpportunitiesPage: React.FC = () => {
             {isSearching ? (
               <>
                 <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                <span>Searching Live Web...</span>
+                <span>Finding internships for you...</span>
               </>
             ) : (
               <>
@@ -188,56 +186,10 @@ export const OpportunitiesPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <span className="font-bold text-sm flex items-center gap-2">
               <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin" />
-              <span>Finding opportunities for you</span>
-            </span>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
-              {searchProgress.stage}
+              <span>Finding internships for you...</span>
             </span>
           </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-            <div className={cn('p-2.5 rounded-xl border flex items-center gap-2', searchProgress.stage !== 'error' ? 'bg-white border-indigo-200 text-indigo-900 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-400')}>
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Reading Career DNA</span>
-            </div>
-            <div className={cn('p-2.5 rounded-xl border flex items-center gap-2', searchProgress.stage === 'searching_web' || searchProgress.stage === 'deduplicating' || searchProgress.stage === 'matching' || searchProgress.stage === 'completed' ? 'bg-white border-indigo-200 text-indigo-900 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-400')}>
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Target roles & fan-out</span>
-            </div>
-            <div className={cn('p-2.5 rounded-xl border flex items-center gap-2', searchProgress.stage === 'deduplicating' || searchProgress.stage === 'matching' || searchProgress.stage === 'completed' ? 'bg-white border-indigo-200 text-indigo-900 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-400')}>
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Searching live web</span>
-            </div>
-            <div className={cn('p-2.5 rounded-xl border flex items-center gap-2', searchProgress.stage === 'completed' ? 'bg-white border-emerald-200 text-emerald-900 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-400')}>
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Deterministic matching</span>
-            </div>
-          </div>
-
           <p className="text-xs text-indigo-700 font-medium">{searchProgress.message}</p>
-        </div>
-      )}
-
-      {/* Discovered Counts Callout */}
-      {liveCounts && searchProgress.stage === 'completed' && (
-        <div className="p-4 rounded-xl bg-slate-900 text-white flex flex-wrap items-center justify-between gap-4 text-xs">
-          <div>
-            <span className="font-bold text-slate-200">Live Web Discovery Run Complete: </span>
-            <span className="text-slate-300">
-              Found {liveCounts.totalDiscovered} raw listings · Retained {liveCounts.deduplicated} unique after deduplication & URL check.
-            </span>
-          </div>
-          <div className="flex items-center gap-2 font-bold">
-            <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              {liveCounts.applyNow} APPLY NOW
-            </span>
-            <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
-              {liveCounts.prepareFirst} PREPARE FIRST
-            </span>
-            <span className="px-2 py-0.5 rounded bg-slate-700 text-slate-300">
-              {liveCounts.skip} SKIP
-            </span>
-          </div>
         </div>
       )}
 
@@ -340,9 +292,16 @@ export const OpportunitiesPage: React.FC = () => {
       </div>
 
       {/* Opportunity Listings Grid */}
-      {filteredList.length === 0 ? (
+      {opportunities.length === 0 ? (
         <EmptyState
-          title="No opportunities found"
+          title="Best Internships For You"
+          description="Upload your resume or click Find internships for me to discover opportunities matched to your profile."
+          actionLabel="Find internships for me"
+          onAction={handleSearch}
+        />
+      ) : filteredList.length === 0 ? (
+        <EmptyState
+          title="No opportunities match your filters"
           description="Try relaxing your filters or searching for another skill."
           actionLabel="Clear all filters"
           onAction={() => {

@@ -18,12 +18,12 @@ interface ResumeUploadCardProps {
 }
 
 const STEPS = [
-  { step: 1, label: 'Reading your profile...', desc: 'Parsing text and document structure' },
-  { step: 2, label: 'Extracting skills...', desc: 'Mapping against 150+ technology taxonomy' },
-  { step: 3, label: 'Finding project evidence...', desc: 'Validating architecture & implementation' },
-  { step: 4, label: 'Understanding your career direction...', desc: 'Synthesizing Career DNA target roles' },
-  { step: 5, label: 'Searching live internships...', desc: 'Querying live career portals & verified feeds' },
-  { step: 6, label: 'Calculating your opportunity fit...', desc: 'Evaluating deterministic 8-factor score' },
+  { step: 1, label: 'Reading your resume', desc: 'Parsing text and document structure' },
+  { step: 2, label: 'Understanding your experience', desc: 'Validating projects and academic history' },
+  { step: 3, label: 'Building your Career DNA', desc: 'Synthesizing skills, evidence & target roles' },
+  { step: 4, label: 'Finding matching internships', desc: 'Searching current listings across employers' },
+  { step: 5, label: 'Checking requirements', desc: 'Analyzing prerequisites, degree & work arrangement' },
+  { step: 6, label: 'Calculating your fit', desc: 'Evaluating deterministic fit score & next steps' },
 ]
 
 export const ResumeUploadCard: React.FC<ResumeUploadCardProps> = ({

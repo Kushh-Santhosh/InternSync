@@ -46,16 +46,11 @@ export const ApplicationsPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 mb-1">
-            <KanbanSquare className="w-3.5 h-3.5" />
-            <span>Application Pipeline</span>
-          </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Application Readiness Tracker ({applications.length})
+            YOUR APPLICATIONS
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Manage your opportunities across 7 stages with deadlines, preparation milestones, and
-            interview logs.
+            Track saved roles, application progress, and interview milestones.
           </p>
         </div>
 
@@ -65,12 +60,29 @@ export const ApplicationsPage: React.FC = () => {
           className="bg-indigo-600 hover:bg-indigo-700 text-white self-start sm:self-auto"
         >
           <Plus className="w-4 h-4 mr-1.5" />
-          <span>Add Opportunity to Pipeline</span>
+          <span>Explore Opportunities</span>
         </Button>
       </div>
 
-      {/* Kanban Board Horizontal Scroll Container */}
-      <div className="flex gap-4 overflow-x-auto pb-6 min-h-[600px]">
+      {applications.length === 0 ? (
+        <div className="p-12 text-center rounded-3xl bg-white border border-slate-200/90 space-y-4 max-w-xl mx-auto my-8 shadow-xs">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-2xs">
+            <KanbanSquare className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">YOUR APPLICATIONS</h2>
+          <p className="text-sm text-slate-500 max-w-md mx-auto">
+            Nothing here yet. When you save or apply to opportunities, they will automatically enter your tracker board.
+          </p>
+          <Button
+            onClick={() => navigate('/opportunities')}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-xs"
+          >
+            <span>Find opportunities to apply</span>
+          </Button>
+        </div>
+      ) : (
+        /* Kanban Board Horizontal Scroll Container */
+        <div className="flex gap-4 overflow-x-auto pb-6 min-h-[600px]">
         {columns.map((col) => {
           const colApps = applications.filter((a) => a.status === col.id)
           return (
@@ -168,6 +180,7 @@ export const ApplicationsPage: React.FC = () => {
           )
         })}
       </div>
+    )}
 
       {/* Edit Notes Modal */}
       <Modal

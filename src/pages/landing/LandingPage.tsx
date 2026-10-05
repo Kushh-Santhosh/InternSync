@@ -596,7 +596,7 @@ export const LandingPage: React.FC = () => {
               Don't search harder. Search smarter.
             </h2>
             <p className="mt-2 text-slate-600 text-sm">
-              Live web searches through OpenRouter and verified job feeds return real application links straight from official employer domains.
+              Live opportunity discovery returns verified application links straight from official employer career portals.
             </p>
           </div>
 
@@ -742,29 +742,29 @@ export const LandingPage: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <a href="https://openrouter.ai" target="_blank" rel="noreferrer" className="hover:text-slate-900">
-                  OpenRouter AI
-                </a>
+                <Link to="/skill-lab" className="hover:text-slate-900">
+                  Skill Validation
+                </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h5 className="font-bold text-slate-900 mb-3">Integrations</h5>
+            <h5 className="font-bold text-slate-900 mb-3">Company</h5>
             <ul className="space-y-2">
               <li>
-                <Link to="/settings" className="hover:text-slate-900">
-                  OpenRouter Gateway
+                <Link to="/dream-internship" className="hover:text-slate-900">
+                  Dream Role
                 </Link>
               </li>
               <li>
-                <Link to="/settings" className="hover:text-slate-900">
-                  Adzuna Jobs API
+                <Link to="/opportunities" className="hover:text-slate-900">
+                  Opportunities
                 </Link>
               </li>
               <li>
-                <Link to="/settings" className="hover:text-slate-900">
-                  GitHub OAuth
+                <Link to="/career-dna" className="hover:text-slate-900">
+                  Career DNA
                 </Link>
               </li>
             </ul>

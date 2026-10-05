@@ -27,10 +27,10 @@ export const AssistantPage: React.FC = () => {
 
   const suggestionChips = [
     'Find internships for me',
-    'Why do I match this role?',
+    'What am I missing for AI internships?',
+    'Which opportunity should I apply to?',
+    'How can I improve my resume?',
     'What should I learn next?',
-    'Improve my resume',
-    'Compare these opportunities',
   ]
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -180,38 +180,34 @@ How can I help you take your next best career step?
             <div className="pt-2 border-t border-slate-100 text-[11px] text-indigo-700 font-semibold flex items-center justify-between">
               <span className="flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-indigo-500" />
-                <span>{opportunities.length} Opps Evaluated</span>
-              </span>
-              <span className={cn('text-[10px] px-1.5 py-0.2 rounded font-bold', isDemoMode ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700')}>
-                {isDemoMode ? 'Demo' : 'Live'}
+                <span>{opportunities.length} Opportunities Evaluated</span>
               </span>
             </div>
           </div>
         </div>
 
         <div className="text-[11px] text-slate-400 text-center">
-          InternSync Career Intelligence v1.0
+          InternSync Career Assistant
         </div>
       </div>
 
       {/* Main Conversation Stream */}
       <div className="flex-1 flex flex-col justify-between min-w-0 bg-white">
-        {/* Messages or Large Empty State (Priority 9) */}
+        {/* Messages or Large Empty State */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
           {messages.length === 0 ? (
-            /* Large Claude/ChatGPT-style Empty State */
+            /* Large Empty State */
             <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto py-12">
               <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mb-4 shadow-2xs">
                 <Zap className="w-7 h-7 fill-indigo-600" />
               </div>
 
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                What do you want to figure out?
+                Career Assistant
               </h2>
 
               <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-md leading-relaxed">
-                InternSync Career Intelligence evaluates your live skills, project proof, and academic
-                standing to provide explainable answers without generic fluff.
+                Ask anything about your readiness, internship matches, missing skills, or how to bridge gaps.
               </p>
 
               {/* Suggestion Chips Grid */}

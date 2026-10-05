@@ -139,30 +139,30 @@ export class DemoAIProvider implements AIProvider {
       const degree = context.student?.degree || 'B.Tech'
       return `Based on your **Career DNA (${studentName} - Year ${year} ${degree})**, here is your prioritized application strategy:
 
-### 1. Primary Recommendation: **AI Engineering Intern @ Demo Labs**
-- **Match Score:** 91% (APPLY NOW)
-- **Why:** Your **AI Study Assistant** project directly demonstrates FastAPI and vector retrieval. Your academic year (3rd year) perfectly satisfies the requirement.
-- **Recommended Action:** Submit your application this week before the deadline.
+### 1. Primary Recommendation: **AI Engineer Intern**
+- **Match Score:** 92% (APPLY NOW)
+- **Why:** Your technical projects directly demonstrate Python, FastAPI, and data querying. Your academic standing aligns with hiring criteria.
+- **Recommended Action:** Submit your application directly to top matched opportunities this week.
 
-### 2. Secondary Recommendation: **Full Stack Intern @ NovaStack**
-- **Match Score:** 87% (APPLY NOW)
-- **Why:** Full alignment with your **React + TypeScript** portfolio and clean component architecture.
+### 2. Secondary Recommendation: **Full Stack Developer Intern**
+- **Match Score:** 88% (APPLY NOW)
+- **Why:** Strong alignment with modern web architecture and database workflows.
 
-### 3. Preparation Opportunity: **Machine Learning Intern @ VisionForge**
-- **Match Score:** 78% (PREPARE FIRST)
-- **Gap:** Requires PyTorch & Computer Vision.
-- **Advice:** Follow the **14-day PyTorch sprint** before applying to significantly elevate your interview conversion probability.`
+### 3. Preparation Opportunity: **Machine Learning Research Intern**
+- **Match Score:** 76% (PREPARE FIRST)
+- **Gap:** Requires PyTorch & model deployment experience.
+- **Advice:** Follow the **14-day PyTorch sprint** before applying to maximize your interview conversion.`
     }
 
     if (latestQuery.includes('why is my match score low') || latestQuery.includes('low')) {
       return `Match scores are calculated deterministically across 8 distinct vectors:
 
 1. **Academic Year & Eligibility (20% weight):**
-   If an opportunity requires final-year (4th year) students or 6-month continuous co-op commitments, our engine automatically caps the eligibility score to prevent wasted applications.
+   If an opportunity requires final-year (4th year) students or 6-month continuous commitments, our engine adjusts the eligibility score to prevent wasted applications.
 2. **Missing Prerequisite Skills (30% weight):**
-   Opportunities flagged with **PREPARE FIRST** or **SKIP** generally require specialized libraries like **PyTorch**, **Docker**, or **Solidity** which are not yet verified in your projects or Skill Lab.
+   Opportunities flagged with **PREPARE FIRST** or **SKIP** generally require specialized libraries like **PyTorch**, **Docker**, or **Kubernetes** which are not yet verified in your projects or Skill Lab.
 3. **Project Proof (15% weight):**
-   Listing a skill on your resume without corresponding project or GitHub code gives lower confidence than substantiated claims.
+   Substantiated project code provides higher confidence than unverified resume claims.
 
 *Tip: Check the 'Why You Match' breakdown on any opportunity card to see the exact percentage contribution of each vector.*`
     }
@@ -170,23 +170,23 @@ export class DemoAIProvider implements AIProvider {
     if (latestQuery.includes('what skill should i learn next') || latestQuery.includes('learn next') || latestQuery.includes('gap') || latestQuery.includes('missing') || latestQuery.includes('pytorch')) {
       return `Based on your target of AI & Full-Stack engineering, your **#1 highest-leverage skill to learn next is PyTorch**:
 
-- **Current Status:** Not yet demonstrated in your 3 active projects or Skill Lab.
-- **Immediate Impact:** PyTorch currently gates **6 Machine Learning and Vision roles** in your feed from \`APPLY NOW\` into \`PREPARE FIRST\`.
-- **Action Plan:** Follow the **14-Day PyTorch Preparation Sprint** (available in your Opportunity Details). Completing a hands-on CIFAR-10 or tensor classification project will immediately boost your match score above 88%.
+- **Current Status:** Bridgeable with one applied project.
+- **Immediate Impact:** PyTorch currently gates several Machine Learning roles in your feed from \`APPLY NOW\` into \`PREPARE FIRST\`.
+- **Action Plan:** Follow the **14-Day Preparation Sprint**. Completing a hands-on model training and deployment project will boost your match score above 88%.
 
-Your secondary recommendation is **Docker & containerization**, which will strengthen your DevOps and cloud backend readiness.`
+Your secondary recommendation is **Docker & containerization**, which will strengthen your cloud backend readiness.`
     }
 
     if (latestQuery.includes('compare my top 3') || latestQuery.includes('compare')) {
-      return `Here is a side-by-side comparative analysis of your top 3 opportunities:
+      return `Here is a side-by-side comparative analysis of your top target opportunities:
 
-| Role & Company | Match Score | Recommendation | Key Trade-Off |
+| Role | Match Score | Recommendation | Key Trade-Off |
 |---|---|---|---|
-| **AI Engineering Intern** @ Demo Labs | **91%** | **APPLY NOW** | Best immediate fit; aligns with your FastAPI & vector search projects. Zero skill blockers. |
-| **Full Stack Intern** @ NovaStack | **87%** | **APPLY NOW** | Direct match for your React + TypeScript portfolio; high conversion probability. |
-| **ML Research Intern** @ VisionForge | **78%** | **PREPARE FIRST** | High compensation (₹50k/mo) but requires 14 days of PyTorch and Computer Vision prep. |
+| **AI Engineer Intern** | **92%** | **APPLY NOW** | Best immediate fit; aligns with your technical projects. Zero skill blockers. |
+| **Full Stack Developer Intern** | **88%** | **APPLY NOW** | Direct match for your portfolio; high conversion probability. |
+| **Machine Learning Intern** | **76%** | **PREPARE FIRST** | High-growth role, but requires 14 days of PyTorch and deployment prep. |
 
-**Executive Recommendation:** Apply to **Demo Labs** and **NovaStack** this week. Simultaneously begin the 14-day PyTorch sprint for **VisionForge**.`
+**Executive Recommendation:** Apply to your highest-readiness opportunities this week while beginning your 14-day preparation sprint for more advanced roles.`
     }
 
     if (latestQuery.includes('14-day') || latestQuery.includes('preparation plan') || latestQuery.includes('roadmap')) {

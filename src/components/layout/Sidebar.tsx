@@ -40,7 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, onCloseMobile = () 
       path: '/applications',
       badge: applications.length > 0 ? applications.length : undefined,
     },
-    { label: 'AI Assistant', icon: MessageSquare, path: '/assistant', highlight: true },
+    { label: 'Career Assistant', icon: MessageSquare, path: '/assistant' },
   ]
 
   const secondaryItems = [

@@ -1,14 +1,12 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  BrainCircuit,
   CheckCircle2,
   Code2,
   Compass,
   ExternalLink,
   FileCheck2,
   FileText,
-  GitBranch,
   ShieldCheck,
   User,
 } from 'lucide-react'
@@ -40,16 +38,11 @@ export const CareerDnaPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 mb-1">
-            <BrainCircuit className="w-3.5 h-3.5" />
-            <span>Living Career DNA</span>
-          </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Evidence-Based Capability Matrix
+            YOUR CAREER DNA
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            We don't trust resume keywords alone. Every skill is substantiated through projects,
-            GitHub code signals, and verified Skill Lab assessments.
+            A living profile built from your education, experience, projects and skills.
           </p>
         </div>
 
@@ -150,7 +143,7 @@ export const CareerDnaPage: React.FC = () => {
               <span>3 & 4. Verified Skills & Multi-Source Evidence</span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Confidence is backed by resume claims, project code, assessment scores, and GitHub signals.
+              Confidence is backed by resume claims, project code, and Skill Lab assessment scores.
             </p>
           </div>
 
@@ -179,7 +172,6 @@ export const CareerDnaPage: React.FC = () => {
             const hasResume = skill.evidenceSources.includes('resume')
             const hasProject = skill.projectCount > 0
             const hasAssessment = Boolean(skill.assessmentScore)
-            const hasGithub = skill.githubStrength === 'strong' || skill.githubStrength === 'moderate'
 
             return (
               <div
@@ -238,18 +230,6 @@ export const CareerDnaPage: React.FC = () => {
                         <span className="font-bold text-emerald-600">✓ {skill.assessmentScore}%</span>
                       ) : (
                         <span className="font-medium text-slate-400">~ Unverified</span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-600 flex items-center gap-1.5">
-                        <GitBranch className="w-3.5 h-3.5 text-slate-600" />
-                        <span>GitHub Signal</span>
-                      </span>
-                      {hasGithub ? (
-                        <span className="font-bold text-emerald-600">✓ {skill.githubStrength}</span>
-                      ) : (
-                        <span className="font-medium text-slate-400">~ Limited</span>
                       )}
                     </div>
                   </div>
@@ -330,8 +310,8 @@ export const CareerDnaPage: React.FC = () => {
                     rel="noreferrer"
                     className="text-indigo-600 font-semibold hover:underline flex items-center gap-1"
                   >
-                    <GitBranch className="w-3.5 h-3.5" />
-                    <span>View Repository</span>
+                    <Code2 className="w-3.5 h-3.5" />
+                    <span>View Project Source</span>
                   </a>
                   {proj.liveUrl && (
                     <a

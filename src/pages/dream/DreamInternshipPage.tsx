@@ -131,11 +131,10 @@ export const DreamInternshipPage: React.FC = () => {
           <span>Target Career Intelligence</span>
         </div>
         <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-          Dream Internship Compass
+          Dream Role
         </h1>
         <p className="text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
-          Tell us your ideal company and role. InternSync analyzes live hiring criteria, compares them
-          against your Career DNA, and builds a realistic 14-day preparation plan.
+          Target aspirational companies and roles. InternSync compares your Career DNA against live industry requirements, identifies gaps, and builds your preparation roadmap.
         </p>
       </div>
 
@@ -193,7 +192,7 @@ export const DreamInternshipPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-purple-600">
-                  Target Role Readiness
+                  YOUR DREAM ROLE
                 </span>
                 <h2 className="text-2xl font-black text-slate-900 mt-0.5">{dreamRole}</h2>
                 <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-1">
@@ -206,7 +205,7 @@ export const DreamInternshipPage: React.FC = () => {
                 <ScoreRing score={readinessScore} size="md" showLabel={false} />
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Current Readiness
+                    CURRENT READINESS
                   </div>
                   <div className="text-2xl font-black text-slate-900">{readinessScore}%</div>
                   <div className="text-[11px] text-purple-700 font-semibold">Bridgeable in 14 days</div>
@@ -296,10 +295,10 @@ export const DreamInternshipPage: React.FC = () => {
               <div className="space-y-1.5">
                 <div className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 uppercase tracking-wider">
                   <Zap className="w-3.5 h-3.5" />
-                  <span>Best Next Step</span>
+                  <span>NEXT BEST ACTION</span>
                 </div>
                 <h4 className="text-base sm:text-lg font-bold">
-                  Complete a PyTorch + FastAPI model deployment project.
+                  Build one deployable PyTorch project.
                 </h4>
                 <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
                   Bridge the gap between model training and cloud deployment. This fulfills 2 hard requirements for {targetCompany} and boosts your fit score by +16%.
@@ -314,7 +313,7 @@ export const DreamInternshipPage: React.FC = () => {
                 onClick={() => navigate('/career-paths')}
                 className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-5 py-3 rounded-xl shadow-lg shrink-0 cursor-pointer"
               >
-                <span>Build my 14-day plan</span>
+                <span>Build my plan</span>
                 <ArrowRight className="w-4 h-4 ml-1.5" />
               </Button>
             </div>

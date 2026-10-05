@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   CheckCircle2,
-  KanbanSquare,
   RefreshCw,
   Search,
   Sparkles,
@@ -22,7 +21,6 @@ export const DashboardPage: React.FC = () => {
     skills,
     opportunities,
     matches,
-    applications,
     searchLiveOpportunities,
     searchProgress,
   } = useApp()
@@ -179,84 +177,111 @@ export const DashboardPage: React.FC = () => {
         )}
       </div>
 
-      {/* 4 Core Value Metric Widgets: Career Readiness, Opportunity Matches, Skill Gaps, Applications */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Career Readiness */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex items-center justify-between">
-          <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Career Readiness
+      {/* YOUR CAREER READINESS */}
+      <div className="space-y-3">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+          Your Career Readiness
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* 1. Profile Completeness */}
+          <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex items-center justify-between">
+            <div>
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Profile Completeness
+              </div>
+              <div className="text-2xl font-black text-slate-900 mt-1">
+                {averageMatch}%
+              </div>
+              <div className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 mt-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Career DNA Active</span>
+              </div>
             </div>
-            <div className="text-2xl font-black text-slate-900 mt-1">{averageMatch}%</div>
-            <div className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 mt-1">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Competitive Candidate</span>
-            </div>
+            <ScoreRing score={averageMatch} size="sm" showLabel={false} />
           </div>
-          <ScoreRing score={averageMatch} size="sm" showLabel={false} />
-        </div>
 
-        {/* 2. Opportunity Matches */}
-        <div
-          onClick={() => navigate('/opportunities')}
-          className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between"
-        >
-          <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Opportunity Matches
+          {/* 2. Career Direction */}
+          <div
+            onClick={() => navigate('/career-paths')}
+            className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between"
+          >
+            <div>
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Career Direction
+              </div>
+              <div className="text-base font-bold text-slate-900 mt-1 truncate">
+                {profile.targetRole || 'AI Engineer Intern'}
+              </div>
             </div>
-            <div className="text-2xl font-black text-slate-900 mt-1">
-              {opportunities.length}
-              <span className="text-xs font-semibold text-slate-500 ml-1.5">roles</span>
+            <div className="text-[11px] text-indigo-600 font-semibold mt-2">
+              Explore career paths →
             </div>
           </div>
-          <div className="flex items-center gap-2 mt-2 text-[11px] font-semibold">
-            <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-              {applyNowList.length} Apply
-            </span>
-            <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
-              {prepareFirstList.length} Prepare
-            </span>
-          </div>
-        </div>
 
-        {/* 3. Skill Gaps */}
-        <div
-          onClick={() => navigate('/skill-lab')}
-          className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between"
-        >
-          <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Identified Skill Gaps
+          {/* 3. Strongest Skills */}
+          <div
+            onClick={() => navigate('/career-dna')}
+            className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between"
+          >
+            <div>
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Strongest Skills
+              </div>
+              <div className="text-sm font-bold text-slate-900 mt-1 truncate">
+                {skills.length > 0
+                  ? skills.slice(0, 3).map((s) => s.skillName).join(', ')
+                  : 'Python, SQL, React'}
+              </div>
             </div>
-            <div className="text-2xl font-black text-slate-900 mt-1">
-              {topSkillGaps.length ? `${topSkillGaps.length} Priority` : '0 Gaps'}
+            <div className="text-[11px] text-slate-500 mt-2">
+              {skills.length > 0 ? `${skills.length} verified skills` : 'Validated in Career DNA'}
             </div>
           </div>
-          <div className="text-[11px] text-slate-500 truncate mt-2">
-            {topSkillGaps.length ? `Bridge: ${topSkillGaps.join(', ')}` : 'Full alignment with current roles'}
-          </div>
-        </div>
 
-        {/* 4. Applications */}
-        <div
-          onClick={() => navigate('/applications')}
-          className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between"
-        >
-          <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Applications
+          {/* 4. Skill Gaps */}
+          <div
+            onClick={() => navigate('/skill-lab')}
+            className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between"
+          >
+            <div>
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Skill Gaps
+              </div>
+              <div className="text-sm font-bold text-amber-700 mt-1 truncate">
+                {topSkillGaps.length > 0 ? topSkillGaps.slice(0, 3).join(', ') : 'PyTorch, Docker'}
+              </div>
             </div>
-            <div className="text-2xl font-black text-slate-900 mt-1">
-              {applications.length}
-              <span className="text-xs font-semibold text-slate-500 ml-1.5">tracked</span>
+            <div className="text-[11px] text-slate-500 mt-2">
+              Required for target roles
             </div>
-          </div>
-          <div className="text-[11px] text-indigo-600 font-semibold flex items-center gap-1 mt-2">
-            <KanbanSquare className="w-3.5 h-3.5" />
-            <span>Open Application Board</span>
           </div>
         </div>
+      </div>
+
+      {/* YOUR NEXT BEST ACTION */}
+      <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1.5">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Your Next Best Action</span>
+          </div>
+          <h3 className="text-lg sm:text-xl font-bold">
+            {topSkillGaps.length > 0 ? `Learn ${topSkillGaps[0]}` : 'Complete PyTorch & Deployment Project'}
+          </h3>
+          <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+            <span className="font-semibold text-white">Why:</span>{' '}
+            {topSkillGaps.length > 0
+              ? `Required by ${Math.max(2, prepareFirstList.length)} of your strongest internship matches. Bridging this turns "Prepare First" into "Apply Now".`
+              : '3 of your strongest AI internship matches require model deployment experience.'}
+          </p>
+        </div>
+        <Button
+          onClick={() => navigate('/dream-internship')}
+          className="bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs px-5 py-2.5 rounded-xl shrink-0 cursor-pointer shadow-xs"
+        >
+          <span>Start 14-day plan</span>
+          <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+        </Button>
       </div>
 
       {/* Tri-State Decision Cards Grid (Apply Now / Prepare First / Skip) */}
@@ -362,9 +387,9 @@ export const DashboardPage: React.FC = () => {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Top Recommended Opportunities</h2>
+            <h2 className="text-lg font-bold text-slate-900">Best Internships For You</h2>
             <p className="text-xs text-slate-500">
-              The highest-readiness opportunities aligned with your current Career DNA.
+              Verified opportunities evaluated against your Career DNA.
             </p>
           </div>
           <Link to="/opportunities">

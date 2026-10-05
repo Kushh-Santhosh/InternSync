@@ -134,3 +134,4 @@ InternSync/
 ## 📜 License
 MIT License. Built for competition and ideathon evaluation.
 # InternSync
+# NORO

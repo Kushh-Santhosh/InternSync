@@ -61,40 +61,36 @@ export const DreamInternshipPage: React.FC = () => {
     (s) => !matchedSkills.some((m) => m.name.toLowerCase() === s.name.toLowerCase())
   )
 
-  // Calculate readiness score
-  const readinessScore = Math.min(
-    95,
-    Math.max(
-      65,
-      Math.round((matchedSkills.length / Math.max(1, targetRequiredSkills.length)) * 100)
-    )
-  )
+  // Calculate readiness score honestly without artificial clamping
+  const readinessScore = targetRequiredSkills.length > 0
+    ? Math.round((matchedSkills.length / targetRequiredSkills.length) * 100)
+    : 0
 
   // Current matches based on target query
   const targetMatches: TargetOpportunity[] = [
     {
       company: 'Google',
       role: 'Software Engineering Intern — AI/ML',
-      matchScore: 81,
+      matchScore: Math.max(0, Math.min(100, Math.round((matchedSkills.length / 5) * 100))),
       location: 'Bengaluru / Hyderabad',
       applicationUrl: 'https://careers.google.com/jobs/results/?q=intern',
-      missingSkills: ['PyTorch', 'Distributed Systems'],
+      missingSkills: ['PyTorch', 'Distributed Systems'].filter((s) => !studentSkillNames.has(s.toLowerCase())),
     },
     {
       company: 'Microsoft',
       role: 'Research & Applied AI Intern',
-      matchScore: 78,
+      matchScore: Math.max(0, Math.min(100, Math.round((matchedSkills.length / 5) * 95))),
       location: 'Bengaluru / Remote',
       applicationUrl: 'https://careers.microsoft.com/students/us/en',
-      missingSkills: ['Model Deployment', 'Azure ML'],
+      missingSkills: ['Model Deployment', 'Azure ML'].filter((s) => !studentSkillNames.has(s.toLowerCase())),
     },
     {
       company: 'NVIDIA',
       role: 'Deep Learning Engineering Intern',
-      matchScore: 72,
+      matchScore: Math.max(0, Math.min(100, Math.round((matchedSkills.length / 5) * 90))),
       location: 'Pune / Bengaluru',
       applicationUrl: 'https://www.nvidia.com/en-us/about-nvidia/careers/',
-      missingSkills: ['CUDA', 'TensorRT', 'PyTorch'],
+      missingSkills: ['CUDA', 'TensorRT', 'PyTorch'].filter((s) => !studentSkillNames.has(s.toLowerCase())),
     },
   ]
 
@@ -103,23 +99,21 @@ export const DreamInternshipPage: React.FC = () => {
     if (!text.trim()) return
 
     setIsAnalyzing(true)
-    setTimeout(() => {
-      if (text.toLowerCase().includes('google')) {
-        setDreamRole('AI Engineer Intern')
-        setTargetCompany('Google')
-      } else if (text.toLowerCase().includes('nvidia')) {
-        setDreamRole('Deep Learning Research Intern')
-        setTargetCompany('NVIDIA')
-      } else if (text.toLowerCase().includes('bengaluru')) {
-        setDreamRole('Full Stack AI Engineer')
-        setTargetCompany('High-Growth Unicorns in Bengaluru')
-      } else {
-        setDreamRole(text)
-        setTargetCompany('Top Tier Tech Companies')
-      }
-      setIsAnalyzing(false)
-      setAnalyzed(true)
-    }, 800)
+    if (text.toLowerCase().includes('google')) {
+      setDreamRole('AI Engineer Intern')
+      setTargetCompany('Google')
+    } else if (text.toLowerCase().includes('nvidia')) {
+      setDreamRole('Deep Learning Research Intern')
+      setTargetCompany('NVIDIA')
+    } else if (text.toLowerCase().includes('bengaluru')) {
+      setDreamRole('Full Stack AI Engineer')
+      setTargetCompany('High-Growth Unicorns in Bengaluru')
+    } else {
+      setDreamRole(text)
+      setTargetCompany('Top Tier Tech Companies')
+    }
+    setIsAnalyzing(false)
+    setAnalyzed(true)
   }
 
   return (

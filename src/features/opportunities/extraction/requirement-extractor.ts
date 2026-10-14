@@ -96,16 +96,12 @@ export function extractRequirementsDeterministically(
     }
   }
 
-  // Guarantee at least foundational technical skills if snippet was terse
+  // Only extract from title if explicitly found in taxonomy, do not invent unmentioned skills
   if (required_skills.length === 0) {
-    if (/ai|machine learning|ml/i.test(role)) {
-      required_skills.push('Python', 'Machine Learning')
-      preferred_skills.push('PyTorch')
-    } else if (/frontend|react|web/i.test(role)) {
-      required_skills.push('React', 'JavaScript', 'CSS')
-      preferred_skills.push('TypeScript')
-    } else {
-      required_skills.push('Python', 'SQL', 'Git')
+    for (const item of SKILL_TAXONOMY) {
+      if (new RegExp(`\\b${item.canonicalName.toLowerCase()}\\b`, 'i').test(role)) {
+        required_skills.push(item.canonicalName)
+      }
     }
   }
 

@@ -55,7 +55,21 @@ export const DashboardPage: React.FC = () => {
       )
     : skills.length > 0
     ? Math.min(92, Math.round(skills.reduce((acc, s) => acc + s.confidence, 0) / skills.length))
-    : 72
+    : 0
+
+  // Calculate genuine profile completeness based on populated fields
+  const completenessChecks = [
+    Boolean(profile.fullName),
+    Boolean(profile.email),
+    Boolean(profile.university),
+    Boolean(profile.degree),
+    Boolean(profile.targetRole),
+    skills.length > 0,
+    (profile.preferredLocations && profile.preferredLocations.length > 0),
+  ]
+  const profileCompletenessScore = Math.round(
+    (completenessChecks.filter(Boolean).length / completenessChecks.length) * 100
+  )
 
   // Top opportunities for focused student action
   const topOpportunities = [...opportunities]
@@ -190,14 +204,14 @@ export const DashboardPage: React.FC = () => {
                 Profile Completeness
               </div>
               <div className="text-2xl font-black text-slate-900 mt-1">
-                {averageMatch}%
+                {profileCompletenessScore}%
               </div>
               <div className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 mt-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Career DNA Active</span>
+                <span>{matches.size > 0 ? `${averageMatch}% Avg Opportunity Fit` : skills.length > 0 ? 'Career DNA Active' : 'Profile in Progress'}</span>
               </div>
             </div>
-            <ScoreRing score={averageMatch} size="sm" showLabel={false} />
+            <ScoreRing score={profileCompletenessScore} size="sm" showLabel={false} />
           </div>
 
           {/* 2. Career Direction */}
@@ -210,7 +224,7 @@ export const DashboardPage: React.FC = () => {
                 Career Direction
               </div>
               <div className="text-base font-bold text-slate-900 mt-1 truncate">
-                {profile.targetRole || 'AI Engineer Intern'}
+                {profile.targetRole || 'Set Target Role'}
               </div>
             </div>
             <div className="text-[11px] text-indigo-600 font-semibold mt-2">
@@ -230,11 +244,11 @@ export const DashboardPage: React.FC = () => {
               <div className="text-sm font-bold text-slate-900 mt-1 truncate">
                 {skills.length > 0
                   ? skills.slice(0, 3).map((s) => s.skillName).join(', ')
-                  : 'Python, SQL, React'}
+                  : 'No skills extracted yet'}
               </div>
             </div>
             <div className="text-[11px] text-slate-500 mt-2">
-              {skills.length > 0 ? `${skills.length} verified skills` : 'Validated in Career DNA'}
+              {skills.length > 0 ? `${skills.length} verified skills` : 'Upload resume to extract'}
             </div>
           </div>
 
@@ -248,11 +262,11 @@ export const DashboardPage: React.FC = () => {
                 Skill Gaps
               </div>
               <div className="text-sm font-bold text-amber-700 mt-1 truncate">
-                {topSkillGaps.length > 0 ? topSkillGaps.slice(0, 3).join(', ') : 'PyTorch, Docker'}
+                {topSkillGaps.length > 0 ? topSkillGaps.slice(0, 3).join(', ') : 'None detected yet'}
               </div>
             </div>
             <div className="text-[11px] text-slate-500 mt-2">
-              Required for target roles
+              {topSkillGaps.length > 0 ? 'Required for target roles' : 'Discover opportunities to see gaps'}
             </div>
           </div>
         </div>

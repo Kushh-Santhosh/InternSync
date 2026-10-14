@@ -21,11 +21,41 @@ export const CareerDnaPage: React.FC = () => {
 
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'languages' | 'frontend' | 'ai_ml' | 'data' | 'tools'>('all')
 
+  const skillNames = new Set(skills.map((s) => s.skillName.toLowerCase()))
+
+  const calcDirectionFit = (required: string[]) => {
+    if (required.length === 0) return 0
+    const matched = required.filter((r) => skillNames.has(r.toLowerCase()))
+    return Math.round((matched.length / required.length) * 100)
+  }
+
   const careerDirections = [
-    { title: 'AI / Machine Learning Engineering', fit: 88, note: 'Strongest project proof in FastAPI, vector search, and OpenCV' },
-    { title: 'Full-Stack Software Engineering', fit: 84, note: 'Demonstrated React, TypeScript, and clean component systems' },
-    { title: 'Data Science & Analytics', fit: 72, note: 'Good SQL base; benefit from Pandas statistical exercises' },
-    { title: 'Technical Product Management', fit: 62, note: 'High empathy for developer UX; requires PRD specification evidence' },
+    {
+      title: 'AI / Machine Learning Engineering',
+      fit: calcDirectionFit(['python', 'machine learning', 'pytorch', 'tensorflow', 'fastapi']),
+      note: projects.length > 0
+        ? `Evidence backed by ${projects[0].title} and confirmed technical skills.`
+        : 'Based on extracted AI/ML skills. Add projects to strengthen verification.',
+    },
+    {
+      title: 'Full-Stack Software Engineering',
+      fit: calcDirectionFit(['react', 'typescript', 'javascript', 'html', 'node', 'sql']),
+      note: skills.some((s) => s.category === 'frontend')
+        ? 'Demonstrated component architecture and client-facing web engineering.'
+        : 'Requires web frontend and API development evidence.',
+    },
+    {
+      title: 'Data Science & Analytics',
+      fit: calcDirectionFit(['python', 'sql', 'pandas', 'numpy', 'statistics']),
+      note: skillNames.has('sql') || skillNames.has('python')
+        ? 'Relational query foundation in place. Benefit from exploratory analysis projects.'
+        : 'Pending evidence in SQL and structured data analysis.',
+    },
+    {
+      title: 'Cloud & Systems Engineering',
+      fit: calcDirectionFit(['docker', 'linux', 'git', 'aws', 'ci/cd']),
+      note: 'Foundational tooling and deployment automation readiness.',
+    },
   ]
 
   const filteredSkills = skills.filter((s) => {
@@ -259,76 +289,84 @@ export const CareerDnaPage: React.FC = () => {
             <Code2 className="w-4 h-4 text-indigo-600" />
             <span>5. Projects Evidence Repository</span>
           </h3>
-          <span className="text-xs text-slate-500">3 Validated Projects</span>
+          <span className="text-xs text-slate-500">{projects.length} Validated {projects.length === 1 ? 'Project' : 'Projects'}</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {projects.map((proj) => (
-            <div
-              key={proj.id}
-              className="p-5 rounded-2xl border border-slate-200 bg-white shadow-xs flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <h4 className="text-sm font-bold text-slate-900">{proj.title}</h4>
-                  <Badge
-                    variant={proj.evidenceStrength === 'strong' ? 'success' : 'secondary'}
-                    size="sm"
-                  >
-                    {proj.evidenceStrength}
-                  </Badge>
-                </div>
-
-                <p className="text-xs text-slate-600 mt-2 leading-relaxed">{proj.description}</p>
-
-                <div className="mt-3 space-y-1">
-                  {proj.highlights.map((h, i) => (
-                    <div key={i} className="flex items-center gap-1.5 text-[11px] text-slate-600">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-                      <span>{h}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 mt-4">
-                  {proj.technologies.map((t) => (
-                    <span
-                      key={t}
-                      className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded"
+        {projects.length === 0 ? (
+          <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 bg-white">
+            <Code2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-xs font-semibold text-slate-700">No project evidence linked yet</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Upload a project summary or resume with projects to automatically extract evidence.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {projects.map((proj) => (
+              <div
+                key={proj.id}
+                className="p-5 rounded-2xl border border-slate-200 bg-white shadow-xs flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="text-sm font-bold text-slate-900">{proj.title}</h4>
+                    <Badge
+                      variant={proj.evidenceStrength === 'strong' ? 'success' : 'secondary'}
+                      size="sm"
                     >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
+                      {proj.evidenceStrength}
+                    </Badge>
+                  </div>
 
-              {proj.repositoryUrl && (
-                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <a
-                    href={proj.repositoryUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-indigo-600 font-semibold hover:underline flex items-center gap-1"
-                  >
-                    <Code2 className="w-3.5 h-3.5" />
-                    <span>View Project Source</span>
-                  </a>
-                  {proj.liveUrl && (
+                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">{proj.description}</p>
+
+                  <div className="mt-3 space-y-1">
+                    {proj.highlights.map((h, i) => (
+                      <div key={i} className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span>{h}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 mt-4">
+                    {proj.technologies.map((t) => (
+                      <span
+                        key={t}
+                        className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {proj.repositoryUrl && (
+                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                     <a
-                      href={proj.liveUrl}
+                      href={proj.repositoryUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                      className="text-indigo-600 font-semibold hover:underline flex items-center gap-1"
                     >
-                      <span>Demo</span>
-                      <ExternalLink className="w-3 h-3" />
+                      <Code2 className="w-3.5 h-3.5" />
+                      <span>View Project Source</span>
                     </a>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                    {proj.liveUrl && (
+                      <a
+                        href={proj.liveUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                      >
+                        <span>Demo</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* SECTION 6: ASSESSMENT SIGNALS */}
@@ -339,7 +377,12 @@ export const CareerDnaPage: React.FC = () => {
             <span>6. Verified Assessment Signals</span>
           </div>
           <h4 className="text-base font-bold text-slate-900">
-            Python (88%) · React (82%) · SQL (60%)
+            {skills.filter((s) => s.assessmentScore !== undefined).length > 0
+              ? skills
+                  .filter((s) => s.assessmentScore !== undefined)
+                  .map((s) => `${s.skillName} (${s.assessmentScore}%)`)
+                  .join(' · ')
+              : 'No skill assessments completed yet'}
           </h4>
           <p className="text-xs text-slate-600 max-w-xl">
             Skill Lab signals represent objective, scenario-based problem solving. They serve as audit proof

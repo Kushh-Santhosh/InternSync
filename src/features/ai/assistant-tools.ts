@@ -57,6 +57,7 @@ export class AssistantToolExecutor {
     const result = await orchestrator.runDiscovery(
       this.ctx.student,
       this.ctx.skills,
+      this.ctx.projects,
       this.ctx.isDemoMode,
       undefined,
       Boolean(queryText)

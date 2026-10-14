@@ -1,9 +1,20 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 import { DEMO_STUDENT_PROFILE, DEMO_STUDENT_PROJECTS, DEMO_STUDENT_SKILLS } from '@/data/demo-profile'
 import { SEED_OPPORTUNITIES } from '@/data/seed-opportunities'
 import { processUploadedDocument, type DocumentAnalysisResult } from '@/lib/documents/document-intelligence'
 import { OpportunitySearchOrchestrator } from '@/features/opportunities/search/orchestrator'
 import { calculateMatch } from '@/lib/matching/engine'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase/client'
+import {
+  fetchUserProfile,
+  upsertUserProfile,
+  fetchUserSkills,
+  upsertUserSkill,
+  fetchUserProjects,
+  insertUserProject,
+  fetchUserApplications,
+  upsertUserApplication,
+} from '@/lib/supabase/database'
 import type {
   ApplicationItem,
   ApplicationStatus,
@@ -17,16 +28,16 @@ import type {
   UploadedDocument,
 } from '@/types'
 
-const INITIAL_USER_PROFILE: StudentProfile = {
-  id: 'user-connected-me',
-  fullName: 'Student Candidate',
+const BLANK_STUDENT_PROFILE: StudentProfile = {
+  id: '',
+  fullName: '',
   email: '',
-  university: 'University Student',
+  university: '',
   degree: 'B.Tech',
-  branch: 'Computer Science & Engineering',
+  branch: 'Computer Science',
   currentYear: 3,
   graduationYear: 2026,
-  location: 'Bengaluru / Remote',
+  location: 'Bengaluru',
   preferredLocations: ['Bengaluru', 'Remote'],
   workModePreference: 'hybrid',
   availableFrom: new Date().toISOString().split('T')[0],
@@ -37,9 +48,6 @@ const INITIAL_USER_PROFILE: StudentProfile = {
   targetRole: 'Software Engineering Intern',
   bio: '',
 }
-
-const INITIAL_USER_SKILLS: SkillEvidenceItem[] = []
-const INITIAL_USER_PROJECTS: ProjectItem[] = []
 
 export interface AuthUser {
   id: string
@@ -53,7 +61,7 @@ interface AppContextType {
   currentUser: AuthUser | null
   login: (email: string, password?: string) => Promise<boolean>
   signup: (fullName: string, email: string, password?: string) => Promise<boolean>
-  logout: () => void
+  logout: () => Promise<void>
   enterDemoMode: () => void
   profile: StudentProfile
   skills: SkillEvidenceItem[]
@@ -64,6 +72,7 @@ interface AppContextType {
   applications: ApplicationItem[]
   comparisonIds: string[]
   isDemoMode: boolean
+  isSupabaseConfigured: boolean
   searchProgress: LiveSearchProgress
   liveCounts: {
     totalDiscovered: number
@@ -76,12 +85,12 @@ interface AppContextType {
   integrations: {
     openrouter?: ProviderHealth
     adzuna?: ProviderHealth
-    github?: ProviderHealth
   }
   setIsDemoMode: (isDemo: boolean) => void
   updateProfile: (profile: Partial<StudentProfile>) => void
   recordAssessmentResult: (skillName: string, score: number) => void
   uploadDocument: (file: File, type: 'resume' | 'presentation' | 'report' | 'certificate') => Promise<DocumentAnalysisResult>
+  deleteDocument: (docId: string) => Promise<void>
   searchLiveOpportunities: (forceRefresh?: boolean) => Promise<void>
   refreshIntegrations: () => Promise<void>
   addApplication: (opportunityId: string, status?: ApplicationStatus, notes?: string) => void
@@ -95,15 +104,14 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
 const STORAGE_KEYS = {
-  MODE: 'internsync_demo_mode_v2',
-  DEMO_PROFILE: 'internsync_demo_profile_v1',
-  USER_PROFILE: 'internsync_user_profile_v1',
-  USER_SKILLS: 'internsync_user_skills_v1',
-  USER_PROJECTS: 'internsync_user_projects_v1',
-  DOCUMENTS: 'internsync_documents_v1',
-  APPLICATIONS: 'internsync_applications_v1',
-  LIVE_OPPORTUNITIES: 'internsync_live_opps_v1',
-  AUTH_USER: 'internsync_auth_user_v1',
+  MODE: 'internsync_demo_mode_v3',
+  USER_PROFILE: 'internsync_user_profile_v3',
+  USER_SKILLS: 'internsync_user_skills_v3',
+  USER_PROJECTS: 'internsync_user_projects_v3',
+  DOCUMENTS: 'internsync_documents_v3',
+  APPLICATIONS: 'internsync_applications_v3',
+  LIVE_OPPORTUNITIES: 'internsync_live_opps_v3',
+  AUTH_USER: 'internsync_auth_user_v3',
 }
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -127,37 +135,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   })
 
-  // User Profile
+  // Real User Profile (blank by default for new real accounts)
   const [userProfile, setUserProfile] = useState<StudentProfile>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USER_PROFILE)
-      return saved ? JSON.parse(saved) : INITIAL_USER_PROFILE
+      return saved ? JSON.parse(saved) : BLANK_STUDENT_PROFILE
     } catch {
-      return INITIAL_USER_PROFILE
+      return BLANK_STUDENT_PROFILE
     }
   })
 
-  // User Skills
+  // Real User Skills (empty by default for new accounts)
   const [userSkills, setUserSkills] = useState<SkillEvidenceItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USER_SKILLS)
-      return saved ? JSON.parse(saved) : INITIAL_USER_SKILLS
+      return saved ? JSON.parse(saved) : []
     } catch {
-      return INITIAL_USER_SKILLS
+      return []
     }
   })
 
-  // User Projects
+  // Real User Projects (empty by default for new accounts)
   const [userProjects, setUserProjects] = useState<ProjectItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USER_PROJECTS)
-      return saved ? JSON.parse(saved) : INITIAL_USER_PROJECTS
+      return saved ? JSON.parse(saved) : []
     } catch {
-      return INITIAL_USER_PROJECTS
+      return []
     }
   })
 
-  // Uploaded Documents
+  // Real Uploaded Documents
   const [documents, setDocuments] = useState<UploadedDocument[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.DOCUMENTS)
@@ -167,7 +175,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   })
 
-  // Live opportunities discovered
+  // Live opportunities discovered via real search
   const [liveOpportunities, setLiveOpportunities] = useState<Opportunity[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.LIVE_OPPORTUNITIES)
@@ -201,13 +209,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [integrations, setIntegrations] = useState<{
     openrouter?: ProviderHealth
     adzuna?: ProviderHealth
-    github?: ProviderHealth
   }>({})
 
   // Comparison drawer state
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
 
-  // Applications Kanban state (defaults to real saved applications)
+  // Applications Kanban state
   const [applications, setApplications] = useState<ApplicationItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.APPLICATIONS)
@@ -218,7 +225,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return []
   })
 
-  // Synchronize storage
+  // Restore real Supabase session & register auth listener on mount
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return
+
+    let isMounted = true
+
+    // Check active session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!isMounted || error || !session) return
+
+      const authUser: AuthUser = {
+        id: session.user.id,
+        email: session.user.email || '',
+        fullName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Student',
+        createdAt: session.user.created_at,
+      }
+      setCurrentUser(authUser)
+
+      // Fetch user records from Supabase
+      fetchUserProfile(session.user.id).then((profile) => {
+        if (profile && isMounted) {
+          setUserProfile((prev) => ({
+            ...prev,
+            ...profile,
+            id: session.user.id,
+            email: session.user.email || prev.email,
+          }))
+        }
+      })
+
+      fetchUserSkills(session.user.id).then((skills) => {
+        if (skills && skills.length > 0 && isMounted) setUserSkills(skills)
+      })
+
+      fetchUserProjects(session.user.id).then((projects) => {
+        if (projects && projects.length > 0 && isMounted) setUserProjects(projects)
+      })
+
+      fetchUserApplications(session.user.id).then((apps) => {
+        if (apps && apps.length > 0 && isMounted) setApplications(apps)
+      })
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isMounted) return
+      if (session) {
+        const user: AuthUser = {
+          id: session.user.id,
+          email: session.user.email || '',
+          fullName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Student',
+          createdAt: session.user.created_at,
+        }
+        setCurrentUser(user)
+      } else {
+        setCurrentUser(null)
+      }
+    })
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  // Synchronize storage for offline access & seamless restoration
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.MODE, JSON.stringify(isDemoMode))
   }, [isDemoMode])
@@ -255,69 +328,141 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [currentUser])
 
-  const login = async (email: string, _password?: string): Promise<boolean> => {
-    const user: AuthUser = {
-      id: userProfile.id || `user-${Date.now()}`,
-      email,
-      fullName: userProfile.fullName || email.split('@')[0],
-      createdAt: new Date().toISOString(),
+  // Login handler
+  const login = async (email: string, password?: string): Promise<boolean> => {
+    if (isSupabaseConfigured && supabase) {
+      if (!password) {
+        throw new Error('Please enter your password.')
+      }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      if (data.session) {
+        const user: AuthUser = {
+          id: data.session.user.id,
+          email: data.session.user.email || email,
+          fullName: data.session.user.user_metadata?.full_name || email.split('@')[0],
+          createdAt: data.session.user.created_at,
+        }
+        setCurrentUser(user)
+        setIsDemoModeState(false)
+
+        // Load profile and state for authenticated user
+        const profile = await fetchUserProfile(user.id)
+        if (profile) {
+          setUserProfile({ ...profile, id: user.id, email: user.email })
+        } else {
+          setUserProfile({
+            ...BLANK_STUDENT_PROFILE,
+            id: user.id,
+            email: user.email,
+            fullName: user.fullName,
+          })
+        }
+
+        const skills = await fetchUserSkills(user.id)
+        setUserSkills(skills)
+
+        const projects = await fetchUserProjects(user.id)
+        setUserProjects(projects)
+
+        const apps = await fetchUserApplications(user.id)
+        setApplications(apps)
+
+        return true
+      }
+      return false
     }
-    setCurrentUser(user)
-    setIsDemoModeState(false)
-    return true
+
+    // If Supabase is unconfigured, reject simulated login
+    throw new Error(
+      'Authentication service is unavailable. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable accounts, or switch to Demo Mode to explore.'
+    )
   }
 
-  const signup = async (fullName: string, email: string, _password?: string): Promise<boolean> => {
-    const user: AuthUser = {
-      id: `user-${Date.now()}`,
-      email,
-      fullName,
-      createdAt: new Date().toISOString(),
+  // Signup handler
+  const signup = async (fullName: string, email: string, password?: string): Promise<boolean> => {
+    if (isSupabaseConfigured && supabase) {
+      if (!password || password.length < 6) {
+        throw new Error('Password must be at least 6 characters.')
+      }
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: fullName },
+        },
+      })
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      const user: AuthUser = {
+        id: data.user?.id || `user-${Date.now()}`,
+        email,
+        fullName,
+        createdAt: new Date().toISOString(),
+      }
+      setCurrentUser(user)
+      setIsDemoModeState(false)
+
+      const initialProfile: StudentProfile = {
+        ...BLANK_STUDENT_PROFILE,
+        id: user.id,
+        fullName,
+        email,
+      }
+      setUserProfile(initialProfile)
+      setUserSkills([])
+      setUserProjects([])
+      setLiveOpportunities([])
+      setApplications([])
+
+      if (data.user?.id) {
+        await upsertUserProfile(initialProfile)
+      }
+
+      return true
     }
-    setCurrentUser(user)
-    setIsDemoModeState(false)
-    // Initialize personal profile for the authenticated student (never Rahul Sharma)
-    setUserProfile({
-      id: user.id,
-      fullName,
-      email,
-      university: '',
-      degree: 'B.Tech',
-      branch: 'Computer Science',
-      currentYear: 3,
-      graduationYear: 2026,
-      location: 'Bengaluru',
-      preferredLocations: ['Bengaluru', 'Remote'],
-      workModePreference: 'hybrid',
-      availableFrom: new Date().toISOString().split('T')[0],
-      availableDurationMonths: 3,
-      careerInterests: ['AI Engineering', 'Full Stack Development'],
-      targetRole: 'Software Engineering Intern',
-      bio: '',
-    })
-    setUserSkills([])
-    setUserProjects([])
-    setLiveOpportunities([])
-    return true
+
+    throw new Error(
+      'Account creation is unavailable. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable accounts, or switch to Demo Mode to explore.'
+    )
   }
 
-  const logout = () => {
+  // Logout handler
+  const logout = async () => {
+    if (isSupabaseConfigured && supabase) {
+      await supabase.auth.signOut().catch(() => {})
+    }
     setCurrentUser(null)
     setIsDemoModeState(false)
+    setUserProfile(BLANK_STUDENT_PROFILE)
+    setUserSkills([])
+    setUserProjects([])
+    setApplications([])
+    setLiveOpportunities([])
+    setDocuments([])
   }
 
   const enterDemoMode = () => {
     setIsDemoModeState(true)
   }
 
-  // Active profile, skills, projects based on mode & authenticated user
+  // Active profile, skills, projects based strictly on mode & authenticated user
   const activeProfile = useMemo(() => {
     if (isDemoMode) return DEMO_STUDENT_PROFILE
     if (currentUser) {
       return {
         ...userProfile,
-        fullName: currentUser.fullName || userProfile.fullName,
-        email: currentUser.email || userProfile.email,
+        id: currentUser.id,
+        fullName: userProfile.fullName || currentUser.fullName,
+        email: userProfile.email || currentUser.email,
       }
     }
     return userProfile
@@ -326,7 +471,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const activeSkills = isDemoMode ? DEMO_STUDENT_SKILLS : userSkills
   const activeProjects = isDemoMode ? DEMO_STUDENT_PROJECTS : userProjects
 
-  // Active opportunities based on mode (real live opportunities prioritized)
+  // Active opportunities based strictly on mode (real live opportunities prioritized)
   const activeOpportunities = useMemo(() => {
     if (isDemoMode) {
       return SEED_OPPORTUNITIES
@@ -349,8 +494,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return map
   }, [activeProfile, activeSkills, activeProjects, activeOpportunities])
 
-  // Fetch integration health on mount
-  const refreshIntegrations = async () => {
+  // Fetch integration health
+  const refreshIntegrations = useCallback(async () => {
     try {
       const res = await fetch('/api/settings/health')
       if (res.ok) {
@@ -360,11 +505,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       // fallback
     }
-  }
+  }, [])
 
   useEffect(() => {
     refreshIntegrations()
-  }, [])
+  }, [refreshIntegrations])
 
   const setIsDemoMode = (demo: boolean) => {
     setIsDemoModeState(demo)
@@ -372,9 +517,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateProfile = (updates: Partial<StudentProfile>) => {
     if (isDemoMode) {
-      // In demo mode, apply locally
+      // Demo mode updates remain in-memory
     } else {
-      setUserProfile((prev) => ({ ...prev, ...updates }))
+      setUserProfile((prev) => {
+        const updated = { ...prev, ...updates }
+        if (currentUser && isSupabaseConfigured) {
+          upsertUserProfile(updated)
+        }
+        return updated
+      })
     }
   }
 
@@ -389,15 +540,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (!isDemoMode) {
       if (result.updatedProfile) {
-        setUserProfile((prev) => ({ ...prev, ...result.updatedProfile }))
+        setUserProfile((prev) => {
+          const updated = { ...prev, ...result.updatedProfile }
+          if (currentUser && isSupabaseConfigured) {
+            upsertUserProfile(updated)
+          }
+          return updated
+        })
       }
-      setUserSkills(result.newSkills)
+
+      setUserSkills((_prev) => {
+        const merged = result.newSkills
+        if (currentUser && isSupabaseConfigured) {
+          merged.forEach((s) => upsertUserSkill(currentUser.id, s))
+        }
+        return merged
+      })
+
       if (result.newProjects.length > 0) {
-        setUserProjects((prev) => [...result.newProjects, ...prev])
+        setUserProjects((prev) => {
+          const updated = [...result.newProjects, ...prev]
+          if (currentUser && isSupabaseConfigured) {
+            result.newProjects.forEach((p) => insertUserProject(p))
+          }
+          return updated
+        })
       }
     }
 
     return result
+  }
+
+  // Delete document handler
+  const deleteDocument = async (docId: string): Promise<void> => {
+    const doc = documents.find((d) => d.id === docId)
+    if (doc?.storagePath && isSupabaseConfigured) {
+      try {
+        const { deleteDocumentFromStorage } = await import('@/lib/supabase/database')
+        await deleteDocumentFromStorage(doc.storagePath)
+      } catch {
+        // Continue to remove locally
+      }
+    }
+    setDocuments((prev) => prev.filter((d) => d.id !== docId))
   }
 
   // Live opportunity search runner
@@ -407,6 +592,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const run = await orchestrator.runDiscovery(
         activeProfile,
         activeSkills,
+        activeProjects,
         isDemoMode,
         (progress) => setSearchProgress(progress),
         forceRefresh
@@ -415,6 +601,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (run.opportunities.length > 0) {
         if (!isDemoMode) {
           setLiveOpportunities(run.opportunities)
+        }
+        setLiveCounts(run.counts)
+      } else {
+        if (!isDemoMode) {
+          setLiveOpportunities([])
         }
         setLiveCounts(run.counts)
       }
@@ -438,7 +629,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         (s) => s.skillName.toLowerCase() === skillName.toLowerCase()
       )
       if (existing) {
-        return prev.map((s) =>
+        const updated = prev.map((s) =>
           s.skillName.toLowerCase() === skillName.toLowerCase()
             ? {
                 ...s,
@@ -449,26 +640,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               }
             : s
         )
+        const item = updated.find((s) => s.skillName.toLowerCase() === skillName.toLowerCase())
+        if (item && currentUser && isSupabaseConfigured) {
+          upsertUserSkill(currentUser.id, item)
+        }
+        return updated
       } else {
-        return [
-          ...prev,
-          {
-            skillName,
-            category: 'languages' as const,
-            confidence: Math.round(score * 0.9),
-            evidenceSources: ['assessment'] as ('resume' | 'project' | 'github' | 'assessment')[],
-            assessmentScore: score,
-            projectCount: 0,
-            githubStrength: 'none' as const,
-            lastValidatedAt: new Date().toISOString(),
-          },
-        ]
+        const newSkill: SkillEvidenceItem = {
+          skillName,
+          category: 'languages' as const,
+          confidence: Math.round(score * 0.9),
+          evidenceSources: ['assessment'] as ('resume' | 'project' | 'github' | 'assessment')[],
+          assessmentScore: score,
+          projectCount: 0,
+          githubStrength: 'none' as const,
+          lastValidatedAt: new Date().toISOString(),
+        }
+        if (currentUser && isSupabaseConfigured) {
+          upsertUserSkill(currentUser.id, newSkill)
+        }
+        return [...prev, newSkill]
       }
     }
 
-    if (isDemoMode) {
-      // demo updates
-    } else {
+    if (!isDemoMode) {
       setUserSkills(updater)
     }
   }
@@ -494,32 +689,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         appliedAt: status === 'applied' ? new Date().toISOString() : undefined,
         updatedAt: new Date().toISOString(),
       }
+
+      if (currentUser && isSupabaseConfigured) {
+        upsertUserApplication(newApp)
+      }
+
       return [newApp, ...prev]
     })
   }
 
   const updateApplicationStatus = (applicationId: string, status: ApplicationStatus) => {
     setApplications((prev) =>
-      prev.map((app) =>
-        app.id === applicationId
-          ? {
-              ...app,
-              status,
-              appliedAt: status === 'applied' && !app.appliedAt ? new Date().toISOString() : app.appliedAt,
-              updatedAt: new Date().toISOString(),
-            }
-          : app
-      )
+      prev.map((app) => {
+        if (app.id === applicationId) {
+          const updated = {
+            ...app,
+            status,
+            appliedAt: status === 'applied' && !app.appliedAt ? new Date().toISOString() : app.appliedAt,
+            updatedAt: new Date().toISOString(),
+          }
+          if (currentUser && isSupabaseConfigured) {
+            upsertUserApplication(updated)
+          }
+          return updated
+        }
+        return app
+      })
     )
   }
 
   const updateApplicationNotes = (applicationId: string, notes: string) => {
     setApplications((prev) =>
-      prev.map((app) =>
-        app.id === applicationId
-          ? { ...app, notes, updatedAt: new Date().toISOString() }
-          : app
-      )
+      prev.map((app) => {
+        if (app.id === applicationId) {
+          const updated = { ...app, notes, updatedAt: new Date().toISOString() }
+          if (currentUser && isSupabaseConfigured) {
+            upsertUserApplication(updated)
+          }
+          return updated
+        }
+        return app
+      })
     )
   }
 
@@ -561,6 +771,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         applications,
         comparisonIds,
         isDemoMode,
+        isSupabaseConfigured,
         searchProgress,
         liveCounts,
         integrations,
@@ -568,6 +779,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateProfile,
         recordAssessmentResult,
         uploadDocument,
+        deleteDocument,
         searchLiveOpportunities,
         refreshIntegrations,
         addApplication,

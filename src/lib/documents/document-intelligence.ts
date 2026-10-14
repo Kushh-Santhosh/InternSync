@@ -1,5 +1,9 @@
+import { z } from 'zod'
 import { parsePptx } from './pptx-parser'
+import { parseDocx } from './docx-parser'
+import { parsePdf } from './pdf-parser'
 import { SKILL_TAXONOMY, normalizeSkill } from '@/lib/matching/taxonomy'
+import { uploadDocumentToStorage } from '@/lib/supabase/database'
 import type {
   EvidenceStrength,
   ProjectItem,
@@ -8,12 +12,35 @@ import type {
   UploadedDocument,
 } from '@/types'
 
+export const ExtractedResumeSchema = z.object({
+  fullName: z.string().optional(),
+  email: z.string().email().optional(),
+  degree: z.string().optional(),
+  branch: z.string().optional(),
+  graduationYear: z.number().int().optional(),
+  currentYear: z.number().int().min(1).max(5).optional(),
+  location: z.string().optional(),
+  skills: z.array(z.object({
+    name: z.string(),
+    confidence: z.number().min(0).max(100),
+  })),
+  projects: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    technologies: z.array(z.string()),
+  })),
+})
+
+export type ExtractedResumeData = z.infer<typeof ExtractedResumeSchema>
+
 export interface DocumentAnalysisResult {
   document: UploadedDocument
   updatedProfile?: Partial<StudentProfile>
   newSkills: SkillEvidenceItem[]
   newProjects: ProjectItem[]
   summaryNotes: string[]
+  storagePath?: string
+  error?: string
 }
 
 /**
@@ -30,7 +57,8 @@ function categorizeSkill(skillName: string): 'frontend' | 'backend' | 'ai_ml' | 
 }
 
 /**
- * Extracts skills from raw text using the standard taxonomy
+ * Extracts skills from raw text using the standard taxonomy.
+ * Assigns measured baseline confidence for resume claims (never 90%+ without project verification).
  */
 export function extractSkillsFromText(text: string): { skillName: string; confidence: number }[] {
   const found = new Map<string, number>()
@@ -52,9 +80,10 @@ export function extractSkillsFromText(text: string): { skillName: string; confid
     }
 
     if (count > 0) {
-      // Frequency-based confidence score
-      const base = count >= 4 ? 88 : count >= 2 ? 78 : 68
-      found.set(item.canonicalName, base)
+      // Measured resume claim confidence: 60% for single mention, 70% for multiple mentions
+      // High confidence (>=80%) requires practical project proof or assessment
+      const baseConfidence = count >= 3 ? 72 : count >= 2 ? 68 : 62
+      found.set(item.canonicalName, baseConfidence)
     }
   }
 
@@ -70,9 +99,16 @@ export function extractProfileFromResumeText(text: string): Partial<StudentProfi
 
   // Name is typically in the first 3 lines
   if (lines.length > 0) {
-    const firstLine = lines[0]
-    if (firstLine.length < 50 && !/@|http|resume|curriculum/i.test(firstLine)) {
-      updates.fullName = firstLine.replace(/[^a-zA-Z\s.-]/g, '').trim()
+    for (let i = 0; i < Math.min(3, lines.length); i++) {
+      const line = lines[i]
+      if (
+        line.length > 2 &&
+        line.length < 50 &&
+        !/@|http|resume|curriculum|vitae|github|linkedin|education|experience|projects/i.test(line)
+      ) {
+        updates.fullName = line.replace(/[^a-zA-Z\s.-]/g, '').trim()
+        break
+      }
     }
   }
 
@@ -91,6 +127,8 @@ export function extractProfileFromResumeText(text: string): Partial<StudentProfi
     updates.degree = 'B.Sc'
   } else if (/m\.?tech|master of technology/i.test(text)) {
     updates.degree = 'M.Tech'
+  } else if (/mca|master of computer applications/i.test(text)) {
+    updates.degree = 'MCA'
   }
 
   // Branch
@@ -112,13 +150,23 @@ export function extractProfileFromResumeText(text: string): Partial<StudentProfi
     const currentCalendarYear = new Date().getFullYear()
     const diff = gradYear - currentCalendarYear
     if (diff === 1) updates.currentYear = 3
-    else if (diff === 0) updates.currentYear = 4
+    else if (diff <= 0) updates.currentYear = 4
     else if (diff === 2) updates.currentYear = 2
-    else if (diff === 3) updates.currentYear = 1
+    else if (diff >= 3) updates.currentYear = 1
   }
 
   // Location detection
-  const indianCities = ['Bengaluru', 'Bangalore', 'Hyderabad', 'Pune', 'Mumbai', 'Delhi', 'Chennai', 'Noida', 'Gurugram']
+  const indianCities = [
+    'Bengaluru',
+    'Bangalore',
+    'Hyderabad',
+    'Pune',
+    'Mumbai',
+    'Delhi',
+    'Chennai',
+    'Noida',
+    'Gurugram',
+  ]
   for (const city of indianCities) {
     if (new RegExp(`\\b${city}\\b`, 'i').test(text)) {
       updates.location = city === 'Bangalore' ? 'Bengaluru' : city
@@ -130,7 +178,32 @@ export function extractProfileFromResumeText(text: string): Partial<StudentProfi
 }
 
 /**
- * Processes an uploaded file (Resume, PPT/PPTX, Project Report, or Certificate)
+ * Validates upload safety, size, and type
+ */
+export function validateDocumentFile(file: File): { valid: boolean; error?: string } {
+  const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+  if (file.size > MAX_SIZE_BYTES) {
+    return { valid: false, error: 'File size exceeds maximum allowable limit (10MB).' }
+  }
+
+  const blockedExtensions = ['.exe', '.bat', '.cmd', '.sh', '.bin', '.dll', '.msi', '.vbs', '.js']
+  const lowerName = file.name.toLowerCase()
+  if (blockedExtensions.some((ext) => lowerName.endsWith(ext))) {
+    return { valid: false, error: 'Executable files are prohibited for security.' }
+  }
+
+  if (file.type.startsWith('image/')) {
+    return {
+      valid: false,
+      error: 'Image-based documents require optical character recognition (OCR). Please upload a PDF, DOCX, PPTX, or TXT document.',
+    }
+  }
+
+  return { valid: true }
+}
+
+/**
+ * Processes an uploaded file (Resume, PPT/PPTX, DOCX, Project Report, or TXT)
  */
 export async function processUploadedDocument(
   file: File,
@@ -138,6 +211,11 @@ export async function processUploadedDocument(
   currentProfile: StudentProfile,
   existingSkills: SkillEvidenceItem[]
 ): Promise<DocumentAnalysisResult> {
+  const validation = validateDocumentFile(file)
+  if (!validation.valid) {
+    throw new Error(validation.error || 'Invalid file format')
+  }
+
   const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
   let parsedText = ''
   let slideCount: number | undefined
@@ -145,16 +223,19 @@ export async function processUploadedDocument(
   const summaryNotes: string[] = []
   let profileUpdates: Partial<StudentProfile> = {}
 
-  if (file.name.endsWith('.pptx') || file.name.endsWith('.ppt') || type === 'presentation') {
-    // PPTX Parsing
+  const lowerName = file.name.toLowerCase()
+
+  // 1. Format-specific extraction
+  if (lowerName.endsWith('.pptx') || lowerName.endsWith('.ppt') || type === 'presentation') {
     try {
       const buffer = await file.arrayBuffer()
       const presentation = await parsePptx(buffer)
       parsedText = presentation.allText
       slideCount = presentation.totalSlides
-      summaryNotes.push(`Parsed ${presentation.totalSlides} slides from presentation "${presentation.title}"`)
+      summaryNotes.push(
+        `Parsed ${presentation.totalSlides} slides from presentation "${presentation.title}"`
+      )
 
-      // Convert detected slides into project items
       for (const proj of presentation.extractedProjects) {
         extractedProjects.push({
           id: `proj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -170,29 +251,49 @@ export async function processUploadedDocument(
         })
       }
     } catch {
-      // Fallback text extraction if format is legacy ppt or corrupted
       parsedText = await file.text().catch(() => '')
       summaryNotes.push(`Extracted text stream from presentation file ${file.name}`)
     }
-  } else {
-    // Resume, Project Report, or Certificate (PDF / Text / Markdown)
+  } else if (lowerName.endsWith('.docx') || lowerName.endsWith('.doc')) {
     try {
-      parsedText = await file.text()
+      const buffer = await file.arrayBuffer()
+      parsedText = await parseDocx(buffer)
+      summaryNotes.push(`Parsed clean document text from DOCX document "${file.name}"`)
     } catch {
-      parsedText = `Uploaded document ${file.name}`
+      parsedText = await file.text().catch(() => '')
+      summaryNotes.push(`Extracted fallback text from ${file.name}`)
     }
+  } else if (lowerName.endsWith('.pdf')) {
+    try {
+      const buffer = await file.arrayBuffer()
+      parsedText = await parsePdf(buffer)
+      summaryNotes.push(`Parsed readable PDF text content from "${file.name}"`)
+    } catch {
+      parsedText = await file.text().catch(() => '')
+      summaryNotes.push(`Extracted text from PDF file ${file.name}`)
+    }
+  } else {
+    // Plain text / Markdown
+    parsedText = await file.text().catch(() => '')
+    summaryNotes.push(`Read text document "${file.name}"`)
+  }
 
-    if (type === 'resume') {
-      profileUpdates = extractProfileFromResumeText(parsedText)
-      summaryNotes.push(`Extracted profile credentials from resume (${profileUpdates.fullName || 'Candidate'})`)
+  // 2. Profile credential extraction if resume
+  if (type === 'resume') {
+    profileUpdates = extractProfileFromResumeText(parsedText)
+    if (profileUpdates.fullName) {
+      summaryNotes.push(`Extracted candidate name: "${profileUpdates.fullName}"`)
+    }
+    if (profileUpdates.degree) {
+      summaryNotes.push(`Identified academic degree: ${profileUpdates.degree} (${profileUpdates.branch || 'Engineering'})`)
     }
   }
 
-  // Extract skills from parsed content
+  // 3. Technical skills extraction
   const detectedSkills = extractSkillsFromText(parsedText)
-  summaryNotes.push(`Detected ${detectedSkills.length} technical skills across taxonomy`)
+  summaryNotes.push(`Extracted ${detectedSkills.length} evidence-referenced technical skills`)
 
-  // Synthesize into multi-source SkillEvidenceItems
+  // 4. Synthesize updated multi-source SkillEvidenceItems
   const updatedSkills: SkillEvidenceItem[] = [...existingSkills]
 
   for (const detected of detectedSkills) {
@@ -206,14 +307,15 @@ export async function processUploadedDocument(
     if (existingIndex >= 0) {
       const existing = updatedSkills[existingIndex]
       const sources = Array.from(new Set([...existing.evidenceSources, evidenceSource]))
-      const boost = sources.length >= 3 ? 15 : sources.length === 2 ? 8 : 4
-      const newConfidence = Math.min(98, Math.max(existing.confidence, detected.confidence) + boost)
+      const boost = sources.length >= 3 ? 12 : sources.length === 2 ? 6 : 2
+      const newConfidence = Math.min(95, Math.max(existing.confidence, detected.confidence) + boost)
 
       updatedSkills[existingIndex] = {
         ...existing,
         confidence: newConfidence,
         evidenceSources: sources as ('resume' | 'project' | 'github' | 'assessment')[],
-        projectCount: type === 'presentation' || type === 'report' ? existing.projectCount + 1 : existing.projectCount,
+        projectCount:
+          type === 'presentation' || type === 'report' ? existing.projectCount + 1 : existing.projectCount,
         lastValidatedAt: new Date().toISOString(),
       }
     } else {
@@ -226,6 +328,20 @@ export async function processUploadedDocument(
         githubStrength: 'none',
         lastValidatedAt: new Date().toISOString(),
       })
+    }
+  }
+
+  // 5. Upload to Supabase Storage if user profile has an id
+  let storagePath: string | undefined
+  if (currentProfile.id) {
+    try {
+      const uploadRes = await uploadDocumentToStorage(currentProfile.id, file)
+      if (uploadRes.path) {
+        storagePath = uploadRes.path
+        summaryNotes.push('Stored securely in private document storage.')
+      }
+    } catch {
+      // Storage upload error is non-fatal for extraction
     }
   }
 
@@ -247,5 +363,23 @@ export async function processUploadedDocument(
     newSkills: updatedSkills,
     newProjects: extractedProjects,
     summaryNotes,
+    storagePath,
   }
 }
+
+/**
+ * Convenience wrapper for single-file analysis
+ */
+export async function analyzeDocumentFile(
+  file: File,
+  currentProfile: StudentProfile,
+  existingSkills: SkillEvidenceItem[] = []
+): Promise<DocumentAnalysisResult> {
+  const type = file.name.endsWith('.pptx') || file.name.endsWith('.ppt')
+    ? 'presentation'
+    : file.name.includes('cert')
+    ? 'certificate'
+    : 'resume'
+  return processUploadedDocument(file, type, currentProfile, existingSkills)
+}
+

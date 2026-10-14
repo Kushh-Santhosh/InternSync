@@ -231,6 +231,7 @@ export interface UploadedDocument {
   type: 'resume' | 'presentation' | 'report' | 'certificate'
   sizeBytes: number
   uploadedAt: string
+  storagePath?: string
   parsedText?: string
   slideCount?: number
   extractedSkills: string[]

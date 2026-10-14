@@ -8,8 +8,11 @@ import {
 import { Button } from '@/components/ui/Button'
 import { ScoreRing } from '@/components/ui/ScoreRing'
 
+import { useApp } from '@/app/context'
+
 export const CareerPathsPage: React.FC = () => {
   const navigate = useNavigate()
+  const { skills } = useApp()
   const [preferences, setPreferences] = useState({
     problemType: 'building_products',
     codePreference: 'deep_logic',
@@ -19,42 +22,62 @@ export const CareerPathsPage: React.FC = () => {
 
   const [hasCalculated, setHasCalculated] = useState(false)
 
+  const skillNames = new Set(skills.map((s) => s.skillName.toLowerCase()))
+
+  const calcFit = (preferred: string[], bonusCondition: boolean) => {
+    const matched = preferred.filter((p) => skillNames.has(p.toLowerCase()))
+    const base = preferred.length > 0 ? (matched.length / preferred.length) * 80 : 50
+    const bonus = bonusCondition ? 15 : 0
+    return Math.min(95, Math.max(40, Math.round(base + bonus)))
+  }
+
+  const aiFit = calcFit(['python', 'machine learning', 'pytorch', 'fastapi'], preferences.problemType === 'ai_algorithms')
+  const fullstackFit = calcFit(['react', 'typescript', 'javascript', 'sql'], preferences.problemType === 'building_products')
+  const dataFit = calcFit(['sql', 'python', 'pandas', 'statistics'], preferences.problemType === 'data_insights')
+  const devopsFit = calcFit(['docker', 'linux', 'git', 'ci/cd'], preferences.problemType === 'systems_infra')
+
   const careerRoles = [
     {
       title: 'AI / Machine Learning Engineer',
-      fit: 91,
-      tag: 'Highest Alignment',
+      fit: aiFit,
+      tag: aiFit >= 80 ? 'Highest Alignment' : 'Developing Track',
       rationale:
-        'Your demonstrated project work with FastAPI vector search, facial embeddings, and Python creates immediate affinity for junior AI infrastructure and model integration.',
-      strengths: ['Python backend execution', 'Vector embeddings', 'API orchestration'],
+        skills.some((s) => s.category === 'ai_ml' || s.skillName.toLowerCase() === 'python')
+          ? 'Your verified Python and AI/ML evidence provides strong grounding for machine learning pipelines and intelligent agent design.'
+          : 'Interest in intelligent systems. Adding practical projects in model integration and Python APIs will rapidly increase readiness.',
+      strengths: skills.filter((s) => ['python', 'machine learning', 'pytorch'].includes(s.skillName.toLowerCase())).map((s) => s.skillName).concat(['API orchestration']).slice(0, 3),
       nextSteps: ['Master PyTorch tensors', 'Study transformer attention mechanisms'],
     },
     {
       title: 'Full-Stack Software Engineer',
-      fit: 86,
-      tag: 'Immediate Readiness',
+      fit: fullstackFit,
+      tag: fullstackFit >= 80 ? 'Immediate Readiness' : 'Developing Track',
       rationale:
-        'Strong React, TypeScript, and modern component architecture combined with relational database design makes you a competitive candidate for client-facing software teams.',
-      strengths: ['React & Tailwind UI design', 'TypeScript types', 'REST APIs'],
-      nextSteps: ['Learn Next.js 15 server actions', 'PostgreSQL index profiling'],
+        skills.some((s) => s.category === 'frontend' || s.skillName.toLowerCase() === 'react')
+          ? 'Demonstrated component architecture and client-facing engineering combined with structured APIs creates direct suitability for web product teams.'
+          : 'Building modern responsive web applications with TypeScript and clean state management makes you a strong generalist candidate.',
+      strengths: skills.filter((s) => ['react', 'typescript', 'sql', 'javascript'].includes(s.skillName.toLowerCase())).map((s) => s.skillName).concat(['UI design']).slice(0, 3),
+      nextSteps: ['Learn Next.js server actions', 'PostgreSQL indexing and schema optimization'],
     },
     {
       title: 'Data Science & Analytics Intern',
-      fit: 74,
-      tag: 'Addressable Gap',
+      fit: dataFit,
+      tag: dataFit >= 70 ? 'Strong Fit' : 'Addressable Gap',
       rationale:
-        'Solid database intuition and Python foundation; would benefit from dedicated exploratory data analysis (EDA) and Pandas statistical portfolio pieces.',
-      strengths: ['SQL queries', 'Basic statistics', 'Python scripting'],
-      nextSteps: ['Pandas & NumPy data manipulation', 'A/B test evaluation'],
+        skills.some((s) => s.skillName.toLowerCase() === 'sql')
+          ? 'Solid database querying intuition and analytical reasoning. Would benefit from dedicated exploratory data analysis portfolio projects.'
+          : 'Focuses on transforming unstructured data into actionable decision models. Requires expanding SQL and data visualization evidence.',
+      strengths: skills.filter((s) => ['sql', 'python'].includes(s.skillName.toLowerCase())).map((s) => s.skillName).concat(['Exploratory analysis']).slice(0, 3),
+      nextSteps: ['Pandas & NumPy data manipulation', 'A/B test evaluation & metrics design'],
     },
     {
-      title: 'Associate Technical Product Manager',
-      fit: 65,
-      tag: 'Secondary Direction',
+      title: 'DevOps & Cloud Systems Intern',
+      fit: devopsFit,
+      tag: devopsFit >= 70 ? 'Strong Fit' : 'Secondary Direction',
       rationale:
-        'High empathy for developer tooling and end-user UX. Requires building evidence around feature specification and product analytics funnels.',
-      strengths: ['Technical communication', 'Product empathy'],
-      nextSteps: ['Write structured PRDs', 'Learn PostHog product telemetry'],
+        'Focuses on deployment reliability, CI/CD pipelines, container orchestration, and cloud infrastructure monitoring.',
+      strengths: ['Automation scripting', 'Version control', 'System architecture'],
+      nextSteps: ['Docker container orchestration', 'GitHub Actions workflow automation'],
     },
   ]
 

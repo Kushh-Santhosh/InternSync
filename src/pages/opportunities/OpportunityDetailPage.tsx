@@ -46,13 +46,19 @@ export const OpportunityDetailPage: React.FC = () => {
   // Synthesize 14-day roadmap for missing skills
   const roadmap = generateSkillGapRoadmap(opportunity, match.missingSkills)
 
-  const handleApply = () => {
-    addApplication(opportunity.id, 'applied', 'Applied via official portal link.')
-    window.open(opportunity.applicationUrl, '_blank')
+  const handleApplyPortal = () => {
+    if (opportunity.applicationUrl && opportunity.applicationUrl !== '#') {
+      window.open(opportunity.applicationUrl, '_blank')
+    }
+  }
+
+  const handleMarkAsApplied = () => {
+    addApplication(opportunity.id, 'applied', 'Marked as applied by student.')
+    navigate('/applications')
   }
 
   const handleSaveToPipeline = () => {
-    addApplication(opportunity.id, 'saved', 'Saved from opportunity detail page.')
+    addApplication(opportunity.id, 'saved', 'Saved to pipeline.')
     navigate('/applications')
   }
 
@@ -113,9 +119,15 @@ export const OpportunityDetailPage: React.FC = () => {
                 <span className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">
                   {opportunity.category}
                 </span>
-                <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                  Demo Opportunity
-                </span>
+                {opportunity.isDemo ? (
+                  <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                    Demo Opportunity
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                    Verified Listing • {opportunity.source}
+                  </span>
+                )}
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1.5">
                 {opportunity.roleTitle}
@@ -159,16 +171,20 @@ export const OpportunityDetailPage: React.FC = () => {
 
         {/* CTA Actions Bar */}
         <div className="pt-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               size="md"
-              onClick={handleApply}
+              onClick={handleApplyPortal}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
             >
-              <span>Apply on Company Portal</span>
+              <span>Open Application Portal</span>
               <ArrowUpRight className="w-4 h-4 ml-1.5" />
             </Button>
-            <Button variant="outline" size="md" onClick={handleSaveToPipeline}>
+            <Button variant="outline" size="md" onClick={handleMarkAsApplied}>
+              <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" />
+              <span>Mark as Applied</span>
+            </Button>
+            <Button variant="secondary" size="md" onClick={handleSaveToPipeline}>
               <KanbanSquare className="w-4 h-4 mr-1.5" />
               <span>Save to Pipeline</span>
             </Button>

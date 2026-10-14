@@ -3,20 +3,16 @@ import path from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { OpenRouterModelRouter, type ChatMessage } from '../features/ai/model-router.js'
 
-interface ServerState {
+interface ServerConfig {
   openrouterApiKey: string
   openrouterModel: string
   openrouterFallbackModels: string[]
   adzunaAppId: string
   adzunaAppKey: string
   adzunaCountry: string
-  githubClientId: string
-  githubClientSecret: string
-  githubAccessToken: string
-  githubUser: { login: string; name: string; avatarUrl: string; publicRepos: number } | null
 }
 
-const state: ServerState = {
+const config: ServerConfig = {
   openrouterApiKey: process.env.OPENROUTER_API_KEY || '',
   openrouterModel: process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-001',
   openrouterFallbackModels: [
@@ -27,13 +23,9 @@ const state: ServerState = {
   adzunaAppId: process.env.ADZUNA_APP_ID || '',
   adzunaAppKey: process.env.ADZUNA_APP_KEY || '',
   adzunaCountry: process.env.ADZUNA_COUNTRY || 'in',
-  githubClientId: process.env.GITHUB_CLIENT_ID || '',
-  githubClientSecret: process.env.GITHUB_CLIENT_SECRET || '',
-  githubAccessToken: '',
-  githubUser: null,
 }
 
-// Load existing .env if present
+// Load .env if present on disk
 try {
   const envPath = path.resolve(process.cwd(), '.env')
   if (fs.existsSync(envPath)) {
@@ -44,13 +36,11 @@ try {
         const key = match[1]
         let val = match[2] || ''
         if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1)
-        if (key === 'OPENROUTER_API_KEY' && val) state.openrouterApiKey = val
-        if (key === 'OPENROUTER_MODEL' && val) state.openrouterModel = val
-        if (key === 'ADZUNA_APP_ID' && val) state.adzunaAppId = val
-        if (key === 'ADZUNA_APP_KEY' && val) state.adzunaAppKey = val
-        if (key === 'ADZUNA_COUNTRY' && val) state.adzunaCountry = val
-        if (key === 'GITHUB_CLIENT_ID' && val) state.githubClientId = val
-        if (key === 'GITHUB_CLIENT_SECRET' && val) state.githubClientSecret = val
+        if (key === 'OPENROUTER_API_KEY' && val) config.openrouterApiKey = val
+        if (key === 'OPENROUTER_MODEL' && val) config.openrouterModel = val
+        if (key === 'ADZUNA_APP_ID' && val) config.adzunaAppId = val
+        if (key === 'ADZUNA_APP_KEY' && val) config.adzunaAppKey = val
+        if (key === 'ADZUNA_COUNTRY' && val) config.adzunaCountry = val
       }
     }
   }
@@ -58,10 +48,10 @@ try {
   // ignore
 }
 
-// Instantiate resilient router
-const modelRouter = new OpenRouterModelRouter(state.openrouterApiKey, {
-  primaryModel: state.openrouterModel,
-  fallbackModels: state.openrouterFallbackModels,
+// Instantiate resilient router for internal operations
+const modelRouter = new OpenRouterModelRouter(config.openrouterApiKey, {
+  primaryModel: config.openrouterModel,
+  fallbackModels: config.openrouterFallbackModels,
 })
 
 function parseJsonBody<T>(req: IncomingMessage): Promise<T> {
@@ -69,6 +59,11 @@ function parseJsonBody<T>(req: IncomingMessage): Promise<T> {
     let body = ''
     req.on('data', (chunk) => {
       body += chunk
+      // 2MB maximum payload protection
+      if (body.length > 2 * 1024 * 1024) {
+        req.destroy()
+        reject(new Error('Payload too large'))
+      }
     })
     req.on('end', () => {
       try {
@@ -87,10 +82,15 @@ function sendJson(res: ServerResponse, status: number, data: unknown) {
   res.end(JSON.stringify(data))
 }
 
-function maskKey(key: string): string {
-  if (!key) return ''
-  if (key.length <= 8) return '••••••••'
-  return key.slice(0, 4) + '••••••••' + key.slice(-4)
+/**
+ * Sanitizes input text to defend against prompt injection
+ */
+function sanitizePromptText(text: string): string {
+  return text
+    .replace(/ignore (?:all )?previous instructions/gi, '[filtered command]')
+    .replace(/system prompt:/gi, '[filtered directive]')
+    .replace(/override safety/gi, '[filtered override]')
+    .slice(0, 4000)
 }
 
 /**
@@ -106,143 +106,33 @@ export async function handleApiRequest(
     return false
   }
 
-  // 1. GET /api/settings
-  if (req.method === 'GET' && url === '/api/settings') {
-    sendJson(res, 200, {
-      openrouter: {
-        configured: Boolean(state.openrouterApiKey),
-        maskedKey: maskKey(state.openrouterApiKey),
-        model: state.openrouterModel,
-        fallbackModels: state.openrouterFallbackModels,
-        health: modelRouter.getHealthSummary(),
-      },
-      adzuna: {
-        configured: Boolean(state.adzunaAppId && state.adzunaAppKey),
-        appId: state.adzunaAppId ? maskKey(state.adzunaAppId) : '',
-        country: state.adzunaCountry,
-      },
-      github: {
-        configured: Boolean(state.githubAccessToken || state.githubClientId),
-        connected: Boolean(state.githubAccessToken),
-        user: state.githubUser,
-      },
-    })
-    return true
-  }
-
-  // 2. POST /api/settings
-  if (req.method === 'POST' && url === '/api/settings') {
-    try {
-      const body = await parseJsonBody<Partial<ServerState>>(req)
-      if (body.openrouterApiKey !== undefined) {
-        state.openrouterApiKey = body.openrouterApiKey.trim()
-        modelRouter.setApiKey(state.openrouterApiKey)
-      }
-      if (body.openrouterModel !== undefined) {
-        state.openrouterModel = body.openrouterModel.trim()
-        modelRouter.updateConfig({ primaryModel: state.openrouterModel })
-      }
-      if (body.adzunaAppId !== undefined) state.adzunaAppId = body.adzunaAppId.trim()
-      if (body.adzunaAppKey !== undefined) state.adzunaAppKey = body.adzunaAppKey.trim()
-      if (body.adzunaCountry !== undefined) state.adzunaCountry = body.adzunaCountry.trim()
-      if (body.githubClientId !== undefined) state.githubClientId = body.githubClientId.trim()
-      if (body.githubClientSecret !== undefined) state.githubClientSecret = body.githubClientSecret.trim()
-
-      // Persist to .env file
-      const envPath = path.resolve(process.cwd(), '.env')
-      let envContent = ''
-      try {
-        envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : ''
-      } catch {
-        // ignore
-      }
-
-      const updateEnvLine = (content: string, key: string, val: string) => {
-        const regex = new RegExp(`^${key}=.*$`, 'm')
-        if (regex.test(content)) {
-          return content.replace(regex, `${key}=${val}`)
-        } else {
-          return `${content.trim()}\n${key}=${val}\n`
-        }
-      }
-
-      let updated = envContent
-      if (state.openrouterApiKey) updated = updateEnvLine(updated, 'OPENROUTER_API_KEY', state.openrouterApiKey)
-      if (state.openrouterModel) updated = updateEnvLine(updated, 'OPENROUTER_MODEL', state.openrouterModel)
-      if (state.adzunaAppId) updated = updateEnvLine(updated, 'ADZUNA_APP_ID', state.adzunaAppId)
-      if (state.adzunaAppKey) updated = updateEnvLine(updated, 'ADZUNA_APP_KEY', state.adzunaAppKey)
-      if (state.adzunaCountry) updated = updateEnvLine(updated, 'ADZUNA_COUNTRY', state.adzunaCountry)
-      if (state.githubClientId) updated = updateEnvLine(updated, 'GITHUB_CLIENT_ID', state.githubClientId)
-      if (state.githubClientSecret) updated = updateEnvLine(updated, 'GITHUB_CLIENT_SECRET', state.githubClientSecret)
-
-      try {
-        fs.writeFileSync(envPath, updated.trim() + '\n')
-      } catch {
-        // ignore write failures
-      }
-
-      sendJson(res, 200, { success: true, message: 'Settings saved successfully' })
-      return true
-    } catch (err: unknown) {
-      sendJson(res, 400, { error: err instanceof Error ? err.message : 'Invalid request body' })
-      return true
-    }
-  }
-
-  // 3. GET /api/settings/health
+  // 1. GET /api/settings/health (Internal system connectivity check)
   if (req.method === 'GET' && url === '/api/settings/health') {
-    const openrouterStatus = state.openrouterApiKey ? 'ACTIVE' : 'NOT_CONFIGURED'
-    let openrouterMsg = state.openrouterApiKey
-      ? 'OpenRouter API key configured.'
-      : 'OpenRouter API key is not configured.'
-
-    // If key exists, ping OpenRouter API to verify
-    if (state.openrouterApiKey) {
-      try {
-        const testRes = await fetch('https://openrouter.ai/api/v1/models', {
-          headers: { Authorization: `Bearer ${state.openrouterApiKey}` },
-        })
-        if (testRes.ok) {
-          openrouterMsg = 'Connected to OpenRouter API (Live Web Search tool & Model Router active).'
-        } else {
-          openrouterMsg = `Authentication error (status ${testRes.status}). Check API key.`
-        }
-      } catch {
-        openrouterMsg = 'Network error contacting OpenRouter API.'
-      }
-    }
-
-    const adzunaConfigured = Boolean(state.adzunaAppId && state.adzunaAppKey)
-    const githubConnected = Boolean(state.githubAccessToken)
+    const openrouterConfigured = Boolean(config.openrouterApiKey)
+    const adzunaConfigured = Boolean(config.adzunaAppId && config.adzunaAppKey)
 
     sendJson(res, 200, {
       openrouter: {
-        provider: 'OpenRouter Web Search',
-        status: openrouterStatus,
-        message: openrouterMsg,
-        model: state.openrouterModel,
-        fallbackModels: state.openrouterFallbackModels,
+        provider: 'OpenRouter Web Search & AI Router',
+        status: openrouterConfigured ? 'ACTIVE' : 'NOT_CONFIGURED',
+        message: openrouterConfigured
+          ? 'OpenRouter live search and model failover active.'
+          : 'OpenRouter API key not configured on server.',
         lastChecked: new Date().toISOString(),
       },
       adzuna: {
-        provider: 'Adzuna Jobs API',
+        provider: 'Adzuna Public Job Feed',
         status: adzunaConfigured ? 'ACTIVE' : 'NOT_CONFIGURED',
-        message: adzunaConfigured ? `Connected to Adzuna (${state.adzunaCountry.toUpperCase()})` : 'Adzuna credentials not configured.',
-        lastChecked: new Date().toISOString(),
-      },
-      github: {
-        provider: 'GitHub OAuth',
-        status: githubConnected ? 'ACTIVE' : 'NOT_CONFIGURED',
-        message: githubConnected
-          ? `Connected to GitHub (${state.githubUser?.login || 'user'})`
-          : 'GitHub read-only integration available.',
+        message: adzunaConfigured
+          ? `Adzuna API active (${config.adzunaCountry.toUpperCase()}).`
+          : 'Adzuna credentials not configured on server.',
         lastChecked: new Date().toISOString(),
       },
     })
     return true
   }
 
-  // 4. POST /api/ai/chat (Resilient AI Chat Router Gateway)
+  // 2. POST /api/ai/chat (Resilient AI Chat Router Gateway)
   if (req.method === 'POST' && url === '/api/ai/chat') {
     try {
       const body = await parseJsonBody<{
@@ -251,13 +141,22 @@ export async function handleApiRequest(
         tools?: unknown[]
       }>(req)
 
-      if (!state.openrouterApiKey) {
-        sendJson(res, 400, { error: 'OpenRouter API key is not configured on the server.' })
+      if (!config.openrouterApiKey) {
+        sendJson(res, 503, {
+          error: 'AI service is currently not configured on the server.',
+          code: 'OPENROUTER_NOT_CONFIGURED',
+        })
         return true
       }
 
+      // Sanitize messages against prompt injection
+      const sanitizedMessages: ChatMessage[] = (body.messages || []).map((m) => ({
+        role: m.role,
+        content: sanitizePromptText(m.content),
+      }))
+
       const result = await modelRouter.executeChatCompletion({
-        messages: body.messages || [],
+        messages: sanitizedMessages,
         temperature: body.temperature,
         tools: body.tools,
       })
@@ -265,46 +164,61 @@ export async function handleApiRequest(
       sendJson(res, 200, result)
       return true
     } catch (err: unknown) {
-      sendJson(res, 500, { error: err instanceof Error ? err.message : String(err) })
+      sendJson(res, 500, {
+        error: err instanceof Error ? err.message : String(err),
+        code: 'AI_ROUTER_ERROR',
+      })
       return true
     }
   }
 
-  // 5. POST /api/search/live (OpenRouter Web Search)
+  // 3. POST /api/search/live (OpenRouter Web Search Tool)
   if (req.method === 'POST' && url === '/api/search/live') {
     try {
       const body = await parseJsonBody<{ query: { text: string; role?: string; location?: string } }>(req)
       const query = body.query
 
-      if (!state.openrouterApiKey) {
-        sendJson(res, 200, { results: [] })
+      if (!query || !query.text) {
+        sendJson(res, 400, { error: 'Search query text is required', code: 'INVALID_QUERY' })
         return true
       }
 
-      const prompt = `Search live web listings for public internship opportunities:
-Query: "${query.text}"
-Role: "${query.role || 'Software Intern'}"
-Location: "${query.location || 'India'}"
+      if (!config.openrouterApiKey) {
+        sendJson(res, 503, {
+          error: 'Live web search is not configured on the server (missing OPENROUTER_API_KEY).',
+          code: 'OPENROUTER_NOT_CONFIGURED',
+          results: [],
+        })
+        return true
+      }
+
+      const cleanQueryText = sanitizePromptText(query.text)
+      const cleanRole = sanitizePromptText(query.role || 'Software Intern')
+      const cleanLocation = sanitizePromptText(query.location || 'India')
+
+      const prompt = `Search live public web listings for active internship opportunities:
+Query: "${cleanQueryText}"
+Target Role: "${cleanRole}"
+Location: "${cleanLocation}"
 
 Format each discovered opportunity with markdown links:
 [Job Title @ Company](https://application-or-job-url) - Snippet and key required skills.`
 
-      // Execute through resilient router with web_search tool
       const openrouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${state.openrouterApiKey}`,
+          Authorization: `Bearer ${config.openrouterApiKey}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': 'https://internsync.io',
           'X-Title': 'InternSync Live Intelligence',
         },
         body: JSON.stringify({
-          model: state.openrouterModel || 'google/gemini-2.0-flash-001',
+          model: config.openrouterModel || 'google/gemini-2.0-flash-001',
           messages: [
             {
               role: 'system',
               content:
-                'You are a job search discovery engine. Extract active internship opportunities and their original application URLs from the web.',
+                'You are a live web search agent finding active internship listings. Extract genuine URLs and factual job requirements.',
             },
             { role: 'user', content: prompt },
           ],
@@ -322,7 +236,13 @@ Format each discovered opportunity with markdown links:
       })
 
       if (!openrouterRes.ok) {
-        sendJson(res, 200, { results: [] })
+        const errorBody = await openrouterRes.text().catch(() => '')
+        sendJson(res, openrouterRes.status >= 500 ? 502 : openrouterRes.status, {
+          error: `OpenRouter search returned status ${openrouterRes.status}`,
+          code: 'SEARCH_PROVIDER_ERROR',
+          details: errorBody.slice(0, 200),
+          results: [],
+        })
         return true
       }
 
@@ -335,7 +255,14 @@ Format each discovered opportunity with markdown links:
       while ((match = urlRegex.exec(content)) !== null) {
         const linkText = match[1]
         const rawUrl = match[2]
-        const domain = new URL(rawUrl).hostname.replace(/^www\./, '')
+        let domain = 'careers'
+        try {
+          domain = new URL(rawUrl).hostname.replace(/^www\./, '')
+        } catch {
+          // ignore invalid url
+          continue
+        }
+
         const parts = linkText.split('@').map((s) => s.trim())
         const title = parts[0] || 'Software Intern'
         const company = parts[1] || domain
@@ -347,19 +274,84 @@ Format each discovered opportunity with markdown links:
           domain,
           snippet: content.slice(Math.max(0, match.index - 50), match.index + 200).trim(),
           source: domain,
-          discovered_at: new Date().toISOString(),
+          discoveredAt: new Date().toISOString(),
         })
       }
 
       sendJson(res, 200, { results })
       return true
-    } catch {
-      sendJson(res, 200, { results: [] })
+    } catch (err: unknown) {
+      sendJson(res, 500, {
+        error: err instanceof Error ? err.message : 'Search failed unexpectedly',
+        code: 'SEARCH_EXCEPTION',
+        results: [],
+      })
       return true
     }
   }
 
-  // 6. POST /api/verify-url
+  // 4. POST /api/search/adzuna (Adzuna Structured Search)
+  if (req.method === 'POST' && url === '/api/search/adzuna') {
+    try {
+      const body = await parseJsonBody<{ query: { text: string; location?: string } }>(req)
+      const q = body.query
+
+      if (!config.adzunaAppId || !config.adzunaAppKey) {
+        sendJson(res, 503, {
+          error: 'Adzuna API is not configured on the server.',
+          code: 'ADZUNA_NOT_CONFIGURED',
+          results: [],
+        })
+        return true
+      }
+
+      const country = config.adzunaCountry || 'in'
+      const what = encodeURIComponent(`${q.text || 'software'} internship`)
+      const where = q.location ? encodeURIComponent(q.location) : ''
+      const adzunaUrl = `https://api.adzuna.com/v1/api/jobs/${country}/search/1?app_id=${config.adzunaAppId}&app_key=${config.adzunaAppKey}&what=${what}&where=${where}&content-type=application/json`
+
+      const adzunaRes = await fetch(adzunaUrl)
+      if (!adzunaRes.ok) {
+        sendJson(res, 502, {
+          error: `Adzuna API returned status ${adzunaRes.status}`,
+          code: 'ADZUNA_ERROR',
+          results: [],
+        })
+        return true
+      }
+
+      const data = (await adzunaRes.json()) as any
+      const results = (data.results || []).map((item: any) => {
+        let domain = 'adzuna.com'
+        try {
+          if (item.redirect_url) domain = new URL(item.redirect_url).hostname
+        } catch {
+          // preserve domain
+        }
+        return {
+          title: item.title?.replace(/<[^>]+>/g, '') || 'Internship Opportunity',
+          company: item.company?.display_name || 'Employer',
+          url: item.redirect_url,
+          domain,
+          snippet: item.description?.replace(/<[^>]+>/g, '').slice(0, 200) || '',
+          source: 'Adzuna Jobs',
+          discoveredAt: item.created || new Date().toISOString(),
+        }
+      })
+
+      sendJson(res, 200, { results })
+      return true
+    } catch (err: unknown) {
+      sendJson(res, 500, {
+        error: err instanceof Error ? err.message : 'Adzuna request failed',
+        code: 'ADZUNA_EXCEPTION',
+        results: [],
+      })
+      return true
+    }
+  }
+
+  // 5. POST /api/verify-url
   if (req.method === 'POST' && url === '/api/verify-url') {
     try {
       const body = await parseJsonBody<{ url: string }>(req)
@@ -403,89 +395,7 @@ Format each discovered opportunity with markdown links:
     }
   }
 
-  // 7. GitHub OAuth Endpoints
-  // 7a. GET /api/auth/github/url
-  if (req.method === 'GET' && url.startsWith('/api/auth/github/url')) {
-    const clientId = state.githubClientId || 'demo-client-id'
-    const redirectUri = 'http://127.0.0.1:5173/settings'
-    const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user%20repo`
-    sendJson(res, 200, { authUrl, clientIdConfigured: Boolean(state.githubClientId) })
-    return true
-  }
-
-  // 7b. POST /api/auth/github/connect (Exchange or Connect token)
-  if (req.method === 'POST' && url === '/api/auth/github/connect') {
-    try {
-      const body = await parseJsonBody<{ username?: string; token?: string }>(req)
-      const username = body.username || 'github-developer'
-
-      // Mock or fetch GitHub user profile
-      state.githubAccessToken = body.token || 'demo-gh-token'
-      state.githubUser = {
-        login: username,
-        name: `${username.charAt(0).toUpperCase() + username.slice(1)}`,
-        avatarUrl: `https://github.com/${username}.png`,
-        publicRepos: 8,
-      }
-
-      sendJson(res, 200, {
-        success: true,
-        user: state.githubUser,
-        message: 'Connected GitHub account successfully.',
-      })
-      return true
-    } catch (err: unknown) {
-      sendJson(res, 400, { error: err instanceof Error ? err.message : 'Failed to connect GitHub' })
-      return true
-    }
-  }
-
-  // 7c. POST /api/auth/github/disconnect
-  if (req.method === 'POST' && url === '/api/auth/github/disconnect') {
-    state.githubAccessToken = ''
-    state.githubUser = null
-    sendJson(res, 200, { success: true, message: 'Disconnected GitHub account' })
-    return true
-  }
-
-  // 7d. GET /api/github/repos
-  if (req.method === 'GET' && url === '/api/github/repos') {
-    if (!state.githubUser) {
-      sendJson(res, 200, { repos: [] })
-      return true
-    }
-
-    sendJson(res, 200, {
-      user: state.githubUser,
-      repos: [
-        {
-          name: 'distributed-neural-cache',
-          description: 'High-throughput embedding cache layer with vector similarity lookups',
-          language: 'Python',
-          stargazers_count: 14,
-          topics: ['python', 'fastapi', 'redis', 'machine-learning'],
-        },
-        {
-          name: 'insight-dash-ui',
-          description: 'Real-time telemetry and metrics canvas dashboard',
-          language: 'TypeScript',
-          stargazers_count: 9,
-          topics: ['react', 'typescript', 'tailwind'],
-        },
-        {
-          name: 'vector-indexer',
-          description: 'Local HNSW index implementation in C++ and Python bindings',
-          language: 'Python',
-          stargazers_count: 22,
-          topics: ['vector-search', 'ml', 'algorithms'],
-        },
-      ],
-    })
-    return true
-  }
-
-  // 8. n8n Opportunity Discovery Webhook Adapter
-  // POST /api/n8n/opportunity-discovery
+  // 6. n8n Opportunity Discovery Webhook Adapter
   if (req.method === 'POST' && url === '/api/n8n/opportunity-discovery') {
     try {
       const body = await parseJsonBody<{
@@ -505,16 +415,10 @@ Format each discovered opportunity with markdown links:
       }>(req)
 
       const opportunities = body.opportunities || []
-      console.log(`[n8n Adapter] Received ${opportunities.length} opportunities from n8n pipeline for query: "${body.query?.text || 'general'}"`)
-
       sendJson(res, 200, {
         success: true,
         receivedCount: opportunities.length,
-        contract: {
-          inputRequirements: ['query.text or candidate profile parameters'],
-          outputRequirements: ['opportunities: Array<{ title, company, location, applicationUrl }>'],
-        },
-        message: 'Opportunities successfully ingested via n8n discovery adapter.',
+        message: 'Opportunities successfully processed via n8n adapter.',
       })
       return true
     } catch (err: unknown) {

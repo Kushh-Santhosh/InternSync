@@ -39,6 +39,7 @@ export const ResumeUploadCard: React.FC<ResumeUploadCardProps> = ({
   const [currentStep, setCurrentStep] = useState(1)
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
   const [uploadFinished, setUploadFinished] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -65,39 +66,26 @@ export const ResumeUploadCard: React.FC<ResumeUploadCardProps> = ({
   }
 
   const processFile = async (file: File) => {
+    setErrorMessage(null)
     setIsProcessing(true)
     setUploadedFileName(file.name)
     setCurrentStep(1)
 
     try {
-      // Step 1: Read profile
-      await new Promise((r) => setTimeout(r, 500))
+      // Step 1: Read & parse document structure
       setCurrentStep(2)
 
       // Step 2 & 3: Process document, extract skills, validate project proof
-      const analysisPromise = uploadDocument(file, 'resume')
-      await new Promise((r) => setTimeout(r, 500))
-      setCurrentStep(3)
-
-      await new Promise((r) => setTimeout(r, 500))
+      await uploadDocument(file, 'resume')
       setCurrentStep(4)
 
-      // Await actual extraction completion
-      await analysisPromise
-
-      await new Promise((r) => setTimeout(r, 500))
-      setCurrentStep(5)
-
-      // Step 5: Search live opportunities
+      // Step 4 & 5: Search live opportunities
       try {
         await searchLiveOpportunities(true)
       } catch {
         // Continue even if search fallback occurs
       }
-
       setCurrentStep(6)
-      // Step 6: Opportunity fit complete
-      await new Promise((r) => setTimeout(r, 500))
 
       setUploadFinished(true)
       if (onSuccess) {
@@ -108,7 +96,9 @@ export const ResumeUploadCard: React.FC<ResumeUploadCardProps> = ({
         }, 1200)
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to process document'
       console.error('Resume processing error:', err)
+      setErrorMessage(msg)
       setIsProcessing(false)
     }
   }
@@ -128,10 +118,23 @@ export const ResumeUploadCard: React.FC<ResumeUploadCardProps> = ({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,image/*"
+        accept=".pdf,.doc,.docx,.ppt,.pptx,.txt"
         onChange={handleFileChange}
         className="hidden"
       />
+
+      {errorMessage && (
+        <div className="mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-700 flex items-center justify-between">
+          <span>{errorMessage}</span>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="text-rose-500 hover:text-rose-700 font-bold ml-2 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {!isProcessing && !uploadFinished && (
         <div className="flex flex-col items-center text-center space-y-4">

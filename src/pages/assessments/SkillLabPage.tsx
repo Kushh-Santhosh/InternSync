@@ -29,12 +29,21 @@ export const SkillLabPage: React.FC = () => {
   const [isQuizCompleted, setIsQuizCompleted] = useState(false)
 
   // Current verified skill signals from profile
-  const skillSignalSummary = [
-    { name: 'Python', score: skills.find((s) => s.skillName === 'Python')?.assessmentScore || 86, color: 'text-indigo-600', status: 'Strong' },
-    { name: 'React', score: skills.find((s) => s.skillName === 'React')?.assessmentScore || 74, color: 'text-emerald-600', status: 'Developing' },
-    { name: 'SQL', score: skills.find((s) => s.skillName === 'SQL')?.assessmentScore || 43, color: 'text-amber-600', status: 'Needs preparation' },
-    { name: 'Machine Learning', score: skills.find((s) => s.skillName === 'Machine Learning')?.assessmentScore || 58, color: 'text-blue-600', status: 'Developing' },
-  ]
+  const availableSkills = ['Python', 'React', 'SQL', 'Machine Learning']
+  const skillSignalSummary = availableSkills.map((name) => {
+    const studentSkill = skills.find((s) => s.skillName.toLowerCase() === name.toLowerCase())
+    const score = studentSkill?.assessmentScore
+    return {
+      name,
+      score,
+      status: score !== undefined
+        ? score >= 80 ? 'Strong' : score >= 60 ? 'Developing' : 'Needs preparation'
+        : 'Not tested',
+      color: score !== undefined
+        ? score >= 80 ? 'text-emerald-600' : score >= 60 ? 'text-indigo-600' : 'text-amber-600'
+        : 'text-slate-400',
+    }
+  })
 
   // Filter questions for the active skill
   const skillQuestions = ASSESSMENT_QUESTIONS.filter(
@@ -133,12 +142,18 @@ export const SkillLabPage: React.FC = () => {
                   <span className="text-xs font-bold text-slate-800">{sig.name}</span>
                   <span className="text-[10px] font-semibold text-slate-400">Signal</span>
                 </div>
-                <div className="text-3xl font-black text-slate-900 mt-2">{sig.score}%</div>
+                {sig.score !== undefined ? (
+                  <div className="text-3xl font-black text-slate-900 mt-2">{sig.score}%</div>
+                ) : (
+                  <div className="text-2xl font-bold text-slate-400 mt-2">—</div>
+                )}
               </div>
 
               <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                <span className="font-semibold text-slate-500">{sig.status}</span>
-                <span className="text-indigo-600 font-bold group-hover:underline">Test →</span>
+                <span className={cn('font-semibold', sig.color)}>{sig.status}</span>
+                <span className="text-indigo-600 font-bold group-hover:underline">
+                  {sig.score !== undefined ? 'Retake →' : 'Test →'}
+                </span>
               </div>
             </div>
           ))}

@@ -14,6 +14,7 @@ import type {
   LiveSearchProgress,
   MatchResult,
   Opportunity,
+  ProjectItem,
   RawSearchResult,
   SkillEvidenceItem,
   StudentProfile,
@@ -76,11 +77,12 @@ export class OpportunitySearchOrchestrator {
   async runDiscovery(
     student: StudentProfile,
     skills: SkillEvidenceItem[],
-    isDemoMode: boolean,
+    projects: ProjectItem[] = [],
+    isDemoMode = false,
     onProgress?: (progress: LiveSearchProgress) => void,
     forceRefresh = false
   ): Promise<SearchRunResult> {
-    const cacheKey = `${student.id}_${isDemoMode}_${skills.map((s) => s.skillName).sort().join(',')}`
+    const cacheKey = `${student.id}_${isDemoMode}_${skills.map((s) => s.skillName).sort().join(',')}_${projects.map((p) => p.title).sort().join(',')}`
 
     if (!forceRefresh) {
       const cached = searchCache.get(cacheKey)
@@ -143,7 +145,7 @@ export class OpportunitySearchOrchestrator {
         const match = calculateMatch({
           student,
           skills,
-          projects: [],
+          projects,
           opportunity: opp,
         })
         matches.set(opp.id, match)
@@ -245,7 +247,7 @@ export class OpportunitySearchOrchestrator {
       const match = calculateMatch({
         student,
         skills,
-        projects: [],
+        projects,
         opportunity: opp,
       })
       matches.set(opp.id, match)

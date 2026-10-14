@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils/cn'
 type SettingsTab = 'profile' | 'preferences' | 'documents' | 'account' | 'privacy'
 
 export const SettingsPage: React.FC = () => {
-  const { profile, updateProfile, logout } = useApp()
+  const { profile, updateProfile, logout, documents, uploadDocument, deleteDocument } = useApp()
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
 
   // Profile form state
@@ -37,9 +37,9 @@ export const SettingsPage: React.FC = () => {
   const [currentYear, setCurrentYear] = useState(profile.currentYear || 3)
 
   // Career preferences state
-  const [targetRole, setTargetRole] = useState(profile.targetRole || 'AI Engineer Intern')
+  const [targetRole, setTargetRole] = useState(profile.targetRole || '')
   const [preferredLocations, setPreferredLocations] = useState(
-    profile.preferredLocations?.join(', ') || 'Bengaluru, Remote'
+    profile.preferredLocations?.join(', ') || ''
   )
   const [workModePreference, setWorkModePreference] = useState(
     profile.workModePreference || 'hybrid'
@@ -48,42 +48,18 @@ export const SettingsPage: React.FC = () => {
     profile.availableDurationMonths || 3
   )
   const [careerInterests, setCareerInterests] = useState(
-    profile.careerInterests?.join(', ') || 'Artificial Intelligence, Full-Stack Development, Data Engineering'
+    profile.careerInterests?.join(', ') || ''
   )
 
-  // Document mock/stored state
-  const [documents, setDocuments] = useState([
-    {
-      id: 'doc-1',
-      name: 'Primary_Resume_Latest.pdf',
-      type: 'Resume',
-      size: '245 KB',
-      uploadedAt: 'Active primary resume',
-    },
-    {
-      id: 'doc-2',
-      name: 'Machine_Learning_Project_Summary.pdf',
-      type: 'Project Evidence',
-      size: '1.2 MB',
-      uploadedAt: 'Oct 2026',
-    },
-    {
-      id: 'doc-3',
-      name: 'Python_Data_Science_Certification.pdf',
-      type: 'Certificate',
-      size: '512 KB',
-      uploadedAt: 'Sep 2026',
-    },
-  ])
-
   // Password state
-  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
   // Feedback states
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   const showToast = (msg: string) => {
@@ -120,41 +96,71 @@ export const SettingsPage: React.FC = () => {
     showToast('Career preferences saved.')
   }
 
-  const handleDeleteDocument = (id: string) => {
-    setDocuments((prev) => prev.filter((d) => d.id !== id))
-    showToast('Document removed.')
-  }
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files && files.length > 0) {
-      const file = files[0]
-      const newDoc = {
-        id: `doc-${Date.now()}`,
-        name: file.name,
-        type: file.name.endsWith('.pdf') ? 'Resume' : 'Document',
-        size: `${Math.round(file.size / 1024)} KB`,
-        uploadedAt: 'Just now',
-      }
-      setDocuments((prev) => [newDoc, ...prev])
-      showToast(`Uploaded ${file.name}`)
+  const handleDeleteDocument = async (id: string) => {
+    try {
+      await deleteDocument(id)
+      showToast('Document removed.')
+    } catch (err: any) {
+      showToast(`Error removing document: ${err.message}`)
     }
   }
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files && files.length > 0) {
+      const file = files[0]
+      setIsUploadingDoc(true)
+      try {
+        const type = file.name.endsWith('.pptx') || file.name.endsWith('.ppt')
+          ? 'presentation'
+          : file.name.includes('cert')
+          ? 'certificate'
+          : 'resume'
+        await uploadDocument(file, type)
+        showToast(`Successfully analyzed and saved ${file.name}`)
+      } catch (err: any) {
+        showToast(err.message || `Failed to process ${file.name}`)
+      } finally {
+        setIsUploadingDoc(false)
+      }
+    }
+  }
+
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!currentPassword || !newPassword) {
-      showToast('Please fill in password fields.')
+    if (!newPassword) {
+      showToast('Please enter a new password.')
+      return
+    }
+    if (newPassword.length < 8) {
+      showToast('New password must be at least 8 characters.')
       return
     }
     if (newPassword !== confirmPassword) {
       showToast('New passwords do not match.')
       return
     }
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
-    showToast('Password updated successfully.')
+
+    setIsUpdatingPassword(true)
+    try {
+      const { supabase } = await import('@/lib/supabase/client')
+      if (!supabase) {
+        showToast('Supabase Authentication is not configured in this environment.')
+        return
+      }
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) {
+        showToast(`Failed to update password: ${error.message}`)
+      } else {
+        setNewPassword('')
+        setConfirmPassword('')
+        showToast('Password updated successfully via Supabase Auth.')
+      }
+    } catch (err: any) {
+      showToast(`Error updating password: ${err.message}`)
+    } finally {
+      setIsUpdatingPassword(false)
+    }
   }
 
   const tabs = [
@@ -404,49 +410,57 @@ export const SettingsPage: React.FC = () => {
 
             <label className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer transition-colors shadow-xs">
               <Upload className="w-3.5 h-3.5" />
-              <span>Upload Document</span>
-              <input type="file" onChange={handleFileUpload} accept=".pdf,.doc,.docx,.ppt,.pptx" className="hidden" />
+              <span>{isUploadingDoc ? 'Analyzing Document...' : 'Upload Document'}</span>
+              <input type="file" disabled={isUploadingDoc} onChange={handleFileUpload} accept=".pdf,.doc,.docx,.ppt,.pptx,.txt" className="hidden" />
             </label>
           </div>
 
           {/* Document list */}
-          <div className="space-y-2.5">
-            {documents.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200/80 hover:border-slate-300 bg-slate-50/50 transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-lg bg-indigo-100/70 text-indigo-600 flex items-center justify-center shrink-0">
-                    <FileCheck className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-slate-900 truncate">{doc.name}</h3>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
-                      <span className="font-medium text-indigo-600">{doc.type}</span>
-                      <span>•</span>
-                      <span>{doc.size}</span>
-                      <span>•</span>
-                      <span>{doc.uploadedAt}</span>
+          {documents.length === 0 ? (
+            <div className="py-12 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+              <FileCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-slate-700">No documents uploaded yet</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Upload your resume or project documentation to extract skills and evidence.</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {documents.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200/80 hover:border-slate-300 bg-slate-50/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-indigo-100/70 text-indigo-600 flex items-center justify-center shrink-0">
+                      <FileCheck className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-slate-900 truncate">{doc.name}</h3>
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                        <span className="font-medium text-indigo-600 capitalize">{doc.type}</span>
+                        <span>•</span>
+                        <span>{Math.round(doc.sizeBytes / 1024)} KB</span>
+                        <span>•</span>
+                        <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => handleDeleteDocument(doc.id)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                    title="Delete document"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleDeleteDocument(doc.id)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      title="Delete document"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600">
-            <span className="font-semibold text-slate-800">Supported formats:</span> PDF, DOC, DOCX, PPT, PPTX up to 15MB. When you replace your primary resume, your Career DNA and opportunity matches automatically re-synchronize.
+            <span className="font-semibold text-slate-800">Supported formats:</span> PDF, DOC, DOCX, PPT, PPTX, TXT up to 10MB. When you replace your primary resume, your Career DNA and opportunity matches automatically re-synchronize.
           </div>
         </div>
       )}
@@ -458,21 +472,10 @@ export const SettingsPage: React.FC = () => {
           <form onSubmit={handleChangePassword} className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
             <div>
               <h2 className="text-base font-bold text-slate-900">Change Password</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Ensure your account is using a secure, unique password.</p>
+              <p className="text-xs text-slate-500 mt-0.5">Update your password via secure Supabase Authentication.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Current Password</label>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
-                />
-              </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">New Password</label>
                 <input
@@ -490,15 +493,15 @@ export const SettingsPage: React.FC = () => {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Repeat new password"
                   className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
                 />
               </div>
             </div>
 
             <div className="flex justify-end pt-2">
-              <Button type="submit" variant="secondary" size="sm">
-                Update Password
+              <Button type="submit" variant="secondary" size="sm" disabled={isUpdatingPassword}>
+                {isUpdatingPassword ? 'Updating Password...' : 'Update Password'}
               </Button>
             </div>
           </form>
@@ -608,8 +611,10 @@ export const SettingsPage: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  setDocuments([])
+                onClick={async () => {
+                  for (const doc of documents) {
+                    await deleteDocument(doc.id)
+                  }
                   showToast('All uploaded documents purged.')
                 }}
                 className="self-start sm:self-auto text-xs text-rose-600 border-rose-200 hover:bg-rose-50"

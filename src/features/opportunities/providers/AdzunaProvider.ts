@@ -25,6 +25,23 @@ export class AdzunaProvider implements OpportunityProvider {
   }
 
   async search(query: SearchQuery): Promise<RawSearchResult[]> {
+    // 1. Try server-side endpoint first
+    try {
+      const serverRes = await fetch('/api/search/adzuna', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: { text: query.text, location: query.location } }),
+      })
+      if (serverRes.ok) {
+        const data = await serverRes.json()
+        if (Array.isArray(data.results)) {
+          return data.results
+        }
+      }
+    } catch {
+      // continue to direct call if configured
+    }
+
     if (!this.isConfigured()) {
       return []
     }

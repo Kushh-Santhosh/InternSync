@@ -138,18 +138,31 @@ npm run build
 - **Structured Resume Extraction:** Tested live with Gemini in **1.4s** using structured JSON output.
 - **Search Grounding:** Google Search tool on this free-tier API key currently reports 429 quota exhaustion; handled gracefully with an automatic 10-minute circuit-breaker cooldown so search operations never stall.
 
-### Supabase Database & Document Storage:
-- **Status:** `CONFIGURED_SCHEMA_ACTIVE`.
-- **Database Tables Verified Active:**
-  - `profiles`: Present and verified (`select id limit 1` -> OK).
-  - `opportunities`: Present and verified (`select id limit 1` -> OK).
-  - `documents`: Present and verified (`select id limit 1` -> OK).
-  - `applications`: Present and verified (`select id limit 1` -> OK).
-  - `projects`: Present and verified (`select id limit 1` -> OK).
-  - `student_skills`: Present and verified (`select id limit 1` -> OK).
-- **Document Storage Bucket (`documents`):**
-  - Requires administrative creation via SQL Editor due to Supabase RLS restrictions on `storage.buckets`.
-  - **Ready-to-run script:** `supabase/migrations/20261015_storage_setup.sql` (Creates private `documents` bucket with RLS policies restricting read/write to `auth.uid()/<file>`).
+### Supabase Cloud Backend & Storage Infrastructure:
+- **CLI Authentication:** Official Supabase CLI authenticated and linked to project `kkgnhoflqusupqnhgzkz` (`Kushh-Santhosh's Project`, Northeast Asia / Seoul).
+- **Migration & Schema Status:** `100% VERIFIED ACTIVE`.
+- **Database Tables Verified Active on Remote Cloud:**
+  - `profiles`: Present and verified with `target_role`, `career_interests`, `bio`.
+  - `opportunities`: Present with `source_url`, `source_domain`, and authenticated RLS insertion policies.
+  - `documents`: Present with full processing status, extracted skills/projects/data JSONB, and user isolation RLS.
+  - `applications`: Present with composite uniqueness constraint `(student_id, opportunity_id)` and match scores.
+  - `projects`: Present and verified.
+  - `student_skills`: Present and verified.
+- **Private Document Storage Bucket (`documents`):**
+  - **Status:** `ACTIVE & PRIVACY-ENFORCED`.
+  - **Resolved Ownership Error:** Removed `ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;` (which caused `ERROR: 42501: must be owner of table objects` because `storage.objects` is owned by `supabase_admin` and already has RLS enabled by default).
+  - Applied schema in `supabase/migrations/20261015_storage_setup.sql` via official linked CLI connection.
+  - Bucket configuration: `public = false`, 10MB file limit, allowed MIME types: PDF, DOCX, DOC, TXT, PPT, PPTX.
+  - Object-level RLS policies enforced for all 4 CRUD actions (`INSERT`, `SELECT`, `UPDATE`, `DELETE`) with user folder boundary `(storage.foldername(name))[1] = auth.uid()::text`.
+- **End-to-End Cloud Persistence & Security Validation:**
+  - Validated via `scripts/verify_cloud_storage_e2e.ts` across all 7 operational phases:
+    1. Real GoTrue student authentication (UID `2eff5739-fe4f-44fa-94ac-3e5d80232337`).
+    2. Student profile verified in `public.profiles`.
+    3. Document uploaded to `documents/${auth.uid()}/verified_eval_document_...` in private storage.
+    4. Document metadata record inserted in `public.documents`.
+    5. Authenticated document download and signed URL generation verified.
+    6. Cross-user isolation verified: Student blocked from writing to foreign folders (`new row violates row-level security policy`); Anonymous/unauthenticated users blocked from downloading, reading, or deleting documents.
+    7. Owner lifecycle deletion verified: storage object and metadata record cleanly removed.
 
 ### Real Resume Acceptance Testing Status:
 - Synthetic multi-page PDF documents, modern DOCX archives, and PPTX presentations verified with 100% test accuracy across page boundaries.

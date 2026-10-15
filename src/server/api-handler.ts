@@ -2,12 +2,17 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createClient } from '@supabase/supabase-js'
-import { OpenRouterModelRouter, type ChatMessage } from '../features/ai/model-router.js'
+import { OpenRouterModelRouter, UnifiedAiRouter, type ChatMessage } from '../features/ai/model-router.js'
+import { GeminiProvider } from '../features/ai/gemini-provider.js'
 
 export interface ServerConfig {
   openrouterApiKey: string
   openrouterModel: string
   openrouterFallbackModels: string[]
+  geminiApiKey: string
+  geminiModel: string
+  geminiFallbackModels: string[]
+  geminiSearchEnabled: boolean
   adzunaEnabled: boolean
   adzunaAppId: string
   adzunaAppKey: string
@@ -24,6 +29,10 @@ const defaultConfig: ServerConfig = {
     'meta-llama/llama-3.1-70b-instruct',
     'qwen/qwen-2.5-72b-instruct',
   ],
+  geminiApiKey: '',
+  geminiModel: 'gemini-2.5-flash',
+  geminiFallbackModels: ['gemini-2.0-flash', 'gemini-1.5-flash'],
+  geminiSearchEnabled: true,
   adzunaEnabled: false,
   adzunaAppId: '',
   adzunaAppKey: '',
@@ -32,10 +41,9 @@ const defaultConfig: ServerConfig = {
   supabaseAnonKey: '',
 }
 
-// In local development, read .env if present
-if (process.env.NODE_ENV !== 'production') {
-  try {
-    const envPath = path.resolve(process.cwd(), '.env')
+// Read local .env if present on filesystem (supporting both local dev and preview)
+try {
+  const envPath = path.resolve(process.cwd(), '.env')
     if (fs.existsSync(envPath)) {
       const lines = fs.readFileSync(envPath, 'utf8').split('\n')
       for (const line of lines) {
@@ -49,6 +57,12 @@ if (process.env.NODE_ENV !== 'production') {
           if (key === 'OPENROUTER_FALLBACK_MODELS' && val) {
             defaultConfig.openrouterFallbackModels = val.split(',').map((s) => s.trim()).filter(Boolean)
           }
+          if (key === 'GEMINI_API_KEY' && val) defaultConfig.geminiApiKey = val
+          if ((key === 'GEMINI_PRIMARY_MODEL' || key === 'GEMINI_MODEL') && val) defaultConfig.geminiModel = val
+          if (key === 'GEMINI_FALLBACK_MODELS' && val) {
+            defaultConfig.geminiFallbackModels = val.split(',').map((s) => s.trim()).filter(Boolean)
+          }
+          if (key === 'GEMINI_SEARCH_ENABLED') defaultConfig.geminiSearchEnabled = val !== 'false'
           if (key === 'ADZUNA_ENABLED') defaultConfig.adzunaEnabled = val === 'true'
           if (key === 'ADZUNA_APP_ID' && val) defaultConfig.adzunaAppId = val
           if (key === 'ADZUNA_APP_KEY' && val) defaultConfig.adzunaAppKey = val
@@ -58,10 +72,10 @@ if (process.env.NODE_ENV !== 'production') {
         }
       }
     }
-  } catch {
-    // Ignore .env read errors
-  }
+} catch {
+  // Ignore .env read errors
 }
+
 
 /**
  * Returns dynamic configuration reading from process.env first (crucial for Vercel/serverless deployments)
@@ -72,6 +86,11 @@ export function getServerConfig(): ServerConfig {
     ? envFallbacks.split(',').map((s) => s.trim()).filter(Boolean)
     : defaultConfig.openrouterFallbackModels
 
+  const envGeminiFallbacks = process.env.GEMINI_FALLBACK_MODELS
+  const parsedGeminiFallbacks = envGeminiFallbacks
+    ? envGeminiFallbacks.split(',').map((s) => s.trim()).filter(Boolean)
+    : defaultConfig.geminiFallbackModels
+
   return {
     openrouterApiKey: process.env.OPENROUTER_API_KEY || defaultConfig.openrouterApiKey || '',
     openrouterModel:
@@ -80,6 +99,17 @@ export function getServerConfig(): ServerConfig {
       defaultConfig.openrouterModel ||
       'meta-llama/llama-3.3-70b-instruct',
     openrouterFallbackModels: parsedFallbacks.length > 0 ? parsedFallbacks : defaultConfig.openrouterFallbackModels,
+    geminiApiKey: process.env.GEMINI_API_KEY || defaultConfig.geminiApiKey || '',
+    geminiModel:
+      process.env.GEMINI_PRIMARY_MODEL ||
+      process.env.GEMINI_MODEL ||
+      defaultConfig.geminiModel ||
+      'gemini-2.5-flash',
+    geminiFallbackModels: parsedGeminiFallbacks.length > 0 ? parsedGeminiFallbacks : defaultConfig.geminiFallbackModels,
+    geminiSearchEnabled:
+      process.env.GEMINI_SEARCH_ENABLED !== undefined
+        ? process.env.GEMINI_SEARCH_ENABLED !== 'false'
+        : defaultConfig.geminiSearchEnabled,
     adzunaEnabled: process.env.ADZUNA_ENABLED === 'true' || defaultConfig.adzunaEnabled,
     adzunaAppId: process.env.ADZUNA_APP_ID || defaultConfig.adzunaAppId || '',
     adzunaAppKey: process.env.ADZUNA_APP_KEY || defaultConfig.adzunaAppKey || '',
@@ -95,6 +125,29 @@ export function getModelRouter(): OpenRouterModelRouter {
     primaryModel: cfg.openrouterModel,
     fallbackModels: cfg.openrouterFallbackModels,
   })
+}
+
+export function getGeminiProvider(): GeminiProvider {
+  const cfg = getServerConfig()
+  return new GeminiProvider({
+    apiKey: cfg.geminiApiKey,
+    primaryModel: cfg.geminiModel,
+    fallbackModels: cfg.geminiFallbackModels,
+    searchEnabled: cfg.geminiSearchEnabled,
+  })
+}
+
+export function getUnifiedAiRouter(): UnifiedAiRouter {
+  const cfg = getServerConfig()
+  const openrouter = cfg.openrouterApiKey
+    ? new OpenRouterModelRouter(cfg.openrouterApiKey, {
+        primaryModel: cfg.openrouterModel,
+        fallbackModels: cfg.openrouterFallbackModels,
+      })
+    : null
+  const gemini = cfg.geminiApiKey ? getGeminiProvider() : null
+  const primaryProvider = cfg.openrouterApiKey ? 'openrouter' : 'gemini'
+  return new UnifiedAiRouter(openrouter, gemini, primaryProvider)
 }
 
 /**
@@ -264,6 +317,19 @@ export async function handleSettingsHealth(_req: any, res: any): Promise<void> {
     }
   }
 
+  // Gemini status
+  const geminiConfigured = Boolean(config.geminiApiKey)
+  payload.gemini = {
+    provider: 'Google Gemini AI & Search Grounding',
+    status: geminiConfigured ? 'ACTIVE' : 'NOT_CONFIGURED',
+    message: geminiConfigured
+      ? `Gemini active (Primary: ${config.geminiModel}, Grounding: ${config.geminiSearchEnabled ? 'Enabled' : 'Disabled'}).`
+      : 'Gemini API key not configured on server.',
+    model: config.geminiModel,
+    searchEnabled: config.geminiSearchEnabled,
+    lastChecked: new Date().toISOString(),
+  }
+
   // Only expose Adzuna status if explicitly enabled
   if (config.adzunaEnabled) {
     const adzunaConfigured = Boolean(config.adzunaAppId && config.adzunaAppKey)
@@ -282,7 +348,6 @@ export async function handleSettingsHealth(_req: any, res: any): Promise<void> {
 
 // 2. POST /api/ai/chat
 export async function handleAiChat(req: any, res: any): Promise<void> {
-  const config = getServerConfig()
   try {
     const body = await parseJsonBody<{
       messages: ChatMessage[]
@@ -290,10 +355,11 @@ export async function handleAiChat(req: any, res: any): Promise<void> {
       tools?: unknown[]
     }>(req)
 
-    if (!config.openrouterApiKey) {
+    const router = getUnifiedAiRouter()
+    if (!router.hasAnyProvider()) {
       sendJson(res, 503, {
-        error: 'AI service is currently not configured on the server.',
-        code: 'OPENROUTER_NOT_CONFIGURED',
+        error: 'AI service is currently not configured on the server (missing OPENROUTER_API_KEY and GEMINI_API_KEY).',
+        code: 'AI_NOT_CONFIGURED',
       })
       return
     }
@@ -303,8 +369,7 @@ export async function handleAiChat(req: any, res: any): Promise<void> {
       content: sanitizePromptText(m.content),
     }))
 
-    const router = getModelRouter()
-    const result = await router.executeChatCompletion({
+    const result = await router.executeChat({
       messages: sanitizedMessages,
       temperature: body.temperature,
       tools: body.tools,
@@ -321,7 +386,6 @@ export async function handleAiChat(req: any, res: any): Promise<void> {
 
 // 3. POST /api/ai/extract-resume
 export async function handleAiExtractResume(req: any, res: any): Promise<void> {
-  const config = getServerConfig()
   try {
     const body = await parseJsonBody<{ text: string }>(req)
     const rawText = body.text || ''
@@ -334,10 +398,11 @@ export async function handleAiExtractResume(req: any, res: any): Promise<void> {
       return
     }
 
-    if (!config.openrouterApiKey) {
+    const router = getUnifiedAiRouter()
+    if (!router.hasAnyProvider()) {
       sendJson(res, 503, {
-        error: 'AI extraction service is not configured (missing OPENROUTER_API_KEY).',
-        code: 'OPENROUTER_NOT_CONFIGURED',
+        error: 'AI extraction service is not configured (missing OPENROUTER_API_KEY and GEMINI_API_KEY).',
+        code: 'AI_NOT_CONFIGURED',
       })
       return
     }
@@ -369,8 +434,7 @@ CRITICAL RULES:
   "certifications": [{"name": string, "issuer": string, "year": string}]
 }`
 
-    const router = getModelRouter()
-    const chatRes = await router.executeChatCompletion({
+    const chatRes = await router.executeChat({
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Analyze this untrusted resume document:\n\n${safeText}` },
@@ -379,14 +443,24 @@ CRITICAL RULES:
     })
 
     const rawJson = chatRes.content.trim()
-    // Strip markdown code block if present
     const cleanJson = rawJson.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
-    const parsedData = JSON.parse(cleanJson)
+    let parsedData: any
+    try {
+      parsedData = JSON.parse(cleanJson)
+    } catch {
+      const match = cleanJson.match(/\{[\s\S]*\}/)
+      if (match) {
+        parsedData = JSON.parse(match[0])
+      } else {
+        throw new Error('Failed to parse AI extraction as valid JSON')
+      }
+    }
 
     sendJson(res, 200, {
       success: true,
       extracted: parsedData,
       model: chatRes.modelUsed,
+      provider: chatRes.providerUsed,
     })
   } catch (err: unknown) {
     sendJson(res, 500, {
@@ -400,7 +474,10 @@ CRITICAL RULES:
 export async function handleSearchLive(req: any, res: any): Promise<void> {
   const config = getServerConfig()
   try {
-    const body = await parseJsonBody<{ query: { text: string; role?: string; location?: string } }>(req)
+    const body = await parseJsonBody<{
+      query: { text: string; role?: string; location?: string }
+      provider?: 'openrouter' | 'gemini' | 'auto'
+    }>(req)
     const query = body.query
 
     if (!query || !query.text) {
@@ -408,10 +485,13 @@ export async function handleSearchLive(req: any, res: any): Promise<void> {
       return
     }
 
-    if (!config.openrouterApiKey) {
+    const hasOpenRouter = Boolean(config.openrouterApiKey)
+    const hasGemini = Boolean(config.geminiApiKey && config.geminiSearchEnabled)
+
+    if (!hasOpenRouter && !hasGemini) {
       sendJson(res, 503, {
-        error: 'Live web search is not configured on the server (missing OPENROUTER_API_KEY).',
-        code: 'OPENROUTER_NOT_CONFIGURED',
+        error: 'Live web search is not configured on the server (neither OpenRouter nor Gemini keys are set).',
+        code: 'SEARCH_NOT_CONFIGURED',
         results: [],
       })
       return
@@ -421,126 +501,176 @@ export async function handleSearchLive(req: any, res: any): Promise<void> {
     const cleanRole = sanitizePromptText(query.role || 'Software Intern')
     const cleanLocation = sanitizePromptText(query.location || 'India')
 
-    const prompt = `Search live public web listings for active internship opportunities:
+    const targetProvider = body.provider || 'auto'
+    const results: any[] = []
+    const modelsUsed: string[] = []
+
+    // Helper: Execute OpenRouter Web Search
+    const searchOpenRouter = async (): Promise<any[]> => {
+      if (!hasOpenRouter) return []
+      const router = getModelRouter()
+      const candidateModels = router.getCandidateModels()
+      const prompt = `Search live public web listings for active internship opportunities:
 Query: "${cleanQueryText}"
 Target Role: "${cleanRole}"
 Location: "${cleanLocation}"
 
+CRITICAL: Only return opportunities from 2025/2026. Do NOT return 2024 or older expired listings.
 Format each discovered opportunity with markdown links:
 [Job Title @ Company](https://application-or-job-url) - Snippet and key required skills.`
 
-    const router = getModelRouter()
-    const candidateModels = router.getCandidateModels()
+      for (const modelCandidate of candidateModels.slice(0, 2)) {
+        try {
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 8000)
 
-    let openrouterRes: Response | null = null
-    let chosenModel = ''
-    let lastErrorDetails = ''
-
-    for (const modelCandidate of candidateModels) {
-      try {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 20000)
-
-        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${config.openrouterApiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://internsync.io',
-            'X-Title': 'InternSync Live Intelligence',
-          },
-          body: JSON.stringify({
-            model: modelCandidate,
-            messages: [
-              {
-                role: 'system',
-                content:
-                  'You are a live web search agent finding active internship listings. Extract genuine URLs and factual job requirements.',
-              },
-              { role: 'user', content: prompt },
-            ],
-            tools: [
-              {
-                type: 'openrouter:web_search',
-                parameters: {
-                  engine: 'auto',
-                  max_results: 10,
-                  max_total_results: 25,
+          const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${config.openrouterApiKey}`,
+              'Content-Type': 'application/json',
+              'HTTP-Referer': 'https://internsync.io',
+              'X-Title': 'InternSync Live Intelligence',
+            },
+            body: JSON.stringify({
+              model: modelCandidate,
+              messages: [
+                {
+                  role: 'system',
+                  content:
+                    'You are a live web search agent finding active internship listings. Extract genuine URLs and factual job requirements.',
                 },
-              },
-            ],
-          }),
-          signal: controller.signal,
-        })
+                { role: 'user', content: prompt },
+              ],
+              tools: [
+                {
+                  type: 'openrouter:web_search',
+                  parameters: {
+                    engine: 'auto',
+                    max_results: 10,
+                    max_total_results: 20,
+                  },
+                },
+              ],
+            }),
+            signal: controller.signal,
+          })
 
-        clearTimeout(timeout)
+          clearTimeout(timeout)
 
-        if (res.ok) {
-          openrouterRes = res
-          chosenModel = modelCandidate
-          router.recordSuccess(modelCandidate)
+          if (res.ok) {
+            const json = (await res.json()) as any
+            const content = json.choices?.[0]?.message?.content || ''
+            router.recordSuccess(modelCandidate)
+            modelsUsed.push(`OpenRouter:${modelCandidate}`)
+
+            const found: any[] = []
+            const urlRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g
+            let match: RegExpExecArray | null
+            while ((match = urlRegex.exec(content)) !== null) {
+              const linkText = match[1]
+              const rawUrl = match[2]
+              let domain = 'careers'
+              try {
+                domain = new URL(rawUrl).hostname.replace(/^www\./, '')
+              } catch {
+                continue
+              }
+
+              const parts = linkText.split('@').map((s) => s.trim())
+              const title = parts[0] || 'Software Intern'
+              const company = parts[1] || domain
+
+              found.push({
+                title,
+                company,
+                url: rawUrl,
+                domain,
+                snippet: content.slice(Math.max(0, match.index - 50), match.index + 200).trim(),
+                source: `OpenRouter (${domain})`,
+                discoveredAt: new Date().toISOString(),
+              })
+            }
+            return found
+          }
+
+          if (router.isRetriableError(res.status)) {
+            router.recordFailure(modelCandidate)
+            continue
+          }
           break
-        }
-
-        const status = res.status
-        const errorBody = await res.text().catch(() => '')
-        lastErrorDetails = `Model ${modelCandidate} failed with [${status}]: ${errorBody.slice(0, 150)}`
-
-        if (router.isRetriableError(status)) {
+        } catch {
           router.recordFailure(modelCandidate)
-          continue
-        } else {
-          break
         }
-      } catch (err) {
-        router.recordFailure(modelCandidate)
-        lastErrorDetails = err instanceof Error ? err.message : String(err)
       }
+      return []
     }
 
-    if (!openrouterRes || !openrouterRes.ok) {
-      sendJson(res, 502, {
-        error: 'Live web search failed across OpenRouter model candidates.',
-        code: 'SEARCH_PROVIDER_ERROR',
-        details: lastErrorDetails,
-        results: [],
-      })
-      return
-    }
-
-    const json = (await openrouterRes.json()) as any
-    const content = json.choices?.[0]?.message?.content || ''
-
-    const results = []
-    const urlRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g
-    let match: RegExpExecArray | null
-    while ((match = urlRegex.exec(content)) !== null) {
-      const linkText = match[1]
-      const rawUrl = match[2]
-      let domain = 'careers'
+    // Helper: Execute Gemini Grounded Search
+    const searchGemini = async (): Promise<any[]> => {
+      if (!hasGemini) return []
       try {
-        domain = new URL(rawUrl).hostname.replace(/^www\./, '')
+        const gemini = getGeminiProvider()
+        const geminiResults = await gemini.searchOpportunitiesWithGrounding({
+          text: cleanQueryText,
+          role: cleanRole,
+          location: cleanLocation,
+        })
+        if (geminiResults.length > 0) {
+          modelsUsed.push(`Gemini:${config.geminiModel}`)
+        }
+        return geminiResults
       } catch {
-        // ignore invalid url
-        continue
+        return []
       }
-
-      const parts = linkText.split('@').map((s) => s.trim())
-      const title = parts[0] || 'Software Intern'
-      const company = parts[1] || domain
-
-      results.push({
-        title,
-        company,
-        url: rawUrl,
-        domain,
-        snippet: content.slice(Math.max(0, match.index - 50), match.index + 200).trim(),
-        source: domain,
-        discoveredAt: new Date().toISOString(),
-      })
     }
 
-    sendJson(res, 200, { results, modelUsed: chosenModel })
+    // Bounded search execution based on configuration and target
+    if (targetProvider === 'openrouter') {
+      const orResults = await searchOpenRouter()
+      results.push(...orResults)
+    } else if (targetProvider === 'gemini') {
+      const gemResults = await searchGemini()
+      results.push(...gemResults)
+    } else {
+      // Auto: Bounded parallel search across both providers if available
+      const tasks: Promise<any[]>[] = []
+      if (hasOpenRouter) tasks.push(searchOpenRouter())
+      if (hasGemini) tasks.push(searchGemini())
+
+      const settled = await Promise.allSettled(tasks)
+      for (const s of settled) {
+        if (s.status === 'fulfilled') {
+          results.push(...s.value)
+        }
+      }
+    }
+
+    // Deduplicate results by URL and title
+    const seenUrls = new Set<string>()
+    const dedupedResults: any[] = []
+
+    for (const item of results) {
+      const normalizedUrl = item.url ? item.url.toLowerCase().trim() : ''
+      const titleKey = `${item.title.toLowerCase()}___${item.company.toLowerCase()}`
+      if (normalizedUrl && !seenUrls.has(normalizedUrl) && !seenUrls.has(titleKey)) {
+        seenUrls.add(normalizedUrl)
+        seenUrls.add(titleKey)
+
+        // Freshness filter: discard 2024 or older listings unless specifically 2025/2026
+        const textToCheck = `${item.title} ${item.snippet}`.toLowerCase()
+        const isStaleYear = /\b202[0-4]\b/.test(textToCheck) && !/\b202[5-6]\b/.test(textToCheck)
+        if (!isStaleYear) {
+          dedupedResults.push(item)
+        }
+      }
+    }
+
+    sendJson(res, 200, {
+      results: dedupedResults,
+      modelsUsed: modelsUsed.join(', '),
+      totalDiscovered: dedupedResults.length,
+    })
   } catch (err: unknown) {
     sendJson(res, 500, {
       error: err instanceof Error ? err.message : 'Search failed unexpectedly',

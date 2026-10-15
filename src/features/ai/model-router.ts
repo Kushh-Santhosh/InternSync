@@ -278,3 +278,127 @@ export class OpenRouterModelRouter {
     return Array.from(this.healthState.values())
   }
 }
+
+export interface ProviderRoutingConfig {
+  openrouter?: {
+    apiKey?: string
+    primaryModel?: string
+    fallbackModels?: string[]
+  }
+  gemini?: {
+    apiKey?: string
+    primaryModel?: string
+    fallbackModels?: string[]
+    searchEnabled?: boolean
+  }
+  primaryProvider?: 'openrouter' | 'gemini'
+}
+
+export interface UnifiedChatOptions extends RouterChatCompletionOptions {
+  requestId?: string
+  responseSchema?: Record<string, unknown>
+}
+
+export interface UnifiedChatResult extends RouterCompletionResult {
+  providerUsed: 'openrouter' | 'gemini'
+  requestId: string
+}
+
+export class UnifiedAiRouter {
+  private openrouter: OpenRouterModelRouter | null = null
+  private gemini: any | null = null
+  private primaryProvider: 'openrouter' | 'gemini'
+
+  constructor(
+    openrouterRouter: OpenRouterModelRouter | null,
+    geminiProvider: any | null,
+    primaryProvider: 'openrouter' | 'gemini' = 'openrouter'
+  ) {
+    this.openrouter = openrouterRouter
+    this.gemini = geminiProvider
+    this.primaryProvider = primaryProvider
+  }
+
+  public getPrimaryProvider(): 'openrouter' | 'gemini' {
+    return this.primaryProvider
+  }
+
+  public hasAnyProvider(): boolean {
+    const hasOr = Boolean(this.openrouter && (this.openrouter as any).apiKey)
+    const hasGem = Boolean(this.gemini && this.gemini.isConfigured?.())
+    return hasOr || hasGem
+  }
+
+  /**
+   * Execute chat completion across providers with automatic failover
+   */
+  public async executeChat(options: UnifiedChatOptions): Promise<UnifiedChatResult> {
+    const requestId =
+      options.requestId ||
+      `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+
+    const providersToTry: Array<'openrouter' | 'gemini'> =
+      this.primaryProvider === 'gemini'
+        ? ['gemini', 'openrouter']
+        : ['openrouter', 'gemini']
+
+    let lastError: Error | null = null
+
+    for (let i = 0; i < providersToTry.length; i++) {
+      const provider = providersToTry[i]
+      const isCrossProviderFallback = i > 0
+
+      if (provider === 'openrouter') {
+        if (!this.openrouter || !(this.openrouter as any).apiKey) {
+          continue
+        }
+        try {
+          const res = await this.openrouter.executeChatCompletion(options)
+          return {
+            ...res,
+            providerUsed: 'openrouter',
+            requestId,
+            wasFallback: res.wasFallback || isCrossProviderFallback,
+          }
+        } catch (err: unknown) {
+          lastError = err instanceof Error ? err : new Error(String(err))
+          const msg = lastError.message
+          // If non-retriable auth error, do not failover blindly unless secondary provider exists
+          if (msg.includes('OPENROUTER_NOT_CONFIGURED')) {
+            continue
+          }
+          // Continue to secondary provider (Gemini)
+        }
+      } else if (provider === 'gemini') {
+        if (!this.gemini || !this.gemini.isConfigured?.()) {
+          continue
+        }
+        try {
+          const res = await this.gemini.executeChatCompletion({
+            messages: options.messages,
+            temperature: options.temperature,
+          })
+          return {
+            ...res,
+            providerUsed: 'gemini',
+            requestId,
+            wasFallback: res.wasFallback || isCrossProviderFallback,
+          }
+        } catch (err: unknown) {
+          lastError = err instanceof Error ? err : new Error(String(err))
+          const msg = lastError.message
+          if (msg.includes('GEMINI_NOT_CONFIGURED')) {
+            continue
+          }
+          // Continue to next provider if available
+        }
+      }
+    }
+
+    throw (
+      lastError ||
+      new Error('No configured AI provider was able to complete the request.')
+    )
+  }
+}
+

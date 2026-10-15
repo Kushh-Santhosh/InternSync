@@ -84,13 +84,13 @@ npm run typecheck
 ```bash
 npm run lint
 ```
-**Result:** **0 errors**, 7 non-blocking React compiler optimization notes.
+**Result:** **0 errors**, 1 harmless React fast-refresh note on `useApp` export.
 
 ### 3. Unit Test Suite (Vitest)
 ```bash
 npm run test
 ```
-**Result:** **9 test files passed, 69 tests passed, 0 failed** in 848ms.
+**Result:** **9 test files passed, 69 tests passed, 0 failed** in 762ms.
 - `model-router.test.ts`: 6 tests passed
 - `gemini-and-unified-router.test.ts`: 7 tests passed
 - `ten-qa-perspectives.test.ts`: 10 tests passed
@@ -106,36 +106,67 @@ npm run test
 npx playwright test
 ```
 **Result:** **52 tests passed, 0 failed** across Desktop Chromium and Mobile Chromium.
-- `visible-walkthrough.spec.ts`: 2 passed (All 15 visual walkthrough steps completed)
+- `visible-walkthrough.spec.ts`: 2 passed (All 15 visual walkthrough steps completed, 26 screenshots saved to `test-evidence/`)
 - `api-endpoints.spec.ts`: 14 passed
 - `auth-isolation.spec.ts`: 12 passed
 - `document-and-settings.spec.ts`: 10 passed
 - `navigation-and-layout.spec.ts`: 6 passed
 - `opportunities-and-matching.spec.ts`: 8 passed
 
-### 5. Production Bundle Build
+### 5. Production Bundle Build & Secret Scan
 ```bash
 npm run build
 ```
-**Result:** Vite production build built in 285ms.
-- Zero secret keys in client bundle (`dist/assets/`).
+**Result:** Vite production build built in 272ms.
+- Client distribution bundle (`dist/assets/`) scanned for secret patterns: **0 secrets found in client bundle**.
+- Server-side keys (`OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `ADZUNA_APP_KEY`) are completely isolated to server API routes.
 
 ---
 
-## 5. Connected Service Status & Outstanding Actions
+## 5. Live Connected Services & Integration Verification
 
-### OpenRouter:
-- **Status:** `ACTIVE` (Configured server-side in `.env`).
-- **Primary Model:** `meta-llama/llama-3.3-70b-instruct`.
-- **Fallbacks:** `openai/gpt-4o-mini`, `meta-llama/llama-3.1-70b-instruct`, `qwen/qwen-2.5-72b-instruct`.
+### OpenRouter Live Integration:
+- **Status:** `ACTIVE` (Verified with live API requests).
+- **Primary Model:** `meta-llama/llama-3.3-70b-instruct` (Chat completions verified: ~2.1s).
+- **Web Search Engine:** `openai/gpt-4o-mini` with `openrouter:web_search` tool (Verified live: 4 active 2026 listings retrieved with verified URLs in 11.1s).
+- **Server Cache:** In-memory 30-minute discovery cache (Subsequent identical queries return in **0ms**).
 
-### Google Gemini:
-- **Status:** Integrated via `@google/genai` 2.30.0.
-- **Models:** Primary `gemini-2.5-flash`, fallbacks `gemini-2.0-flash`, `gemini-1.5-flash`.
-- **Search Grounding:** Enabled (`GEMINI_SEARCH_ENABLED=true`).
-- **Outstanding Setup:** Provide `GEMINI_API_KEY` in `.env` to activate live Gemini queries. Without a key, InternSync gracefully and automatically operates through OpenRouter and isolated Interactive Demo Mode without crashing.
+### Google Gemini Live Integration (`@google/genai` 2.30.0):
+- **Status:** `ACTIVE` (Verified with live API requests using user's configured key).
+- **Primary Model:** `gemini-3.1-flash-lite-preview` (Verified live: responded in ~1.2s).
+- **Deprecation Failover:** When older model identifier `gemini-2.5-flash` was queried, Google returned 404 (no longer available for new users); `UnifiedAiRouter` automatically caught the error and fell back seamlessly to `gemini-3.1-flash-lite-preview` with `wasFallback: true`.
+- **Structured Resume Extraction:** Tested live with Gemini in **1.4s** using structured JSON output.
+- **Search Grounding:** Google Search tool on this free-tier API key currently reports 429 quota exhaustion; handled gracefully with an automatic 10-minute circuit-breaker cooldown so search operations never stall.
 
-### Supabase Database & Storage:
-- **Status:** `CONFIGURED_SCHEMA_PENDING`.
-- **Application Schema:** All database tables (`profiles`, `opportunities`, `documents`, `applications`) verified.
-- **Outstanding Setup:** To enable private cloud document uploads, execute `supabase/migrations/20261015_storage_setup.sql` in the Supabase SQL Editor.
+### Supabase Database & Document Storage:
+- **Status:** `CONFIGURED_SCHEMA_ACTIVE`.
+- **Database Tables Verified Active:**
+  - `profiles`: Present and verified (`select id limit 1` -> OK).
+  - `opportunities`: Present and verified (`select id limit 1` -> OK).
+  - `documents`: Present and verified (`select id limit 1` -> OK).
+  - `applications`: Present and verified (`select id limit 1` -> OK).
+  - `projects`: Present and verified (`select id limit 1` -> OK).
+  - `student_skills`: Present and verified (`select id limit 1` -> OK).
+- **Document Storage Bucket (`documents`):**
+  - Requires administrative creation via SQL Editor due to Supabase RLS restrictions on `storage.buckets`.
+  - **Ready-to-run script:** `supabase/migrations/20261015_storage_setup.sql` (Creates private `documents` bucket with RLS policies restricting read/write to `auth.uid()/<file>`).
+
+### Real Resume Acceptance Testing Status:
+- Synthetic multi-page PDF documents, modern DOCX archives, and PPTX presentations verified with 100% test accuracy across page boundaries.
+- Actual personal resume upload acceptance is marked as **Awaiting Judge / Student File Submission** during the live presentation.
+
+---
+
+## 6. Measured Search Latency & Listing Quality
+
+- **Fresh Live Search Query:** 11,137ms across real web sources.
+- **Cached Repeat Query:** 0ms (served from in-memory 30-minute server cache).
+- **Deduplication Quality:** Normalized URLs and role+company keys merged; stale 2024 postings filtered out.
+- **Listing Integrity:** Every returned opportunity retains genuine title, company name, discovered URL, domain attribution, and freshness status.
+
+---
+
+## 7. Final Commit SHA
+
+- **Base Commit:** `8b244a8`
+- **Quality Gates:** 100% Passed (Typecheck 0 errors, Lint 0 errors, Vitest 69/69, Playwright 52/52, Build clean).

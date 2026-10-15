@@ -162,7 +162,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, onCloseMobile = () 
             navigate('/login')
           }}
           title="Sign out"
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-all ml-1"
+          aria-label="Sign out"
+          data-testid="logout-button"
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-all ml-1 cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
         </button>

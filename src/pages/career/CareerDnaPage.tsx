@@ -103,24 +103,24 @@ export const CareerDnaPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-4 text-xs">
           <div>
             <span className="text-slate-400 font-medium block">Full Name:</span>
-            <span className="text-sm font-bold text-slate-900 mt-0.5 block">{profile.fullName}</span>
+            <span className="text-sm font-bold text-slate-900 mt-0.5 block">{profile.fullName || 'Not specified'}</span>
           </div>
           <div>
             <span className="text-slate-400 font-medium block">Academic Standing:</span>
             <span className="text-sm font-bold text-slate-900 mt-0.5 block">
-              {profile.degree} (Year {profile.currentYear})
+              {profile.degree ? `${profile.degree} (Year ${profile.currentYear || 'Unconfirmed'})` : 'Credentials unconfirmed'}
             </span>
           </div>
           <div>
             <span className="text-slate-400 font-medium block">Institution:</span>
             <span className="text-sm font-bold text-slate-900 mt-0.5 block truncate">
-              {profile.university}
+              {profile.university || 'Unspecified'}
             </span>
           </div>
           <div>
             <span className="text-slate-400 font-medium block">Location / Work Mode:</span>
             <span className="text-sm font-bold text-slate-900 mt-0.5 block">
-              {profile.location} ({profile.workModePreference})
+              {profile.location ? `${profile.location} (${profile.workModePreference || 'any'})` : 'Unspecified'}
             </span>
           </div>
         </div>

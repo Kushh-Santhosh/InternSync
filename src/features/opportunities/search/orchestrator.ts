@@ -10,6 +10,7 @@ import {
 } from '../extraction/requirement-extractor'
 import { verifyOpportunityUrl } from '../url-verifier/url-verifier'
 import { calculateMatch } from '@/lib/matching/engine'
+import { generateOpportunityId } from '@/lib/utils/uuid'
 import type {
   LiveSearchProgress,
   MatchResult,
@@ -130,9 +131,10 @@ export class OpportunitySearchOrchestrator {
         rawResults.push(...res)
       }
 
-      const extractedOpps = rawResults.map((raw, i) => {
+      const extractedOpps = rawResults.map((raw) => {
         const extraction = extractRequirementsDeterministically(raw)
-        return buildOpportunityFromExtraction(`opp-live-demo-${i}`, raw, extraction)
+        const oppId = generateOpportunityId(raw.url || extraction.application_url, extraction.company, extraction.title)
+        return buildOpportunityFromExtraction(oppId, raw, extraction)
       })
 
       const deduped = deduplicateOpportunities(extractedOpps)
@@ -220,7 +222,8 @@ export class OpportunitySearchOrchestrator {
       const raw = limitedRaw[i]
       const urlStatus = await verifyOpportunityUrl(raw.url)
       const extraction = extractRequirementsDeterministically(raw)
-      const opp = buildOpportunityFromExtraction(`opp-live-${Date.now()}-${i}`, raw, extraction)
+      const oppId = generateOpportunityId(raw.url || extraction.application_url, extraction.company, extraction.title)
+      const opp = buildOpportunityFromExtraction(oppId, raw, extraction)
       opp.urlStatus = urlStatus.status
       extractedOpps.push(opp)
     }

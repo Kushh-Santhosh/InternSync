@@ -127,9 +127,15 @@ export const ApplicationsPage: React.FC = () => {
                             </h4>
                           </div>
 
-                          <span className="text-[11px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                            {app.matchScore}%
-                          </span>
+                          {app.opportunity.companyName === 'Unavailable Listing' || app.matchScore === 0 ? (
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">
+                              Unavailable
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                              {app.matchScore}%
+                            </span>
+                          )}
                         </div>
 
                         {/* Notes preview */}

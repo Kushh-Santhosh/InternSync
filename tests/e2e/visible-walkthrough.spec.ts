@@ -224,14 +224,15 @@ test.describe.serial('Visible End-to-End Walkthrough & Real Inspection', () => {
     await expect(page.getByRole('button', { name: 'Profile', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Career Preferences', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Documents', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Integrations & Cloud', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Account', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Privacy', exact: true })).toBeVisible()
 
-    // Ensure no internal provider settings exist
+    // Ensure no internal developer or provider controls are leaked to students
     const pageText = await page.textContent('main')
     expect(pageText).not.toContain('OpenRouter Key')
     expect(pageText).not.toContain('Gemini Key')
     expect(pageText).not.toContain('Developer Gateway')
+    expect(pageText).not.toContain('Integrations & Cloud')
     await page.screenshot({ path: path.join(evidenceDir, '22_settings_profile.png') })
 
     // Inspect Documents tab
@@ -240,11 +241,17 @@ test.describe.serial('Visible End-to-End Walkthrough & Real Inspection', () => {
     await expect(page.getByText(/Uploaded Documents|Upload Document/i).first()).toBeVisible()
     await page.screenshot({ path: path.join(evidenceDir, '23_settings_documents.png') })
 
-    // Inspect Integrations & Cloud tab
-    await page.click('button:has-text("Integrations & Cloud")')
+    // Inspect Account tab
+    await page.click('button:has-text("Account")')
     await page.waitForTimeout(800)
-    await expect(page.getByText(/Backend & Cloud Health/i).first()).toBeVisible()
-    await page.screenshot({ path: path.join(evidenceDir, '23b_settings_integrations.png') })
+    await expect(page.getByRole('heading', { name: /Change Password/i })).toBeVisible()
+    await page.screenshot({ path: path.join(evidenceDir, '23b_settings_account.png') })
+
+    // Inspect Privacy tab
+    await page.click('button:has-text("Privacy")')
+    await page.waitForTimeout(800)
+    await expect(page.getByRole('heading', { name: /Privacy & Data Governance|Data & Privacy|Privacy/i })).toBeVisible()
+    await page.screenshot({ path: path.join(evidenceDir, '23c_settings_privacy.png') })
 
     // ────────────────────────────────────────────────────────────
     // 14. 404 NOT FOUND ROUTE

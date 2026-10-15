@@ -1,6 +1,7 @@
 import { AdzunaProvider } from '../providers/AdzunaProvider'
 import { DemoProvider } from '../providers/DemoProvider'
 import { OpenRouterWebProvider } from '../providers/OpenRouterWebProvider'
+import { GeminiSearchProvider } from '../providers/GeminiSearchProvider'
 import type { OpportunityProvider } from '../providers/OpportunityProvider'
 import { generateSearchQueries } from './query-generator'
 import { deduplicateOpportunities } from '../deduplication/deduplicator'
@@ -24,6 +25,7 @@ import type {
 
 export interface SearchOrchestratorConfig {
   openrouterApiKey?: string
+  geminiApiKey?: string
   adzunaEnabled?: boolean
   adzunaAppId?: string
   adzunaAppKey?: string
@@ -91,6 +93,7 @@ function deduplicateRawResults(results: RawSearchResult[]): RawSearchResult[] {
 
 export class OpportunitySearchOrchestrator {
   private openrouterProvider: OpenRouterWebProvider
+  private geminiProvider: GeminiSearchProvider
   private adzunaProvider: AdzunaProvider
   private adzunaEnabled: boolean
   private demoProvider: DemoProvider
@@ -101,6 +104,9 @@ export class OpportunitySearchOrchestrator {
   constructor(config: SearchOrchestratorConfig = {}) {
     this.openrouterProvider = new OpenRouterWebProvider({
       apiKey: config.openrouterApiKey,
+    })
+    this.geminiProvider = new GeminiSearchProvider({
+      apiKey: config.geminiApiKey,
     })
     this.adzunaEnabled = config.adzunaEnabled ?? false
     this.adzunaProvider = new AdzunaProvider({
@@ -217,6 +223,7 @@ export class OpportunitySearchOrchestrator {
     // Connected Mode: Check providers
     const activeProviders: OpportunityProvider[] = []
     activeProviders.push(this.openrouterProvider)
+    activeProviders.push(this.geminiProvider)
     if (this.adzunaEnabled && this.adzunaProvider.isConfigured()) {
       activeProviders.push(this.adzunaProvider)
     }

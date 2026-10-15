@@ -104,25 +104,28 @@ export const OnboardingPage: React.FC = () => {
     }
   }
 
-  const handleFinish = () => {
-    updateProfile({
-      fullName: formData.fullName,
-      email: formData.email,
-      university: formData.university,
-      degree: formData.degree,
-      branch: formData.branch,
-      currentYear: Number(formData.currentYear),
-      graduationYear: Number(formData.graduationYear),
-      location: formData.location,
-      preferredLocations: formData.preferredLocations.split(',').map((s) => s.trim()),
-      workModePreference: formData.workModePreference as any,
-      availableDurationMonths: Number(formData.availableDurationMonths),
-      careerInterests: formData.careerInterests,
-      targetRole: formData.targetRole,
-      githubUsername: profile.githubUsername,
-    })
-
-    navigate('/dashboard')
+  const handleFinish = async () => {
+    try {
+      await updateProfile({
+        fullName: formData.fullName,
+        email: formData.email,
+        university: formData.university,
+        degree: formData.degree,
+        branch: formData.branch,
+        currentYear: Number(formData.currentYear),
+        graduationYear: Number(formData.graduationYear),
+        location: formData.location,
+        preferredLocations: formData.preferredLocations.split(',').map((s) => s.trim()),
+        workModePreference: formData.workModePreference as any,
+        availableDurationMonths: Number(formData.availableDurationMonths),
+        careerInterests: formData.careerInterests,
+        targetRole: formData.targetRole,
+        githubUsername: profile.githubUsername,
+      })
+      navigate('/dashboard')
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to save profile during onboarding.')
+    }
   }
 
   return (

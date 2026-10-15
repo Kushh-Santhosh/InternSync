@@ -108,7 +108,9 @@ export const OpportunitiesPage: React.FC = () => {
           return (b.opp.stipendAmount || 0) - (a.opp.stipendAmount || 0)
         }
         if (sortBy === 'deadline') {
-          return new Date(a.opp.deadline).getTime() - new Date(b.opp.deadline).getTime()
+          const timeA = a.opp.deadline ? Date.parse(a.opp.deadline) || Infinity : Infinity
+          const timeB = b.opp.deadline ? Date.parse(b.opp.deadline) || Infinity : Infinity
+          return timeA - timeB
         }
         return 0
       })

@@ -150,14 +150,31 @@ ALTER TABLE public.skills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.assessment_questions ENABLE ROW LEVEL SECURITY;
 
 -- Public read for reference catalogs
+DROP POLICY IF EXISTS "Public read for opportunities" ON public.opportunities;
 CREATE POLICY "Public read for opportunities" ON public.opportunities FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read for skills taxonomy" ON public.skills;
 CREATE POLICY "Public read for skills taxonomy" ON public.skills FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read for assessment questions" ON public.assessment_questions;
 CREATE POLICY "Public read for assessment questions" ON public.assessment_questions FOR SELECT USING (true);
 
 -- Student ownership policies
+DROP POLICY IF EXISTS "Users can manage own profile" ON public.profiles;
 CREATE POLICY "Users can manage own profile" ON public.profiles FOR ALL USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can manage own skills" ON public.student_skills;
 CREATE POLICY "Users can manage own skills" ON public.student_skills FOR ALL USING (auth.uid() = student_id);
+
+DROP POLICY IF EXISTS "Users can manage own projects" ON public.projects;
 CREATE POLICY "Users can manage own projects" ON public.projects FOR ALL USING (auth.uid() = student_id);
+
+DROP POLICY IF EXISTS "Users can manage own matches" ON public.match_results;
 CREATE POLICY "Users can manage own matches" ON public.match_results FOR ALL USING (auth.uid() = student_id);
+
+DROP POLICY IF EXISTS "Users can manage own applications" ON public.applications;
 CREATE POLICY "Users can manage own applications" ON public.applications FOR ALL USING (auth.uid() = student_id);
+
+DROP POLICY IF EXISTS "Users can manage own assistant chats" ON public.assistant_conversations;
 CREATE POLICY "Users can manage own assistant chats" ON public.assistant_conversations FOR ALL USING (auth.uid() = student_id);
+

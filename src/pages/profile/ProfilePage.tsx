@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import {
   CheckCircle2,
+  AlertCircle,
   FileText,
   RotateCcw,
   Save,
@@ -28,18 +29,24 @@ export const ProfilePage: React.FC = () => {
     targetRole: profile.targetRole,
     bio: profile.bio || '',
   })
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    updateProfile({
-      ...formData,
-      currentYear: Number(formData.currentYear),
-      graduationYear: Number(formData.graduationYear),
-      availableDurationMonths: Number(formData.availableDurationMonths),
-      preferredLocations: formData.preferredLocations.split(',').map((s) => s.trim()),
-    })
-    setSavedSuccess(true)
-    setTimeout(() => setSavedSuccess(false), 3000)
+    setErrorMessage(null)
+    try {
+      await updateProfile({
+        ...formData,
+        currentYear: Number(formData.currentYear),
+        graduationYear: Number(formData.graduationYear),
+        availableDurationMonths: Number(formData.availableDurationMonths),
+        preferredLocations: formData.preferredLocations.split(',').map((s) => s.trim()),
+      })
+      setSavedSuccess(true)
+      setTimeout(() => setSavedSuccess(false), 3000)
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to save profile.')
+    }
   }
 
   return (
@@ -72,8 +79,15 @@ export const ProfilePage: React.FC = () => {
 
       {savedSuccess && (
         <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800 flex items-center gap-2 animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>Profile saved successfully! Opportunity match scores have been recalculated.</span>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800 flex items-center gap-2 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{errorMessage}</span>
         </div>
       )}
 

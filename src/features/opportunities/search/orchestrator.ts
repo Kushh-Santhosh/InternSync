@@ -175,8 +175,8 @@ export class OpportunitySearchOrchestrator {
       const extractedOpps = dedupedRaw.map((raw: RawSearchResult) => {
         const extraction = extractRequirementsDeterministically(raw)
         const oppId = generateOpportunityId(raw.url || extraction.application_url, extraction.company, extraction.title)
-        return buildOpportunityFromExtraction(oppId, raw, extraction)
-      })
+        return buildOpportunityFromExtraction(oppId, raw, extraction, 'VERIFIED')
+      }).filter((opp) => opp.freshnessStatus !== 'expired' && opp.freshnessStatus !== 'closed')
 
       const deduped = deduplicateOpportunities(extractedOpps)
       const matches = new Map<string, MatchResult>()
@@ -279,13 +279,17 @@ export class OpportunitySearchOrchestrator {
         const urlStatus = await verifyOpportunityUrl(raw.url)
         const extraction = extractRequirementsDeterministically(raw)
         const oppId = generateOpportunityId(raw.url || extraction.application_url, extraction.company, extraction.title)
-        const opp = buildOpportunityFromExtraction(oppId, raw, extraction)
-        opp.urlStatus = urlStatus.status
+        const opp = buildOpportunityFromExtraction(oppId, raw, extraction, urlStatus.status)
         return opp
       }
     )
 
-    const deduped = deduplicateOpportunities(extractedOpps)
+    // Strict freshness rule: exclude confirmed expired or archived/closed postings from active recommendations
+    const freshOpps = extractedOpps.filter(
+      (opp) => opp.freshnessStatus !== 'expired' && opp.freshnessStatus !== 'closed'
+    )
+
+    const deduped = deduplicateOpportunities(freshOpps)
 
     // 5. Stage: Matching
     onProgress?.({

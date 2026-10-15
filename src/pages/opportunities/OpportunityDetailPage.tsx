@@ -199,7 +199,9 @@ export const OpportunityDetailPage: React.FC = () => {
           </div>
 
           <div className="text-xs text-slate-400 font-medium">
-            Deadline: {new Date(opportunity.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            Deadline: {opportunity.deadline && !isNaN(Date.parse(opportunity.deadline))
+              ? new Date(opportunity.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : 'Rolling / Continuous applications'}
           </div>
         </div>
       </div>

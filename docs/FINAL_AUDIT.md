@@ -195,4 +195,92 @@ The baseline codebase has a modern visual design, a deterministic 8-factor match
 - **OpenRouter Live API:** Live AI search and structured resume extraction require an active `OPENROUTER_API_KEY` on the backend server. In the absence of an API key, the server returns an honest HTTP 503 (`OPENROUTER_NOT_CONFIGURED`) error rather than simulating fake results.
 - **Adzuna API:** Live job search via Adzuna requires `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`. Unconfigured providers report provider downtime truthfully.
 
+---
+
+## 7. Phase 3 — Vercel Serverless Function Backend & Comprehensive E2E Website Verification
+
+### 7.1 Vercel Serverless Architecture & SPA Routing
+- **Problem:** The previous Vite development setup registered backend API middleware via `configureServer` in `vite.config.ts`. On Vercel production hosting, static Vite builds ignore dev server middleware, resulting in 404s or SPA fallback index.html responses for backend API requests.
+- **Implementation:**
+  - Implemented standalone Node.js Serverless Functions in `api/`:
+    - `api/settings/health.ts`: Returns real configuration connectivity status (`supabaseConfigured`, `openRouterConfigured`, `adzunaConfigured`, `nodeVersion`).
+    - `api/ai/chat.ts`: Server-side conversational assistant routing with prompt injection protection.
+    - `api/ai/extract-resume.ts`: Server-side structured resume data extraction.
+    - `api/search/live.ts`: Live opportunity discovery via OpenRouter web search.
+    - `api/search/adzuna.ts`: Secondary opportunity discovery via Adzuna API.
+    - `api/verify-url.ts`: URL reachability validation via HTTP HEAD/GET probes with status reporting.
+    - `api/n8n/opportunity-discovery.ts`: Webhook receiver for n8n automated opportunity ingestion.
+    - `api/[...route].ts`: Catch-all handler ensuring unmapped `/api/*` routes return structured JSON 404 errors instead of HTML.
+  - Refactored `src/server/api-handler.ts` to export decoupled request/response handlers (`handleSettingsHealth`, `handleAiChat`, `handleAiExtractResume`, `handleSearchLive`, `handleSearchAdzuna`, `handleVerifyUrl`, `handleN8nOpportunityDiscovery`).
+  - Runtime environment configuration: Serverless functions dynamically read `process.env` at invocation time rather than attempting to read `.env` files from disk in serverless runtime.
+  - `vercel.json` configuration:
+    - Configured Vite framework build with output directory `dist`.
+    - Added explicit route ordering: `/api/(.*)` requests route directly to serverless endpoints, while `/(.*)` rewrites to `/index.html` for single-page application client-side routing. This ensures that direct navigation and nested page refreshes (`/dashboard`, `/career-dna`, `/opportunities`, `/applications`, `/settings`) work seamlessly without breaking API routes.
+  - Configured `configurePreviewServer` in `vite.config.ts` so `npm run preview` mounts identical API middleware for production-like local testing.
+
+### 7.2 Playwright End-to-End Browser Test Suite
+Implemented a comprehensive browser test suite in `tests/e2e/` executed against the production preview server across both **Desktop Chromium (1280x720)** and **Mobile Chromium (Pixel 5 viewport)**:
+
+1. **`tests/e2e/api-endpoints.spec.ts` (14/14 passed):**
+   - Verified `GET /api/settings/health` returns truthful connectivity JSON.
+   - Verified `POST /api/verify-url` validates reachable URLs and rejects invalid/empty URLs with honest 400 status.
+   - Verified `POST /api/search/live` returns truthful 503 `OPENROUTER_NOT_CONFIGURED` when unconfigured.
+   - Verified `POST /api/search/adzuna` returns truthful 503 `ADZUNA_NOT_CONFIGURED` when unconfigured.
+   - Verified `POST /api/ai/extract-resume` rejects empty payloads with 400 and structured error message.
+   - Verified SPA direct access to nested routes does not rewrite `/api/*` to `index.html`.
+
+2. **`tests/e2e/auth-isolation.spec.ts` (10/10 passed):**
+   - Verified landing page loads with branding, navigation, and value proposition.
+   - Verified unauthenticated direct access to `/dashboard` redirects to `/login`.
+   - Verified login form enforces required email and password fields.
+   - Verified Interactive Demo Mode activates cleanly without credentials.
+   - Verified session survives browser refresh via persistent storage.
+   - Verified logout flushes session and redirects to `/login`.
+
+3. **`tests/e2e/document-and-settings.spec.ts` (10/10 passed):**
+   - Verified Career DNA displays verified skills, confidence, and project evidence without fake metrics.
+   - Verified Settings tabs are student-focused (Profile, Preferences, Documents, Account) without internal AI developer infrastructure or API keys.
+   - Verified Documents tab renders upload dropzone and document management table.
+   - Verified Skill Lab displays assessment quizzes and distinguishes unverified vs tested skills.
+   - Verified Dream Internship simulator computes dynamic gap analysis.
+
+4. **`tests/e2e/opportunities-and-matching.spec.ts` (8/8 passed):**
+   - Verified opportunities page renders verified listings with deterministic match badges (`APPLY NOW`, `PREPARE FIRST`, `SKIP`).
+   - Verified Opportunity Detail Page displays explainable 8-factor score breakdown and 14-day roadmap.
+   - Verified saving opportunity persists to applications tracker without false applied state.
+   - Verified 3-way Opportunity Comparison drawer opens, toggles, and renders side-by-side matrices.
+
+5. **`tests/e2e/navigation-and-layout.spec.ts` (8/8 passed):**
+   - Verified honest 404 page for non-existent routes with return navigation.
+   - Verified direct navigation and refresh on nested routes (`/career-paths`, `/profile`, `/assistant`).
+   - Verified mobile responsive layout: hamburger button opens drawer navigation on small viewports.
+
+**Total E2E Tests: 50 passed (50/50, 100% pass rate).**
+
+### 7.3 Automated Quality Gate Verification Summary
+| Quality Gate | Tool / Command | Result | Details |
+|---|---|---|---|
+| **Typecheck** | `npm run typecheck` (`tsc -b`) | **PASS (0 errors)** | Strict TypeScript compilation across all app and server code |
+| **Lint** | `npm run lint` (`oxlint`) | **PASS (0 errors)** | 97 files scanned, 0 errors, 7 non-blocking warnings |
+| **Unit & Integration** | `npm run test` (`vitest run`) | **PASS (47/47 passed)** | 7 test files covering matching, search, document parsing, auth isolation |
+| **End-to-End Browser** | `npm run test:e2e` (`playwright test`) | **PASS (50/50 passed)** | 5 test suites across Desktop & Mobile viewports |
+| **Production Build** | `npm run build` (`tsc -b && vite build`) | **PASS** | Dist generated in ~300ms; zero client secrets in bundle |
+
+### 7.4 Vercel Deployment Procedure
+The repository is fully configured for zero-configuration deployment to Vercel:
+- `vercel.json` provides runtime framework settings, build output directory, and SPA rewrites.
+- Serverless functions in `api/` are automatically detected and deployed as Node.js serverless functions.
+- `package.json` specifies `"engines": { "node": ">=20.0.0" }`.
+
+**To deploy to Vercel:**
+1. Connect repository `Kushh-Santhosh/InternSync` on the Vercel Dashboard (or run `vercel link` with authorization to the target project).
+2. Configure the following Environment Variables in Vercel Project Settings (Production & Preview):
+   - `VITE_SUPABASE_URL`: Supabase project URL (client-accessible).
+   - `VITE_SUPABASE_ANON_KEY`: Supabase public anonymous key (client-accessible).
+   - `OPENROUTER_API_KEY`: Server-side OpenRouter API key for live search and resume extraction.
+   - `OPENROUTER_DEFAULT_MODEL`: Default model (e.g. `google/gemini-2.0-flash-001`).
+   - `ADZUNA_APP_ID`: (Optional) Adzuna application ID.
+   - `ADZUNA_APP_KEY`: (Optional) Adzuna application key.
+3. Push to `main` to trigger the production deployment.
+
 

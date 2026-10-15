@@ -476,6 +476,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setCurrentUser(null)
     setIsDemoModeState(false)
+    try {
+      localStorage.removeItem(GLOBAL_STORAGE_KEYS.MODE)
+    } catch {
+      // ignore
+    }
     setUserProfile(BLANK_STUDENT_PROFILE)
     setUserSkills([])
     setUserProjects([])
@@ -486,6 +491,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const enterDemoMode = () => {
     setIsDemoModeState(true)
+    try {
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.MODE, JSON.stringify(true))
+    } catch {
+      // ignore
+    }
   }
 
   // Active profile, skills, projects based strictly on mode & authenticated user

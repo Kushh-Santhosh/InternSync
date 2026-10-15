@@ -90,7 +90,8 @@ Open `http://localhost:5173` in your browser.
 ```bash
 npm run typecheck   # Strict TypeScript check (0 errors)
 npm run lint        # Oxlint linting (0 errors)
-npm run test        # Vitest suite (29 tests passing across 4 suites)
+npm run test        # Vitest unit & integration suite (47 tests passing across 7 suites)
+npm run test:e2e    # Playwright browser E2E suite (50 tests passing across Desktop & Mobile)
 npm run build       # Production bundle build
 ```
 
@@ -156,22 +157,40 @@ To apply database tables, constraints, indexes, and Row Level Security:
 
 ## 🧪 Quality Gate & Test Execution
 
-InternSync is verified against strict automated acceptance tests:
+InternSync is verified against strict automated unit, integration, and browser acceptance tests:
 
-- `tests/unit/real-product-pipeline.test.ts` (10 tests passing):
-  - Resume extraction without hardcoding
-  - 150+ skill taxonomy normalization & aliases
-  - Frequency-based measured confidence scores
-  - Deterministic 8-factor fit and Apply vs Prepare classification
-  - Standby graceful handling when unconfigured
-  - OpenRouter retryable error categorization
-  - Real project evidence contribution to match scores
-  - Hard eligibility mismatch gate (Year 2 student applying for Year 4 role strictly forced to SKIP)
-  - Security validation: executable file rejection (`.sh`, `.exe`)
-  - PDF stream and literal operator parsing
+### Unit & Integration Suites (`npm run test` — Vitest, 47 tests):
+- `tests/unit/opportunity-persistence.test.ts` (6 tests passing): UUIDv5 identity generation, database persistence before application linking, collision resistance, and graceful failure handling.
+- `tests/unit/account-switching.test.ts` (3 tests passing): Multi-tenant account isolation, state cleanup upon logout, and session restoration.
+- `tests/unit/document-extraction.test.ts` (9 tests passing): Compressed PDF extraction, multi-page parsing, scanned document detection, legacy `.doc`/`.ppt` rejection, and structured schema extraction.
+- `tests/unit/real-product-pipeline.test.ts` (10 tests passing): 150+ skill taxonomy normalization, measured confidence scores, deterministic 8-factor fit, project evidence contribution, and hard eligibility mismatch gating.
 - `tests/unit/live-search.test.ts` (8 tests passing): Query generation, URL normalization, deduplication, and requirement extraction.
 - `tests/unit/matching.test.ts` (6 tests passing): Scoring weights, eligibility edge cases, and 14-day roadmap synthesis.
 - `tests/unit/model-router.test.ts` (5 tests passing): Health checks, latency tracking, and fallback chains.
+
+### End-to-End Browser Suites (`npm run test:e2e` — Playwright, 50 tests across Desktop & Mobile):
+- `tests/e2e/api-endpoints.spec.ts` (14 tests): Serverless endpoints (`/api/settings/health`, `/api/verify-url`, `/api/search/live`, `/api/search/adzuna`, `/api/ai/extract-resume`) and SPA routing integrity.
+- `tests/e2e/auth-isolation.spec.ts` (10 tests): Landing page, protected route redirection, login form validation, demo mode activation, refresh session persistence, and clean logout.
+- `tests/e2e/document-and-settings.spec.ts` (10 tests): Career DNA evidence breakdown, student-centric settings tabs, documents dropzone, Skill Lab quiz scoring, and Dream Internship simulator.
+- `tests/e2e/opportunities-and-matching.spec.ts` (8 tests): Verified opportunity badging, deterministic match breakdown, 14-day roadmap, saving to application tracker without false applied states, and comparison drawer.
+- `tests/e2e/navigation-and-layout.spec.ts` (8 tests): Honest 404 page, direct nested route navigation (`/career-paths`, `/profile`, `/assistant`), and mobile responsive drawer navigation.
+
+---
+
+## 🚀 Vercel Production & Preview Deployment
+
+InternSync is configured for seamless deployment to Vercel with dedicated serverless functions and Single Page Application (SPA) routing:
+
+1. **Vercel Functions:** Standalone serverless endpoints in `api/` handle all backend logic (`/api/search/live`, `/api/ai/extract-resume`, `/api/ai/chat`, `/api/verify-url`, `/api/settings/health`).
+2. **SPA Routing:** Configured in `vercel.json` so `/api/(.*)` routes directly to serverless functions, and `/(.*)` rewrites to `/index.html` for client-side navigation.
+3. **Node Runtime:** Node.js `>=20.0.0` configured in `package.json`.
+4. **Environment Variables Required in Vercel:**
+   - `VITE_SUPABASE_URL`: Supabase URL
+   - `VITE_SUPABASE_ANON_KEY`: Supabase Anonymous Public Key
+   - `OPENROUTER_API_KEY`: Server-side OpenRouter Key
+   - `OPENROUTER_DEFAULT_MODEL`: Server-side Model (default: `google/gemini-2.0-flash-001`)
+   - `ADZUNA_APP_ID`: (Optional) Adzuna App ID
+   - `ADZUNA_APP_KEY`: (Optional) Adzuna App Key
 
 ---
 

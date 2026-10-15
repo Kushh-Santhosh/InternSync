@@ -19,6 +19,18 @@ function apiMiddlewarePlugin(): Plugin {
         }
       })
     },
+    configurePreviewServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        try {
+          const handled = await handleApiRequest(req, res)
+          if (!handled) {
+            next()
+          }
+        } catch {
+          next()
+        }
+      })
+    },
   }
 }
 

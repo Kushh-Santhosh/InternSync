@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
@@ -13,6 +13,11 @@ import { OpportunityCard } from '@/components/opportunities/OpportunityCard'
 import { Button } from '@/components/ui/Button'
 import { ScoreRing } from '@/components/ui/ScoreRing'
 import { ResumeUploadCard } from '@/components/resume/ResumeUploadCard'
+
+function getGreetingTime(): string {
+  const hour = new Date().getHours()
+  return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+}
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate()
@@ -35,8 +40,7 @@ export const DashboardPage: React.FC = () => {
   }
 
   // Dynamic greeting based on time of day
-  const hour = new Date().getHours()
-  const greetingTime = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const greetingTime = useMemo(() => getGreetingTime(), [])
   const firstName = profile.fullName?.trim() ? profile.fullName.trim().split(' ')[0] : 'there'
 
   // Count opportunities strictly by recommendation

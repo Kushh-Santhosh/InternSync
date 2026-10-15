@@ -470,6 +470,10 @@ CRITICAL RULES:
   }
 }
 
+// In-memory server-side discovery cache (30 minutes TTL)
+const serverSearchCache = new Map<string, { timestamp: number; payload: any }>()
+const SERVER_SEARCH_CACHE_TTL = 30 * 60 * 1000
+
 // 4. POST /api/search/live
 export async function handleSearchLive(req: any, res: any): Promise<void> {
   const config = getServerConfig()
@@ -502,14 +506,33 @@ export async function handleSearchLive(req: any, res: any): Promise<void> {
     const cleanLocation = sanitizePromptText(query.location || 'India')
 
     const targetProvider = body.provider || 'auto'
+
+    // Fast server-side cache check
+    const cacheKey = `${cleanQueryText.toLowerCase()}__${cleanRole.toLowerCase()}__${cleanLocation.toLowerCase()}__${targetProvider}`
+    const cachedEntry = serverSearchCache.get(cacheKey)
+    if (cachedEntry && Date.now() - cachedEntry.timestamp < SERVER_SEARCH_CACHE_TTL) {
+      sendJson(res, 200, {
+        ...cachedEntry.payload,
+        cached: true,
+      })
+      return
+    }
+
     const results: any[] = []
     const modelsUsed: string[] = []
 
-    // Helper: Execute OpenRouter Web Search
+    // Helper: Execute OpenRouter Web Search with fast model prioritization
     const searchOpenRouter = async (): Promise<any[]> => {
       if (!hasOpenRouter) return []
       const router = getModelRouter()
       const candidateModels = router.getCandidateModels()
+
+      // Prioritize ultra-fast search models (e.g. gpt-4o-mini finishes in ~5s vs ~16s on large models)
+      const searchCandidates = [
+        ...candidateModels.filter((m) => m.includes('gpt-4o') || m.includes('mini')),
+        ...candidateModels,
+      ].filter((m, i, arr) => arr.indexOf(m) === i)
+
       const prompt = `Search live public web listings for active internship opportunities:
 Query: "${cleanQueryText}"
 Target Role: "${cleanRole}"
@@ -519,10 +542,10 @@ CRITICAL: Only return opportunities from 2025/2026. Do NOT return 2024 or older 
 Format each discovered opportunity with markdown links:
 [Job Title @ Company](https://application-or-job-url) - Snippet and key required skills.`
 
-      for (const modelCandidate of candidateModels.slice(0, 2)) {
+      for (const modelCandidate of searchCandidates.slice(0, 2)) {
         try {
           const controller = new AbortController()
-          const timeout = setTimeout(() => controller.abort(), 8000)
+          const timeout = setTimeout(() => controller.abort(), 12000)
 
           const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
@@ -547,8 +570,8 @@ Format each discovered opportunity with markdown links:
                   type: 'openrouter:web_search',
                   parameters: {
                     engine: 'auto',
-                    max_results: 10,
-                    max_total_results: 20,
+                    max_results: 8,
+                    max_total_results: 16,
                   },
                 },
               ],
@@ -666,11 +689,18 @@ Format each discovered opportunity with markdown links:
       }
     }
 
-    sendJson(res, 200, {
+    const payload = {
       results: dedupedResults,
       modelsUsed: modelsUsed.join(', '),
       totalDiscovered: dedupedResults.length,
-    })
+      cached: false,
+    }
+
+    if (dedupedResults.length > 0) {
+      serverSearchCache.set(cacheKey, { timestamp: Date.now(), payload })
+    }
+
+    sendJson(res, 200, payload)
   } catch (err: unknown) {
     sendJson(res, 500, {
       error: err instanceof Error ? err.message : 'Search failed unexpectedly',

@@ -31,9 +31,16 @@ export class GeminiProvider {
   private modelCooldowns: Map<string, number> = new Map()
 
   public static readonly DEFAULT_MODELS = {
-    PRIMARY: 'gemini-2.5-flash',
-    FALLBACKS: ['gemini-2.0-flash', 'gemini-1.5-flash'],
+    PRIMARY: 'gemini-3.1-flash-lite-preview',
+    FALLBACKS: [
+      'gemini-3.1-flash-lite',
+      'gemini-3.8-flash',
+      'gemini-2.5-flash',
+      'gemini-flash-latest',
+    ],
   }
+
+  private groundingDisabledUntil: number = 0
 
   constructor(config: GeminiConfig) {
     this.apiKey = config.apiKey || ''
@@ -42,7 +49,7 @@ export class GeminiProvider {
       ? config.fallbackModels
       : [...GeminiProvider.DEFAULT_MODELS.FALLBACKS]
     this.searchEnabled = config.searchEnabled ?? true
-    this.requestTimeoutMs = config.requestTimeoutMs ?? 25000
+    this.requestTimeoutMs = config.requestTimeoutMs ?? 15000
     this.cooldownDurationMs = config.cooldownDurationMs ?? 300000 // 5 minutes
 
     if (this.apiKey) {
@@ -62,7 +69,15 @@ export class GeminiProvider {
   public getCandidateModels(): string[] {
     const now = Date.now()
     const candidates: string[] = []
-    const all = [this.primaryModel, ...this.fallbackModels]
+    
+    // Always include modern active fallback models to guarantee operational resilience
+    const all = [
+      this.primaryModel,
+      ...this.fallbackModels,
+      'gemini-3.1-flash-lite-preview',
+      'gemini-3.1-flash-lite',
+      'gemini-3.8-flash',
+    ]
 
     for (const model of all) {
       const cooldownUntil = this.modelCooldowns.get(model)
@@ -93,7 +108,7 @@ export class GeminiProvider {
 
   public isRetriableError(err: unknown): boolean {
     const msg = err instanceof Error ? err.message : String(err)
-    // 429 / RESOURCE_EXHAUSTED, 503 / UNAVAILABLE, 500 / INTERNAL, 408 / TIMEOUT, 404 / NOT_FOUND
+    // 429 / RESOURCE_EXHAUSTED, 503 / UNAVAILABLE, 500 / INTERNAL, 408 / TIMEOUT, 404 / NOT_FOUND / no longer available
     return (
       msg.includes('429') ||
       msg.includes('RESOURCE_EXHAUSTED') ||
@@ -105,6 +120,8 @@ export class GeminiProvider {
       msg.includes('TIMEOUT') ||
       msg.includes('404') ||
       msg.includes('NOT_FOUND') ||
+      msg.includes('no longer available') ||
+      msg.includes('is not found') ||
       msg.includes('quota') ||
       msg.includes('rate limit')
     )
@@ -190,6 +207,10 @@ export class GeminiProvider {
       return []
     }
 
+    if (this.groundingDisabledUntil > Date.now()) {
+      return []
+    }
+
     const candidateModels = this.getCandidateModels()
     const prompt = `Search live, public web listings for currently active internship opportunities in 2026.
 Query: "${query.text}"
@@ -204,7 +225,7 @@ CRITICAL RULES:
     for (const model of candidateModels) {
       try {
         const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Gemini Grounded Search timeout')), 15000)
+          setTimeout(() => reject(new Error('Gemini Grounded Search timeout')), 8000)
         )
 
         const callPromise = this.client.models.generateContent({
@@ -278,8 +299,14 @@ CRITICAL RULES:
         }
 
         return results
-      } catch (err) {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
         this.recordFailure(model)
+        if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota')) {
+          // Grounding quota is exhausted on this key/project; disable grounding for 10 mins to prevent delays
+          this.groundingDisabledUntil = Date.now() + 600000
+          break
+        }
         if (!this.isRetriableError(err)) {
           break
         }

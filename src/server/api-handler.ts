@@ -266,8 +266,17 @@ export async function handleSettingsHealth(_req: any, res: any): Promise<void> {
       const aCheck = await client.from('applications').select('id').limit(1)
       if (aCheck.error && aCheck.error.code !== 'PGRST116') missingItems.push('table applications')
 
-      const bCheck = await client.storage.getBucket('documents')
-      const storageReady = !bCheck.error
+      // Storage check: getBucket requires service_role, so probe with anon upload to check bucket existence and active RLS
+      const bCheck = await client.storage.from('documents').upload('__probe.tmp', '')
+      const isRlsProtected = Boolean(
+        bCheck.error && (
+          (bCheck.error as any).statusCode === '403' ||
+          (bCheck.error as any).code === 'AccessDenied' ||
+          bCheck.error.message?.includes('row-level security') ||
+          bCheck.error.message?.includes('violates')
+        )
+      )
+      const storageReady = !bCheck.error || isRlsProtected
       if (!storageReady) missingItems.push('storage bucket documents')
 
       const schemaReady = missingItems.filter((m) => m.startsWith('table')).length === 0
@@ -425,7 +434,7 @@ CRITICAL RULES:
   "degree": string | null,
   "branch": string | null,
   "university": string | null,
-  "currentYear": number | null,
+  "currentYear": number | null (academic year standing between 1 and 5; NOT calendar year),
   "graduationYear": number | null,
   "location": string | null,
   "skills": [{"name": string, "category": "frontend"|"backend"|"ai_ml"|"data"|"languages"|"tools", "confidence": number, "evidenceQuote": string}],
@@ -565,6 +574,7 @@ Format each discovered opportunity with markdown links:
                 },
                 { role: 'user', content: prompt },
               ],
+              max_tokens: 1500,
               tools: [
                 {
                   type: 'openrouter:web_search',

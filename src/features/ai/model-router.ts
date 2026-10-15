@@ -51,11 +51,11 @@ export class OpenRouterModelRouter {
   private apiKey: string
 
   public static readonly DEFAULT_MODELS = {
-    PRIMARY: 'meta-llama/llama-3.3-70b-instruct',
+    PRIMARY: 'openai/gpt-4o-mini',
     FALLBACKS: [
-      'openai/gpt-4o-mini',
+      'meta-llama/llama-3.3-70b-instruct',
       'meta-llama/llama-3.1-70b-instruct',
-      'qwen/qwen-2.5-72b-instruct',
+      'google/gemini-2.0-flash-001',
     ],
   }
 
@@ -211,7 +211,7 @@ export class OpenRouterModelRouter {
           messages: options.messages,
         }
         if (options.temperature !== undefined) payload.temperature = options.temperature
-        if (options.max_tokens !== undefined) payload.max_tokens = options.max_tokens
+        payload.max_tokens = options.max_tokens !== undefined ? options.max_tokens : 2000
         if (options.tools) payload.tools = options.tools
         if (options.response_format) payload.response_format = options.response_format
 

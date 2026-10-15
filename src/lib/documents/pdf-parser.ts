@@ -50,8 +50,10 @@ export async function parsePdfDetailed(fileData: ArrayBuffer | Uint8Array): Prom
   }
 
   try {
+    console.log('[pdf-parser] Starting extractText with bytes length:', bytes.length)
     // Pass a copy so the original bytes are not detached by PDF.js worker transfer
     const result = await extractText(new Uint8Array(bytes.slice()), { mergePages: false })
+    console.log('[pdf-parser] extractText finished! totalPages:', result.totalPages)
     const totalPages = result.totalPages || 0
     const rawPages: string[] = Array.isArray(result.text)
       ? result.text

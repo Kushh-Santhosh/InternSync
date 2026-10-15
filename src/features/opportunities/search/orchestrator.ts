@@ -17,12 +17,14 @@ import type {
   Opportunity,
   ProjectItem,
   RawSearchResult,
+  SearchQuery,
   SkillEvidenceItem,
   StudentProfile,
 } from '@/types'
 
 export interface SearchOrchestratorConfig {
   openrouterApiKey?: string
+  adzunaEnabled?: boolean
   adzunaAppId?: string
   adzunaAppKey?: string
   adzunaCountry?: string
@@ -52,9 +54,45 @@ interface CacheEntry {
 const searchCache = new Map<string, CacheEntry>()
 const CACHE_TTL_MS = 45 * 60 * 1000
 
+async function runWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) return []
+  const results: R[] = new Array(items.length)
+  let currentIndex = 0
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (currentIndex < items.length) {
+      const idx = currentIndex++
+      results[idx] = await fn(items[idx])
+    }
+  })
+
+  await Promise.all(workers)
+  return results
+}
+
+function deduplicateRawResults(results: RawSearchResult[]): RawSearchResult[] {
+  const seen = new Set<string>()
+  const deduped: RawSearchResult[] = []
+  for (const item of results) {
+    const key = item.url
+      ? item.url.toLowerCase().trim()
+      : `${item.title.toLowerCase().trim()}___${(item.domain || item.source || '').toLowerCase().trim()}`
+    if (!seen.has(key)) {
+      seen.add(key)
+      deduped.push(item)
+    }
+  }
+  return deduped
+}
+
 export class OpportunitySearchOrchestrator {
   private openrouterProvider: OpenRouterWebProvider
   private adzunaProvider: AdzunaProvider
+  private adzunaEnabled: boolean
   private demoProvider: DemoProvider
   private maxQueries: number
   private maxWebResults: number
@@ -64,6 +102,7 @@ export class OpportunitySearchOrchestrator {
     this.openrouterProvider = new OpenRouterWebProvider({
       apiKey: config.openrouterApiKey,
     })
+    this.adzunaEnabled = config.adzunaEnabled ?? false
     this.adzunaProvider = new AdzunaProvider({
       appId: config.adzunaAppId,
       appKey: config.adzunaAppKey,
@@ -125,13 +164,15 @@ export class OpportunitySearchOrchestrator {
 
     // If Demo Mode, use DemoProvider
     if (isDemoMode) {
-      const rawResults: RawSearchResult[] = []
-      for (const q of queries) {
-        const res = await this.demoProvider.search(q)
-        rawResults.push(...res)
-      }
+      const demoTaskResults = await runWithConcurrency(
+        queries,
+        4,
+        async (q: SearchQuery) => this.demoProvider.search(q)
+      )
+      const rawResults = demoTaskResults.flat()
+      const dedupedRaw = deduplicateRawResults(rawResults)
 
-      const extractedOpps = rawResults.map((raw) => {
+      const extractedOpps = dedupedRaw.map((raw: RawSearchResult) => {
         const extraction = extractRequirementsDeterministically(raw)
         const oppId = generateOpportunityId(raw.url || extraction.application_url, extraction.company, extraction.title)
         return buildOpportunityFromExtraction(oppId, raw, extraction)
@@ -176,7 +217,7 @@ export class OpportunitySearchOrchestrator {
     // Connected Mode: Check providers
     const activeProviders: OpportunityProvider[] = []
     activeProviders.push(this.openrouterProvider)
-    if (this.adzunaProvider.isConfigured()) {
+    if (this.adzunaEnabled && this.adzunaProvider.isConfigured()) {
       activeProviders.push(this.adzunaProvider)
     }
 
@@ -191,20 +232,32 @@ export class OpportunitySearchOrchestrator {
       skipCount: 0,
     })
 
-    const rawDiscovered: RawSearchResult[] = []
+    // Fan out search tasks concurrently with bounded concurrency (3 tasks at a time)
+    const queryTasks: Array<{ query: SearchQuery; provider: OpportunityProvider }> = []
     for (const q of queries) {
       for (const provider of activeProviders) {
-        try {
-          const results = await provider.search(q)
-          rawDiscovered.push(...results)
-        } catch {
-          // continue
-        }
+        queryTasks.push({ query: q, provider })
       }
-      if (rawDiscovered.length >= this.maxWebResults) break
     }
 
-    // 4. Stage: Deduplicating
+    const taskResults = await runWithConcurrency(
+      queryTasks,
+      3,
+      async ({ query, provider }: { query: SearchQuery; provider: OpportunityProvider }) => {
+        try {
+          const timeoutPromise = new Promise<RawSearchResult[]>((_, reject) =>
+            setTimeout(() => reject(new Error('Search provider timeout')), 8000)
+          )
+          return await Promise.race([provider.search(query), timeoutPromise])
+        } catch {
+          return []
+        }
+      }
+    )
+
+    const rawDiscovered: RawSearchResult[] = taskResults.flat()
+
+    // 4. Stage: Deduplicating and parallel extraction
     onProgress?.({
       stage: 'deduplicating',
       message: `Discovered ${rawDiscovered.length} raw listings. Deduplicating and verifying URLs...`,
@@ -215,18 +268,22 @@ export class OpportunitySearchOrchestrator {
       skipCount: 0,
     })
 
-    const extractedOpps: Opportunity[] = []
-    const limitedRaw = rawDiscovered.slice(0, this.maxAnalyzed)
+    // Deduplicate raw listings BEFORE running expensive URL verification
+    const dedupedRaw = deduplicateRawResults(rawDiscovered).slice(0, this.maxAnalyzed)
 
-    for (let i = 0; i < limitedRaw.length; i++) {
-      const raw = limitedRaw[i]
-      const urlStatus = await verifyOpportunityUrl(raw.url)
-      const extraction = extractRequirementsDeterministically(raw)
-      const oppId = generateOpportunityId(raw.url || extraction.application_url, extraction.company, extraction.title)
-      const opp = buildOpportunityFromExtraction(oppId, raw, extraction)
-      opp.urlStatus = urlStatus.status
-      extractedOpps.push(opp)
-    }
+    // Verify URLs and extract requirements in parallel (5 concurrent items)
+    const extractedOpps = await runWithConcurrency(
+      dedupedRaw,
+      5,
+      async (raw: RawSearchResult) => {
+        const urlStatus = await verifyOpportunityUrl(raw.url)
+        const extraction = extractRequirementsDeterministically(raw)
+        const oppId = generateOpportunityId(raw.url || extraction.application_url, extraction.company, extraction.title)
+        const opp = buildOpportunityFromExtraction(oppId, raw, extraction)
+        opp.urlStatus = urlStatus.status
+        return opp
+      }
+    )
 
     const deduped = deduplicateOpportunities(extractedOpps)
 

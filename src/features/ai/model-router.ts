@@ -51,11 +51,11 @@ export class OpenRouterModelRouter {
   private apiKey: string
 
   public static readonly DEFAULT_MODELS = {
-    PRIMARY: 'google/gemini-2.0-flash-001',
+    PRIMARY: 'meta-llama/llama-3.3-70b-instruct',
     FALLBACKS: [
-      'anthropic/claude-3.5-haiku',
-      'meta-llama/llama-3.3-70b-instruct',
       'openai/gpt-4o-mini',
+      'google/gemini-2.0-flash-001',
+      'anthropic/claude-3.5-haiku',
     ],
   }
 
@@ -99,8 +99,9 @@ export class OpenRouterModelRouter {
    * Determine if an HTTP status or error is retriable/eligible for failover
    */
   public isRetriableError(status: number): boolean {
+    // 404 Model Not Found / Unavailable on account
     // 408 Timeout, 429 Rate Limit, 500, 502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout
-    return [408, 429, 500, 502, 503, 504].includes(status)
+    return [404, 408, 429, 500, 502, 503, 504].includes(status)
   }
 
   /**

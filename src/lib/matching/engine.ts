@@ -120,7 +120,9 @@ export function calculateMatch(context: MatchingContext): MatchResult {
   const degreeEligible = isDegreeSpecified
     ? (opportunity.eligibleDegrees.length === 0 ||
        opportunity.eligibleDegrees.some((deg) => {
-         const norm = deg.toLowerCase().replace(/[^a-z]/g, '')
+         const lower = deg.toLowerCase()
+         if (lower.includes('any') || lower.includes('all') || lower.includes('open')) return true
+         const norm = lower.replace(/[^a-z]/g, '')
          return norm.length > 0 && (norm.includes(degreeNormalized) || degreeNormalized.includes(norm))
        }))
     : false
@@ -202,13 +204,22 @@ export function calculateMatch(context: MatchingContext): MatchResult {
   }
 
   // 8. Intent Score (5%)
+  const targetRoleMatches = Boolean(
+    student.targetRole &&
+    (opportunity.roleTitle.toLowerCase().includes(student.targetRole.toLowerCase()) ||
+     student.targetRole.toLowerCase().includes(opportunity.roleTitle.toLowerCase()) ||
+     opportunity.category.toLowerCase().includes(student.targetRole.toLowerCase()))
+  )
   const categoryMatches = student.careerInterests.some(
     (interest) =>
       interest.toLowerCase().includes(opportunity.category.toLowerCase()) ||
       opportunity.category.toLowerCase().includes(interest.toLowerCase()) ||
       opportunity.roleTitle.toLowerCase().includes(interest.toLowerCase())
   )
-  const intentScore = categoryMatches ? 100 : 50
+  const intentScore = (targetRoleMatches || categoryMatches) ? 100 : 50
+  if (targetRoleMatches || categoryMatches) {
+    whyMatched.push(`Target role/career interests align with ${opportunity.roleTitle}`)
+  }
 
   // Weighted Total Calculation
   const weightedTotal =

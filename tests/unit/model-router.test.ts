@@ -22,6 +22,7 @@ describe('OpenRouterModelRouter', () => {
 
   it('correctly classifies retriable errors vs non-retriable errors', () => {
     // Retriable
+    expect(router.isRetriableError(404)).toBe(true) // Model endpoint not found / unavailable on account
     expect(router.isRetriableError(408)).toBe(true)
     expect(router.isRetriableError(429)).toBe(true)
     expect(router.isRetriableError(500)).toBe(true)
@@ -32,8 +33,34 @@ describe('OpenRouterModelRouter', () => {
     // Non-retriable
     expect(router.isRetriableError(400)).toBe(false)
     expect(router.isRetriableError(401)).toBe(false)
+    expect(router.isRetriableError(402)).toBe(false)
     expect(router.isRetriableError(403)).toBe(false)
-    expect(router.isRetriableError(404)).toBe(false)
+  })
+
+  it('fails over to secondary model when primary returns 404 endpoint not found', async () => {
+    const fetchMock = vi.fn()
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      text: async () => 'No endpoints found for model',
+    })
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { role: 'assistant', content: 'Fallback from 404 success' } }],
+      }),
+    })
+    globalThis.fetch = fetchMock
+
+    const result = await router.executeChatCompletion({
+      messages: [{ role: 'user', content: 'Hello' }],
+    })
+
+    expect(result.content).toBe('Fallback from 404 success')
+    expect(result.wasFallback).toBe(true)
+    expect(result.modelUsed).toBe('anthropic/claude-3.5-haiku')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('fails over to secondary model when primary returns 429', async () => {

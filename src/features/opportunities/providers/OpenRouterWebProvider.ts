@@ -16,7 +16,7 @@ export class OpenRouterWebProvider implements OpportunityProvider {
 
   constructor(config: OpenRouterConfig = {}) {
     this.config = {
-      model: config.model || 'google/gemini-2.0-flash-001',
+      model: config.model || 'meta-llama/llama-3.3-70b-instruct',
       engine: config.engine || 'auto',
       maxResults: config.maxResults || 10,
       maxTotalResults: config.maxTotalResults || 30,

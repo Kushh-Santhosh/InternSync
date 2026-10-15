@@ -7,6 +7,7 @@ export interface ServerConfig {
   openrouterApiKey: string
   openrouterModel: string
   openrouterFallbackModels: string[]
+  adzunaEnabled: boolean
   adzunaAppId: string
   adzunaAppKey: string
   adzunaCountry: string
@@ -14,12 +15,13 @@ export interface ServerConfig {
 
 const defaultConfig: ServerConfig = {
   openrouterApiKey: '',
-  openrouterModel: 'google/gemini-2.0-flash-001',
+  openrouterModel: 'meta-llama/llama-3.3-70b-instruct',
   openrouterFallbackModels: [
-    'anthropic/claude-3.5-haiku',
-    'meta-llama/llama-3.3-70b-instruct',
     'openai/gpt-4o-mini',
+    'google/gemini-2.0-flash-001',
+    'anthropic/claude-3.5-haiku',
   ],
+  adzunaEnabled: false,
   adzunaAppId: '',
   adzunaAppKey: '',
   adzunaCountry: 'in',
@@ -38,7 +40,11 @@ if (process.env.NODE_ENV !== 'production') {
           let val = match[2] || ''
           if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1)
           if (key === 'OPENROUTER_API_KEY' && val) defaultConfig.openrouterApiKey = val
-          if (key === 'OPENROUTER_MODEL' && val) defaultConfig.openrouterModel = val
+          if ((key === 'OPENROUTER_PRIMARY_MODEL' || key === 'OPENROUTER_MODEL') && val) defaultConfig.openrouterModel = val
+          if (key === 'OPENROUTER_FALLBACK_MODELS' && val) {
+            defaultConfig.openrouterFallbackModels = val.split(',').map((s) => s.trim()).filter(Boolean)
+          }
+          if (key === 'ADZUNA_ENABLED') defaultConfig.adzunaEnabled = val === 'true'
           if (key === 'ADZUNA_APP_ID' && val) defaultConfig.adzunaAppId = val
           if (key === 'ADZUNA_APP_KEY' && val) defaultConfig.adzunaAppKey = val
           if (key === 'ADZUNA_COUNTRY' && val) defaultConfig.adzunaCountry = val
@@ -54,14 +60,20 @@ if (process.env.NODE_ENV !== 'production') {
  * Returns dynamic configuration reading from process.env first (crucial for Vercel/serverless deployments)
  */
 export function getServerConfig(): ServerConfig {
+  const envFallbacks = process.env.OPENROUTER_FALLBACK_MODELS
+  const parsedFallbacks = envFallbacks
+    ? envFallbacks.split(',').map((s) => s.trim()).filter(Boolean)
+    : defaultConfig.openrouterFallbackModels
+
   return {
     openrouterApiKey: process.env.OPENROUTER_API_KEY || defaultConfig.openrouterApiKey || '',
     openrouterModel:
-      process.env.OPENROUTER_MODEL ||
       process.env.OPENROUTER_PRIMARY_MODEL ||
+      process.env.OPENROUTER_MODEL ||
       defaultConfig.openrouterModel ||
       'google/gemini-2.0-flash-001',
-    openrouterFallbackModels: defaultConfig.openrouterFallbackModels,
+    openrouterFallbackModels: parsedFallbacks.length > 0 ? parsedFallbacks : defaultConfig.openrouterFallbackModels,
+    adzunaEnabled: process.env.ADZUNA_ENABLED === 'true' || defaultConfig.adzunaEnabled,
     adzunaAppId: process.env.ADZUNA_APP_ID || defaultConfig.adzunaAppId || '',
     adzunaAppKey: process.env.ADZUNA_APP_KEY || defaultConfig.adzunaAppKey || '',
     adzunaCountry: process.env.ADZUNA_COUNTRY || defaultConfig.adzunaCountry || 'in',
@@ -152,26 +164,33 @@ export function sanitizePromptText(text: string): string {
 export async function handleSettingsHealth(_req: any, res: any): Promise<void> {
   const config = getServerConfig()
   const openrouterConfigured = Boolean(config.openrouterApiKey)
-  const adzunaConfigured = Boolean(config.adzunaAppId && config.adzunaAppKey)
 
-  sendJson(res, 200, {
+  const payload: Record<string, any> = {
     openrouter: {
       provider: 'OpenRouter Web Search & AI Router',
       status: openrouterConfigured ? 'ACTIVE' : 'NOT_CONFIGURED',
       message: openrouterConfigured
-        ? 'OpenRouter live search and model failover active.'
+        ? `OpenRouter active (Primary: ${config.openrouterModel}, Fallbacks: ${config.openrouterFallbackModels.length}).`
         : 'OpenRouter API key not configured on server.',
+      model: config.openrouterModel,
       lastChecked: new Date().toISOString(),
     },
-    adzuna: {
+  }
+
+  // Only expose Adzuna status if explicitly enabled
+  if (config.adzunaEnabled) {
+    const adzunaConfigured = Boolean(config.adzunaAppId && config.adzunaAppKey)
+    payload.adzuna = {
       provider: 'Adzuna Public Job Feed',
       status: adzunaConfigured ? 'ACTIVE' : 'NOT_CONFIGURED',
       message: adzunaConfigured
         ? `Adzuna API active (${config.adzunaCountry.toUpperCase()}).`
         : 'Adzuna credentials not configured on server.',
       lastChecked: new Date().toISOString(),
-    },
-  })
+    }
+  }
+
+  sendJson(res, 200, payload)
 }
 
 // 2. POST /api/ai/chat
@@ -323,43 +342,80 @@ Location: "${cleanLocation}"
 Format each discovered opportunity with markdown links:
 [Job Title @ Company](https://application-or-job-url) - Snippet and key required skills.`
 
-    const openrouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.openrouterApiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://internsync.io',
-        'X-Title': 'InternSync Live Intelligence',
-      },
-      body: JSON.stringify({
-        model: config.openrouterModel || 'google/gemini-2.0-flash-001',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a live web search agent finding active internship listings. Extract genuine URLs and factual job requirements.',
-          },
-          { role: 'user', content: prompt },
-        ],
-        tools: [
-          {
-            type: 'openrouter:web_search',
-            parameters: {
-              engine: 'auto',
-              max_results: 10,
-              max_total_results: 25,
-            },
-          },
-        ],
-      }),
-    })
+    const router = getModelRouter()
+    const candidateModels = router.getCandidateModels()
 
-    if (!openrouterRes.ok) {
-      const errorBody = await openrouterRes.text().catch(() => '')
-      sendJson(res, openrouterRes.status >= 500 ? 502 : openrouterRes.status, {
-        error: `OpenRouter search returned status ${openrouterRes.status}`,
+    let openrouterRes: Response | null = null
+    let chosenModel = ''
+    let lastErrorDetails = ''
+
+    for (const modelCandidate of candidateModels) {
+      try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 20000)
+
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${config.openrouterApiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://internsync.io',
+            'X-Title': 'InternSync Live Intelligence',
+          },
+          body: JSON.stringify({
+            model: modelCandidate,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are a live web search agent finding active internship listings. Extract genuine URLs and factual job requirements.',
+              },
+              { role: 'user', content: prompt },
+            ],
+            tools: [
+              {
+                type: 'openrouter:web_search',
+                parameters: {
+                  engine: 'auto',
+                  max_results: 10,
+                  max_total_results: 25,
+                },
+              },
+            ],
+          }),
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeout)
+
+        if (res.ok) {
+          openrouterRes = res
+          chosenModel = modelCandidate
+          router.recordSuccess(modelCandidate)
+          break
+        }
+
+        const status = res.status
+        const errorBody = await res.text().catch(() => '')
+        lastErrorDetails = `Model ${modelCandidate} failed with [${status}]: ${errorBody.slice(0, 150)}`
+
+        if (router.isRetriableError(status)) {
+          router.recordFailure(modelCandidate)
+          continue
+        } else {
+          break
+        }
+      } catch (err) {
+        router.recordFailure(modelCandidate)
+        lastErrorDetails = err instanceof Error ? err.message : String(err)
+      }
+    }
+
+    if (!openrouterRes || !openrouterRes.ok) {
+      sendJson(res, 502, {
+        error: 'Live web search failed across OpenRouter model candidates.',
         code: 'SEARCH_PROVIDER_ERROR',
-        details: errorBody.slice(0, 200),
+        details: lastErrorDetails,
         results: [],
       })
       return
@@ -397,7 +453,7 @@ Format each discovered opportunity with markdown links:
       })
     }
 
-    sendJson(res, 200, { results })
+    sendJson(res, 200, { results, modelUsed: chosenModel })
   } catch (err: unknown) {
     sendJson(res, 500, {
       error: err instanceof Error ? err.message : 'Search failed unexpectedly',
@@ -414,11 +470,11 @@ export async function handleSearchAdzuna(req: any, res: any): Promise<void> {
     const body = await parseJsonBody<{ query: { text: string; location?: string } }>(req)
     const q = body.query
 
-    if (!config.adzunaAppId || !config.adzunaAppKey) {
-      sendJson(res, 503, {
-        error: 'Adzuna API is not configured on the server.',
-        code: 'ADZUNA_NOT_CONFIGURED',
+    if (!config.adzunaEnabled || !config.adzunaAppId || !config.adzunaAppKey) {
+      sendJson(res, 200, {
         results: [],
+        source: 'Adzuna Public Job Feed',
+        message: 'Adzuna is disabled. Opportunity discovery is powered by OpenRouter.',
       })
       return
     }

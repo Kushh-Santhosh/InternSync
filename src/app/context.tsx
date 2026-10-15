@@ -306,15 +306,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsDemoModeState(false)
         await loadUserData(session.user.id, user.email, user.fullName)
       } else {
-        // Logged out
-        setCurrentUser(null)
-        setIsDemoModeState(false)
-        setUserProfile(BLANK_STUDENT_PROFILE)
-        setUserSkills([])
-        setUserProjects([])
-        setDocuments([])
-        setApplications([])
-        setLiveOpportunities([])
+        // No active Supabase session
+        // Only clear state if NOT in Demo Mode (preserves offline/demo judging on page refresh)
+        let inDemo = false
+        try {
+          const savedMode = localStorage.getItem(GLOBAL_STORAGE_KEYS.MODE)
+          inDemo = savedMode !== null ? JSON.parse(savedMode) : false
+        } catch {
+          inDemo = false
+        }
+
+        if (!inDemo) {
+          setCurrentUser(null)
+          setIsDemoModeState(false)
+          setUserProfile(BLANK_STUDENT_PROFILE)
+          setUserSkills([])
+          setUserProjects([])
+          setDocuments([])
+          setApplications([])
+          setLiveOpportunities([])
+        }
       }
     })
 
@@ -557,6 +568,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setIsDemoMode = (demo: boolean) => {
     setIsDemoModeState(demo)
+    try {
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.MODE, JSON.stringify(demo))
+    } catch {
+      // ignore
+    }
   }
 
   const updateProfile = (updates: Partial<StudentProfile>) => {

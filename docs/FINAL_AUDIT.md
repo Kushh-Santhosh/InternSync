@@ -114,30 +114,85 @@ The baseline codebase has a modern visual design, a deterministic 8-factor match
    - Result: **0 errors** (Clean exit code 0).
 2. `npm run lint`:
    - Command: `oxlint`
-   - Result: **0 errors, 9 non-blocking warnings** (Clean exit code 0).
+   - Result: **0 errors, 7 non-blocking warnings** (Clean exit code 0).
 3. `npm run test`:
    - Command: `vitest run`
-   - Result: **4 test suites passed, 29 tests passed, 0 failed** (Clean exit code 0).
+   - Result: **7 test suites passed, 47 tests passed, 0 failed** (Clean exit code 0).
    - Test files:
+     - `tests/unit/opportunity-persistence.test.ts` (6 passed)
+     - `tests/unit/account-switching.test.ts` (3 passed)
+     - `tests/unit/document-extraction.test.ts` (9 passed)
      - `tests/unit/real-product-pipeline.test.ts` (10 passed)
      - `tests/unit/live-search.test.ts` (8 passed)
      - `tests/unit/matching.test.ts` (6 passed)
      - `tests/unit/model-router.test.ts` (5 passed)
 4. `npm run build`:
    - Command: `tsc -b && vite build`
-   - Result: **Production client bundle built in 333ms to `dist/`** (Clean exit code 0).
-   - Bundle scan: No leaked OpenRouter keys or credentials found in `dist/`.
+   - Result: **Production client bundle built cleanly in `dist/`** (Clean exit code 0).
+   - Bundle scan: No leaked OpenRouter keys, service role secrets, or client credentials found in `dist/`.
 
-### Required Environment Configuration
-- `VITE_SUPABASE_URL`: Supabase project URL for authentication, database, and storage.
-- `VITE_SUPABASE_ANON_KEY`: Supabase anon public key for client initialization.
-- `OPENROUTER_API_KEY`: Server-side API key for live web search and AI candidate routing.
-- `ADZUNA_APP_ID` & `ADZUNA_APP_KEY`: Server-side credentials for live job postings API.
+---
 
-### Database Migrations & Deployment Steps
-1. Execute `supabase/migrations/20260329000001_initial_schema.sql` on the target PostgreSQL database to provision `profiles`, `student_skills`, `projects`, `applications`, indexes, and Row Level Security policies.
-2. Create the `documents` private storage bucket in Supabase Storage with authenticated access policies.
+## 5. Phase 2 — Critical Post-Audit Bug Fixes & Verification
 
-### Remaining External Blockers
-- When deploying to production environments without Supabase credentials, the application displays an honest configuration message and provides the explicit Demo Mode toggle. No mock data is written to real user stores.
+### Finding P2-01: Live-Opportunity Application Persistence Path
+- **Defect:** Live opportunity discovery generated string IDs in the format `opp-live-<timestamp>-<index>`, whereas the Supabase database schema requires valid UUIDs for `opportunities.id` and `applications.opportunity_id`. Additionally, `database.ts` explicitly skipped persisting opportunities with `opp-live-` IDs and then attempted to insert an application foreign-key referencing that non-existent record. When loading applications, missing listing data was masked by fabricating a placeholder company ("Company"), a default match score (80), and an unverified recommendation (`APPLY NOW`).
+- **Resolution:**
+  - Implemented RFC 4122 compliant deterministic UUIDv5 generation in `src/lib/utils/uuid.ts` (`generateOpportunityId`) based on normalized canonical URLs or stable title+company signatures.
+  - Rewrote `upsertUserApplication` in `src/lib/supabase/database.ts` to persist the opportunity in PostgreSQL *before* creating or updating the referencing application.
+  - Implemented idempotent retry and on-conflict handling for both opportunities and applications.
+  - Persisted original title, company, source, URL, status, and actual match score/recommendation.
+  - Removed all fabricated default values: when a referenced opportunity cannot be loaded from the database, the system restores an honest unavailable state (score: 0, recommendation: `SKIP`, title: "Unavailable Listing", badged with `Listing Unavailable`), rather than fabricating details.
+  - Added regression test suite `tests/unit/opportunity-persistence.test.ts` covering end-to-end saving, reloading, collision resistance, and graceful failure propagation.
+
+### Finding P2-02: Account Switching & Session Isolation
+- **Defect:** `context.tsx` conditionally replaced local user skills, projects, and applications only if the fetched server arrays were non-empty (`if (skills && skills.length > 0)`). Consequently, logging out of User A (who had skills/projects) and logging in as User B (who had no data) left User A's data visible in User B's dashboard. Furthermore, `localStorage` used global un-scoped keys, and signup assumed immediate authentication even when Supabase required email confirmation.
+- **Resolution:**
+  - Scoped all client cache keys to the authenticated user ID (`internsync_u_<userId>_*`).
+  - Implemented unconditional state replacement upon authentication change: switching to a user with empty records unconditionally resets React state to empty arrays.
+  - Handled logout and session expiry safely by flushing all user-scoped state.
+  - Updated signup flow in `context.tsx` and `SignupPage.tsx` to inspect `data.session`. If Supabase requires email verification (`session === null`), the UI halts authentication and presents a verification instructions card rather than falsely entering the dashboard.
+  - Added regression test suite `tests/unit/account-switching.test.ts` validating User A -> logout -> User B isolation and browser refresh session restoration.
+
+### Finding P2-03: Document Extraction Integrity & Format Handling
+- **Defect:** The previous PDF parser extracted text by scanning raw byte strings for PDF operators (`Tj`, `TJ`), which failed on standard compressed streams (`/FlateDecode`) and multi-page documents. Legacy binary files (`.doc`, `.ppt`) were passed into `JSZip`-based DOCX/PPTX parsers, which triggered unhandled decompression errors. Scanned image-only PDFs were not distinguished from readable text PDFs.
+- **Resolution:**
+  - Integrated `unpdf` for multi-page, compressed PDF text extraction, retaining a sliced buffer fallback for uncompressed streams.
+  - Implemented scanned PDF detection (`isScanned: true`) when page text density is below threshold, surfacing an explicit "Scanned document requiring OCR" notice.
+  - Implemented header validation (`0xD0CF11E0A1B11AE1`) in `docx-parser.ts` and `pptx-parser.ts` to detect and reject legacy binary formats with an actionable message prompting the student to save as modern `.docx` or `.pdf`.
+  - Added server-side structured AI extraction endpoint `POST /api/ai/extract-resume` in `src/server/api-handler.ts` using the configured OpenRouter model router with prompt injection protection, schema validation, and strict distinction between explicit text evidence and unconfirmed claims.
+  - Added regression test suite `tests/unit/document-extraction.test.ts` testing compressed PDFs, multi-page PDFs, scanned PDFs, empty PDFs, DOCX, PPTX, legacy `.doc`/`.ppt`, and corrupted files.
+
+### Finding P2-04: Document Metadata & Preference Persistence
+- **Defect:** Files uploaded to Supabase Storage were never tracked in a database table, preventing metadata restoration after session refresh. In `fetchUserProfile` and `upsertUserProfile`, `target_role` was hardcoded to "Frontend Developer" and `career_interests` was returned as `[]`.
+- **Resolution:**
+  - Created database migration `supabase/migrations/20261015_documents_and_preferences.sql` defining:
+    - `public.documents` table with owner user ID, original filename, private storage path, content type, byte size, document type, processing status, and metadata JSON.
+    - Added Row Level Security (RLS) policies for user-isolated select, insert, update, and delete.
+    - Added `target_role`, `career_interests`, and `bio` columns to `public.profiles`.
+    - Added `match_score` and `recommendation` columns to `public.applications`.
+  - Implemented `insertUserDocumentMetadata`, `fetchUserDocuments`, and `deleteUserDocument` in `database.ts` and hooked them up to `useApp` and `SettingsPage.tsx`.
+  - Updated `fetchUserProfile` and `upsertUserProfile` to persist and restore actual target roles, career interests, and bio without hardcoded defaults.
+
+### Finding P2-05: Removal of Assumed Candidate Defaults
+- **Defect:** Baseline profile templates defaulted students to 3rd year, B.Tech Computer Science, and specific preferences, falsely satisfying opportunity eligibility gates and inflating match scores for incomplete profiles.
+- **Resolution:**
+  - Replaced assumed defaults with `BLANK_STUDENT_PROFILE` (`src/data/blank-profile.ts`) with empty degree, `currentYear: 0`, and unfilled location.
+  - Updated matching engine (`src/lib/matching/engine.ts`) to recognize unconfirmed academic standing, penalize eligibility scores (30-50%), record unconfirmed breakdown notes, and prevent `APPLY NOW` recommendations when prerequisites cannot be verified.
+  - Enforced required academic inputs in `OnboardingPage.tsx` with clear validation indicators.
+
+---
+
+## 6. Verification Status & Outstanding Limitations
+
+### Verified Workflows
+- **Unit & Integration Test Suite:** 47 automated tests passing across 7 test files covering deterministic matching, live discovery, model routing, opportunity UUIDv5 persistence, account switching isolation, multi-page document parsing, and legacy format rejection.
+- **Type Safety & Build:** Zero TypeScript compiler diagnostics (`tsc -b`); clean Vite production client bundle in `dist/`.
+- **Security Audit:** Zero secrets or credentials present in client code or production bundle.
+
+### Operational Requirements & Unverified External Services
+- **Supabase Cloud Instance:** Full persistence of documents, applications, and profiles requires a live Supabase project with executed migrations (`20260329000001_initial_schema.sql` and `20261015_documents_and_preferences.sql`). When running locally without active Supabase credentials, InternSync safely operates in isolated demo mode or surfaces truthful configuration notices.
+- **OpenRouter Live API:** Live AI search and structured resume extraction require an active `OPENROUTER_API_KEY` on the backend server. In the absence of an API key, the server returns an honest HTTP 503 (`OPENROUTER_NOT_CONFIGURED`) error rather than simulating fake results.
+- **Adzuna API:** Live job search via Adzuna requires `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`. Unconfigured providers report provider downtime truthfully.
+
 

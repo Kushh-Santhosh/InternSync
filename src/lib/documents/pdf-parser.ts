@@ -1,81 +1,118 @@
+import { extractText } from 'unpdf'
+
 /**
- * Lightweight, resilient PDF text parser.
- * Extracts textual content from PDF binary streams, literal strings,
- * and text-showing operators (Tj, TJ, ', ").
+ * Result of structured PDF extraction.
  */
+export interface PdfParseResult {
+  text: string
+  totalPages: number
+  isScanned: boolean
+  isEmpty: boolean
+  error?: string
+}
 
-export async function parsePdf(fileData: ArrayBuffer | Uint8Array): Promise<string> {
+/**
+ * Extracts clean, multi-page text from compressed or standard PDF files.
+ * Accurately detects empty files and distinguishes text-based PDFs from scanned PDFs requiring OCR.
+ */
+export async function parsePdfDetailed(fileData: ArrayBuffer | Uint8Array): Promise<PdfParseResult> {
   const bytes = fileData instanceof Uint8Array ? fileData : new Uint8Array(fileData)
-  const decoder = new TextDecoder('latin1')
-  const rawString = decoder.decode(bytes)
 
-  if (!rawString.startsWith('%PDF-')) {
-    throw new Error('Invalid PDF: Missing %PDF- header')
+  if (bytes.length < 5) {
+    return {
+      text: '',
+      totalPages: 0,
+      isScanned: false,
+      isEmpty: true,
+      error: 'File is too small to be a valid PDF document.',
+    }
   }
 
-  const extractedLines: string[] = []
+  // Check PDF magic header %PDF-
+  const header = String.fromCharCode(...bytes.subarray(0, 5))
+  if (header !== '%PDF-') {
+    return {
+      text: '',
+      totalPages: 0,
+      isScanned: false,
+      isEmpty: true,
+      error: 'Invalid PDF format: Missing %PDF- header.',
+    }
+  }
 
-  // 1. Try extracting literal strings in text objects: BT ... ET blocks
-  const textBlocks = rawString.match(/BT[\s\S]*?ET/g) || []
+  try {
+    // Pass a copy so the original bytes are not detached by PDF.js worker transfer
+    const result = await extractText(new Uint8Array(bytes.slice()), { mergePages: true })
+    const totalPages = result.totalPages || 0
+    const rawText = typeof result.text === 'string' ? result.text : String(result.text || '')
+    const trimmed = rawText.trim()
 
-  for (const block of textBlocks) {
-    // Match [(...)...] TJ arrays
-    const tjArrays = block.match(/\[([\s\S]*?)\]\s*TJ/g) || []
-    for (const tj of tjArrays) {
-      const stringLiterals = tj.match(/\((.*?)\)/g) || []
-      const combined = stringLiterals
-        .map((s) => cleanPdfString(s.slice(1, -1)))
-        .join('')
-        .trim()
-      if (combined.length > 1) {
-        extractedLines.push(combined)
+    // Detect scanned PDFs (pages exist, but virtually zero selectable text streams)
+    const isScanned = totalPages > 0 && trimmed.length < 20
+    const isEmpty = trimmed.length === 0
+
+    return {
+      text: trimmed,
+      totalPages,
+      isScanned,
+      isEmpty,
+      error: isScanned
+        ? 'This PDF appears to be a scanned image or contains no selectable text streams. OCR is required to extract text.'
+        : isEmpty
+        ? 'PDF contains no readable text content.'
+        : undefined,
+    }
+  } catch (err: unknown) {
+    // Fallback for fragmented or non-standard PDFs with literal text operators
+    const rawFallback = extractRawPdfTextOperators(bytes)
+    if (rawFallback.length >= 3) {
+      return {
+        text: rawFallback,
+        totalPages: 1,
+        isScanned: false,
+        isEmpty: false,
       }
     }
 
-    // Match (text) Tj and ' / " operators
+    const message = err instanceof Error ? err.message : String(err)
+    return {
+      text: '',
+      totalPages: 0,
+      isScanned: false,
+      isEmpty: true,
+      error: `Failed to parse PDF document: ${message}`,
+    }
+  }
+}
+
+function extractRawPdfTextOperators(bytes: Uint8Array): string {
+  const decoder = new TextDecoder('latin1')
+  const rawString = decoder.decode(bytes)
+  const extractedLines: string[] = []
+
+  const textBlocks = rawString.match(/BT[\s\S]*?ET/g) || []
+  for (const block of textBlocks) {
     const tjSingles = block.match(/\((.*?)\)\s*T[jJ']/g) || []
     for (const single of tjSingles) {
       const match = single.match(/\((.*?)\)/)
-      if (match) {
-        const cleaned = cleanPdfString(match[1]).trim()
-        if (cleaned.length > 1) {
-          extractedLines.push(cleaned)
-        }
+      if (match && match[1]) {
+        extractedLines.push(match[1].trim())
       }
     }
   }
 
-  // 2. Fallback if PDF text was compressed or non-standard: extract all printable string sequences
-  if (extractedLines.length === 0) {
-    const rawMatches = rawString.match(/\(([a-zA-Z0-9\s.,@:;/\-_+()]{3,})\)/g) || []
-    for (const m of rawMatches) {
-      const inner = cleanPdfString(m.slice(1, -1)).trim()
-      if (inner.length > 3 && !inner.startsWith('CID') && !inner.startsWith('Font')) {
-        extractedLines.push(inner)
-      }
-    }
-  }
-
-  // Deduplicate consecutive identical lines and clean formatting
-  const result: string[] = []
-  for (let i = 0; i < extractedLines.length; i++) {
-    const line = extractedLines[i]
-    if (line !== extractedLines[i - 1]) {
-      result.push(line)
-    }
-  }
-
-  return result.join('\n')
+  return extractedLines.join('\n').trim()
 }
 
-function cleanPdfString(str: string): string {
-  return str
-    .replace(/\\([()\\])/g, '$1')
-    .replace(/\\n/g, '\n')
-    .replace(/\\r/g, '')
-    .replace(/\\t/g, ' ')
-    .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+/**
+ * Standard parsePdf interface returning text string or throwing an explicit error.
+ */
+export async function parsePdf(fileData: ArrayBuffer | Uint8Array): Promise<string> {
+  const result = await parsePdfDetailed(fileData)
+  if (result.error) {
+    throw new Error(result.error)
+  }
+  return result.text
 }
 
 export const parsePdfText = parsePdf
-

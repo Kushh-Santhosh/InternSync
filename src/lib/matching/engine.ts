@@ -108,25 +108,39 @@ export function calculateMatch(context: MatchingContext): MatchResult {
 
   // 2. Academic Eligibility (20%)
   const eligibilityNotes: string[] = []
-  const yearEligible =
-    opportunity.eligibleYears.length === 0 ||
-    opportunity.eligibleYears.includes(student.currentYear)
+  const isYearSpecified = typeof student.currentYear === 'number' && student.currentYear >= 1
+  const degreeClean = (student.degree || '').trim()
+  const isDegreeSpecified = degreeClean.length > 0
+  const degreeNormalized = degreeClean.toLowerCase().replace(/[^a-z]/g, '')
 
-  const degreeNormalized = student.degree.toLowerCase().replace(/[^a-z]/g, '')
-  const degreeEligible =
-    opportunity.eligibleDegrees.length === 0 ||
-    opportunity.eligibleDegrees.some((deg) =>
-      deg.toLowerCase().replace(/[^a-z]/g, '').includes(degreeNormalized) ||
-      degreeNormalized.includes(deg.toLowerCase().replace(/[^a-z]/g, ''))
-    )
+  const yearEligible = isYearSpecified
+    ? (opportunity.eligibleYears.length === 0 || opportunity.eligibleYears.includes(student.currentYear))
+    : false
+
+  const degreeEligible = isDegreeSpecified
+    ? (opportunity.eligibleDegrees.length === 0 ||
+       opportunity.eligibleDegrees.some((deg) => {
+         const norm = deg.toLowerCase().replace(/[^a-z]/g, '')
+         return norm.length > 0 && (norm.includes(degreeNormalized) || degreeNormalized.includes(norm))
+       }))
+    : false
 
   let eligibilityScore = 100
-  if (!yearEligible && !degreeEligible) {
+  if (!isYearSpecified && !isDegreeSpecified) {
+    eligibilityScore = 30
+    eligibilityNotes.push('Academic year and degree are unconfirmed in profile; eligibility cannot be verified.')
+  } else if (!isYearSpecified) {
+    eligibilityScore = 40
+    eligibilityNotes.push(`Academic year unconfirmed in profile; opportunity requires Year ${opportunity.eligibleYears.join('/') || 'specified'}.`)
+  } else if (!isDegreeSpecified) {
+    eligibilityScore = 50
+    eligibilityNotes.push(`Degree unconfirmed in profile; opportunity targets ${opportunity.eligibleDegrees.join(', ') || 'specified degrees'}.`)
+  } else if (!yearEligible && !degreeEligible) {
     eligibilityScore = 10
     eligibilityNotes.push(`This role is currently limited to year ${opportunity.eligibleYears.join(' or ')} students in ${opportunity.eligibleDegrees.join(', ')}`)
   } else if (!yearEligible) {
     eligibilityScore = 30
-    eligibilityNotes.push(`This role is currently limited to final-year students (Year ${opportunity.eligibleYears.join('/')})`)
+    eligibilityNotes.push(`This role is currently limited to Year ${opportunity.eligibleYears.join('/')} students (your profile indicates Year ${student.currentYear})`)
   } else if (!degreeEligible) {
     eligibilityScore = 60
     eligibilityNotes.push(`This opportunity specifically targets ${opportunity.eligibleDegrees.join(', ')} degrees`)
@@ -212,15 +226,16 @@ export function calculateMatch(context: MatchingContext): MatchResult {
   // Tri-State Recommendation Engine: APPLY NOW / PREPARE FIRST / SKIP
   let recommendation: RecommendationType = 'SKIP'
 
-  // Hard eligibility gate
+  // Hard eligibility gate: if year is not eligible, or eligibility is unconfirmed/mismatched
+  const isAcademicUnconfirmed = !isYearSpecified || !isDegreeSpecified
   const hasHardEligibilityMismatch = !yearEligible || eligibilityScore < 50
 
   if (hasHardEligibilityMismatch || overallMatchScore < 55) {
     recommendation = 'SKIP'
-  } else if (overallMatchScore >= 80 && skillScore >= 75 && yearEligible) {
+  } else if (overallMatchScore >= 80 && skillScore >= 75 && yearEligible && !isAcademicUnconfirmed) {
     recommendation = 'APPLY NOW'
   } else {
-    // 55 - 79% score with addressable skills
+    // 55 - 79% score with addressable skills or pending confirmation
     recommendation = 'PREPARE FIRST'
   }
 

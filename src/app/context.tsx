@@ -14,7 +14,10 @@ import {
   insertUserProject,
   fetchUserApplications,
   upsertUserApplication,
+  fetchUserDocuments,
+  deleteUserDocument,
 } from '@/lib/supabase/database'
+import { generateApplicationId } from '@/lib/utils/uuid'
 import type {
   ApplicationItem,
   ApplicationStatus,
@@ -28,26 +31,8 @@ import type {
   UploadedDocument,
 } from '@/types'
 
-const BLANK_STUDENT_PROFILE: StudentProfile = {
-  id: '',
-  fullName: '',
-  email: '',
-  university: '',
-  degree: 'B.Tech',
-  branch: 'Computer Science',
-  currentYear: 3,
-  graduationYear: 2026,
-  location: 'Bengaluru',
-  preferredLocations: ['Bengaluru', 'Remote'],
-  workModePreference: 'hybrid',
-  availableFrom: new Date().toISOString().split('T')[0],
-  availableDurationMonths: 3,
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  githubUsername: '',
-  careerInterests: ['AI Engineering', 'Full Stack Development'],
-  targetRole: 'Software Engineering Intern',
-  bio: '',
-}
+import { BLANK_STUDENT_PROFILE } from '@/data/blank-profile'
+export { BLANK_STUDENT_PROFILE }
 
 export interface AuthUser {
   id: string
@@ -57,10 +42,16 @@ export interface AuthUser {
   createdAt: string
 }
 
+export interface SignupResult {
+  success: boolean
+  requiresVerification?: boolean
+  email?: string
+}
+
 interface AppContextType {
   currentUser: AuthUser | null
   login: (email: string, password?: string) => Promise<boolean>
-  signup: (fullName: string, email: string, password?: string) => Promise<boolean>
+  signup: (fullName: string, email: string, password?: string) => Promise<SignupResult>
   logout: () => Promise<void>
   enterDemoMode: () => void
   profile: StudentProfile
@@ -89,7 +80,10 @@ interface AppContextType {
   setIsDemoMode: (isDemo: boolean) => void
   updateProfile: (profile: Partial<StudentProfile>) => void
   recordAssessmentResult: (skillName: string, score: number) => void
-  uploadDocument: (file: File, type: 'resume' | 'presentation' | 'report' | 'certificate') => Promise<DocumentAnalysisResult>
+  uploadDocument: (
+    file: File,
+    type: 'resume' | 'presentation' | 'report' | 'certificate'
+  ) => Promise<DocumentAnalysisResult>
   deleteDocument: (docId: string) => Promise<void>
   searchLiveOpportunities: (forceRefresh?: boolean) => Promise<void>
   refreshIntegrations: () => Promise<void>
@@ -103,22 +97,21 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
-const STORAGE_KEYS = {
-  MODE: 'internsync_demo_mode_v3',
-  USER_PROFILE: 'internsync_user_profile_v3',
-  USER_SKILLS: 'internsync_user_skills_v3',
-  USER_PROJECTS: 'internsync_user_projects_v3',
-  DOCUMENTS: 'internsync_documents_v3',
-  APPLICATIONS: 'internsync_applications_v3',
-  LIVE_OPPORTUNITIES: 'internsync_live_opps_v3',
-  AUTH_USER: 'internsync_auth_user_v3',
+const GLOBAL_STORAGE_KEYS = {
+  MODE: 'internsync_demo_mode_v4',
+  AUTH_USER: 'internsync_auth_user_v4',
+}
+
+function getUserStorageKey(userId: string | null, key: string): string {
+  if (!userId) return `internsync_guest_${key}_v4`
+  return `internsync_u_${userId}_${key}_v4`
 }
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Authentication State
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.AUTH_USER)
+      const saved = localStorage.getItem(GLOBAL_STORAGE_KEYS.AUTH_USER)
       return saved ? JSON.parse(saved) : null
     } catch {
       return null
@@ -128,47 +121,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Mode selection (defaults to real connected mode)
   const [isDemoMode, setIsDemoModeState] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.MODE)
+      const saved = localStorage.getItem(GLOBAL_STORAGE_KEYS.MODE)
       return saved !== null ? JSON.parse(saved) : false
     } catch {
       return false
     }
   })
 
-  // Real User Profile (blank by default for new real accounts)
+  // User Profile (blank by default for new real accounts)
   const [userProfile, setUserProfile] = useState<StudentProfile>(() => {
+    if (!currentUser?.id) return BLANK_STUDENT_PROFILE
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.USER_PROFILE)
+      const saved = localStorage.getItem(getUserStorageKey(currentUser.id, 'profile'))
       return saved ? JSON.parse(saved) : BLANK_STUDENT_PROFILE
     } catch {
       return BLANK_STUDENT_PROFILE
     }
   })
 
-  // Real User Skills (empty by default for new accounts)
+  // User Skills (empty by default for new accounts)
   const [userSkills, setUserSkills] = useState<SkillEvidenceItem[]>(() => {
+    if (!currentUser?.id) return []
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.USER_SKILLS)
+      const saved = localStorage.getItem(getUserStorageKey(currentUser.id, 'skills'))
       return saved ? JSON.parse(saved) : []
     } catch {
       return []
     }
   })
 
-  // Real User Projects (empty by default for new accounts)
+  // User Projects (empty by default for new accounts)
   const [userProjects, setUserProjects] = useState<ProjectItem[]>(() => {
+    if (!currentUser?.id) return []
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.USER_PROJECTS)
+      const saved = localStorage.getItem(getUserStorageKey(currentUser.id, 'projects'))
       return saved ? JSON.parse(saved) : []
     } catch {
       return []
     }
   })
 
-  // Real Uploaded Documents
+  // Uploaded Documents
   const [documents, setDocuments] = useState<UploadedDocument[]>(() => {
+    if (!currentUser?.id) return []
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.DOCUMENTS)
+      const saved = localStorage.getItem(getUserStorageKey(currentUser.id, 'documents'))
       return saved ? JSON.parse(saved) : []
     } catch {
       return []
@@ -177,8 +174,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Live opportunities discovered via real search
   const [liveOpportunities, setLiveOpportunities] = useState<Opportunity[]>(() => {
+    if (!currentUser?.id) return []
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.LIVE_OPPORTUNITIES)
+      const saved = localStorage.getItem(getUserStorageKey(currentUser.id, 'live_opps'))
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  // Applications Kanban state
+  const [applications, setApplications] = useState<ApplicationItem[]>(() => {
+    if (!currentUser?.id) return []
+    try {
+      const saved = localStorage.getItem(getUserStorageKey(currentUser.id, 'applications'))
       return saved ? JSON.parse(saved) : []
     } catch {
       return []
@@ -214,16 +223,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Comparison drawer state
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
 
-  // Applications Kanban state
-  const [applications, setApplications] = useState<ApplicationItem[]>(() => {
+  /**
+   * Loads an authenticated user's records from Supabase.
+   * Completely replaces in-memory state unconditionally to prevent cross-account data leaks.
+   */
+  const loadUserData = useCallback(async (userId: string, email: string, fullName: string) => {
+    // 1. Reset all state to clean baseline for the authenticated user
+    setUserProfile({
+      ...BLANK_STUDENT_PROFILE,
+      id: userId,
+      email,
+      fullName,
+    })
+    setUserSkills([])
+    setUserProjects([])
+    setDocuments([])
+    setApplications([])
+    setLiveOpportunities([])
+
+    // 2. Query Supabase for authoritative state
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.APPLICATIONS)
-      if (saved) return JSON.parse(saved)
-    } catch {
-      // fallback
+      const profile = await fetchUserProfile(userId)
+      if (profile) {
+        setUserProfile({
+          ...profile,
+          id: userId,
+          email: email || profile.email,
+        })
+      }
+
+      const skills = await fetchUserSkills(userId)
+      setUserSkills(skills ?? [])
+
+      const projects = await fetchUserProjects(userId)
+      setUserProjects(projects ?? [])
+
+      const docs = await fetchUserDocuments(userId)
+      setDocuments(docs ?? [])
+
+      const apps = await fetchUserApplications(userId)
+      setApplications(apps ?? [])
+    } catch (err) {
+      console.warn('[Context] Error restoring session data:', err)
     }
-    return []
-  })
+  }, [])
 
   // Restore real Supabase session & register auth listener on mount
   useEffect(() => {
@@ -231,57 +274,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     let isMounted = true
 
-    // Check active session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    // Check active session on initial load
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (!isMounted || error || !session) return
 
       const authUser: AuthUser = {
         id: session.user.id,
         email: session.user.email || '',
-        fullName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Student',
+        fullName:
+          session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Student',
         createdAt: session.user.created_at,
       }
       setCurrentUser(authUser)
-
-      // Fetch user records from Supabase
-      fetchUserProfile(session.user.id).then((profile) => {
-        if (profile && isMounted) {
-          setUserProfile((prev) => ({
-            ...prev,
-            ...profile,
-            id: session.user.id,
-            email: session.user.email || prev.email,
-          }))
-        }
-      })
-
-      fetchUserSkills(session.user.id).then((skills) => {
-        if (skills && skills.length > 0 && isMounted) setUserSkills(skills)
-      })
-
-      fetchUserProjects(session.user.id).then((projects) => {
-        if (projects && projects.length > 0 && isMounted) setUserProjects(projects)
-      })
-
-      fetchUserApplications(session.user.id).then((apps) => {
-        if (apps && apps.length > 0 && isMounted) setApplications(apps)
-      })
+      await loadUserData(session.user.id, authUser.email, authUser.fullName)
     })
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!isMounted) return
+
       if (session) {
         const user: AuthUser = {
           id: session.user.id,
           email: session.user.email || '',
-          fullName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Student',
+          fullName:
+            session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Student',
           createdAt: session.user.created_at,
         }
         setCurrentUser(user)
+        setIsDemoModeState(false)
+        await loadUserData(session.user.id, user.email, user.fullName)
       } else {
+        // Logged out
         setCurrentUser(null)
+        setIsDemoModeState(false)
+        setUserProfile(BLANK_STUDENT_PROFILE)
+        setUserSkills([])
+        setUserProjects([])
+        setDocuments([])
+        setApplications([])
+        setLiveOpportunities([])
       }
     })
 
@@ -289,44 +322,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isMounted = false
       subscription.unsubscribe()
     }
-  }, [])
+  }, [loadUserData])
 
-  // Synchronize storage for offline access & seamless restoration
+  // Synchronize user-scoped storage for offline resilience
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.MODE, JSON.stringify(isDemoMode))
+    localStorage.setItem(GLOBAL_STORAGE_KEYS.MODE, JSON.stringify(isDemoMode))
   }, [isDemoMode])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(userProfile))
-  }, [userProfile])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.USER_SKILLS, JSON.stringify(userSkills))
-  }, [userSkills])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.USER_PROJECTS, JSON.stringify(userProjects))
-  }, [userProjects])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(documents))
-  }, [documents])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(applications))
-  }, [applications])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.LIVE_OPPORTUNITIES, JSON.stringify(liveOpportunities))
-  }, [liveOpportunities])
-
-  useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(currentUser))
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.AUTH_USER, JSON.stringify(currentUser))
     } else {
-      localStorage.removeItem(STORAGE_KEYS.AUTH_USER)
+      localStorage.removeItem(GLOBAL_STORAGE_KEYS.AUTH_USER)
     }
   }, [currentUser])
+
+  useEffect(() => {
+    if (currentUser?.id && !isDemoMode) {
+      localStorage.setItem(getUserStorageKey(currentUser.id, 'profile'), JSON.stringify(userProfile))
+    }
+  }, [currentUser?.id, userProfile, isDemoMode])
+
+  useEffect(() => {
+    if (currentUser?.id && !isDemoMode) {
+      localStorage.setItem(getUserStorageKey(currentUser.id, 'skills'), JSON.stringify(userSkills))
+    }
+  }, [currentUser?.id, userSkills, isDemoMode])
+
+  useEffect(() => {
+    if (currentUser?.id && !isDemoMode) {
+      localStorage.setItem(getUserStorageKey(currentUser.id, 'projects'), JSON.stringify(userProjects))
+    }
+  }, [currentUser?.id, userProjects, isDemoMode])
+
+  useEffect(() => {
+    if (currentUser?.id && !isDemoMode) {
+      localStorage.setItem(getUserStorageKey(currentUser.id, 'documents'), JSON.stringify(documents))
+    }
+  }, [currentUser?.id, documents, isDemoMode])
+
+  useEffect(() => {
+    if (currentUser?.id && !isDemoMode) {
+      localStorage.setItem(getUserStorageKey(currentUser.id, 'applications'), JSON.stringify(applications))
+    }
+  }, [currentUser?.id, applications, isDemoMode])
+
+  useEffect(() => {
+    if (currentUser?.id && !isDemoMode) {
+      localStorage.setItem(getUserStorageKey(currentUser.id, 'live_opps'), JSON.stringify(liveOpportunities))
+    }
+  }, [currentUser?.id, liveOpportunities, isDemoMode])
 
   // Login handler
   const login = async (email: string, password?: string): Promise<boolean> => {
@@ -351,42 +396,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         setCurrentUser(user)
         setIsDemoModeState(false)
-
-        // Load profile and state for authenticated user
-        const profile = await fetchUserProfile(user.id)
-        if (profile) {
-          setUserProfile({ ...profile, id: user.id, email: user.email })
-        } else {
-          setUserProfile({
-            ...BLANK_STUDENT_PROFILE,
-            id: user.id,
-            email: user.email,
-            fullName: user.fullName,
-          })
-        }
-
-        const skills = await fetchUserSkills(user.id)
-        setUserSkills(skills)
-
-        const projects = await fetchUserProjects(user.id)
-        setUserProjects(projects)
-
-        const apps = await fetchUserApplications(user.id)
-        setApplications(apps)
-
+        await loadUserData(user.id, user.email, user.fullName)
         return true
       }
       return false
     }
 
-    // If Supabase is unconfigured, reject simulated login
     throw new Error(
       'Authentication service is unavailable. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable accounts, or switch to Demo Mode to explore.'
     )
   }
 
-  // Signup handler
-  const signup = async (fullName: string, email: string, password?: string): Promise<boolean> => {
+  // Signup handler respecting email verification
+  const signup = async (
+    fullName: string,
+    email: string,
+    password?: string
+  ): Promise<SignupResult> => {
     if (isSupabaseConfigured && supabase) {
       if (!password || password.length < 6) {
         throw new Error('Password must be at least 6 characters.')
@@ -402,11 +428,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         throw new Error(error.message)
       }
 
+      // If email confirmation is required by Supabase, session is null
+      if (!data.session) {
+        return {
+          success: true,
+          requiresVerification: true,
+          email,
+        }
+      }
+
+      // Immediate session
       const user: AuthUser = {
-        id: data.user?.id || `user-${Date.now()}`,
-        email,
-        fullName,
-        createdAt: new Date().toISOString(),
+        id: data.session.user.id,
+        email: data.session.user.email || email,
+        fullName: data.session.user.user_metadata?.full_name || fullName,
+        createdAt: data.session.user.created_at,
       }
       setCurrentUser(user)
       setIsDemoModeState(false)
@@ -420,14 +456,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUserProfile(initialProfile)
       setUserSkills([])
       setUserProjects([])
-      setLiveOpportunities([])
+      setDocuments([])
       setApplications([])
+      setLiveOpportunities([])
 
-      if (data.user?.id) {
-        await upsertUserProfile(initialProfile)
-      }
-
-      return true
+      await upsertUserProfile(initialProfile)
+      return { success: true, requiresVerification: false, email }
     }
 
     throw new Error(
@@ -445,9 +479,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUserProfile(BLANK_STUDENT_PROFILE)
     setUserSkills([])
     setUserProjects([])
+    setDocuments([])
     setApplications([])
     setLiveOpportunities([])
-    setDocuments([])
   }
 
   const enterDemoMode = () => {
@@ -461,8 +495,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return {
         ...userProfile,
         id: currentUser.id,
+        email: currentUser.email || userProfile.email,
         fullName: userProfile.fullName || currentUser.fullName,
-        email: userProfile.email || currentUser.email,
       }
     }
     return userProfile
@@ -529,7 +563,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }
 
-  // Upload document handler
+  // Upload document handler with true persistence
   const uploadDocument = async (
     file: File,
     type: 'resume' | 'presentation' | 'report' | 'certificate'
@@ -571,15 +605,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return result
   }
 
-  // Delete document handler
+  // Delete document handler connected to actual DB and Storage
   const deleteDocument = async (docId: string): Promise<void> => {
     const doc = documents.find((d) => d.id === docId)
-    if (doc?.storagePath && isSupabaseConfigured) {
+    if (currentUser && isSupabaseConfigured) {
       try {
-        const { deleteDocumentFromStorage } = await import('@/lib/supabase/database')
-        await deleteDocumentFromStorage(doc.storagePath)
-      } catch {
-        // Continue to remove locally
+        await deleteUserDocument(docId, doc?.storagePath)
+      } catch (err) {
+        console.warn('[Context] Failed to delete document from backend:', err)
       }
     }
     setDocuments((prev) => prev.filter((d) => d.id !== docId))
@@ -634,7 +667,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ? {
                 ...s,
                 assessmentScore: score,
-                confidence: Math.min(100, Math.max(s.confidence, Math.round((s.confidence + score) / 2) + 5)),
+                confidence: Math.min(
+                  100,
+                  Math.max(s.confidence, Math.round((s.confidence + score) / 2) + 5)
+                ),
                 evidenceSources: Array.from(new Set([...s.evidenceSources, 'assessment'] as const)),
                 lastValidatedAt: new Date().toISOString(),
               }
@@ -668,7 +704,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }
 
-  const addApplication = (opportunityId: string, status: ApplicationStatus = 'saved', notes = '') => {
+  const addApplication = (
+    opportunityId: string,
+    status: ApplicationStatus = 'saved',
+    notes = ''
+  ) => {
     const opp = activeOpportunities.find((o) => o.id === opportunityId)
     if (!opp) return
 
@@ -677,13 +717,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return prev
       }
       const match = matches.get(opportunityId)
+      const studentId = activeProfile.id || currentUser?.id || 'guest-student'
       const newApp: ApplicationItem = {
-        id: `app-${Date.now()}`,
-        studentId: activeProfile.id,
+        id: generateApplicationId(studentId, opportunityId),
+        studentId,
         opportunityId,
         opportunity: opp,
-        matchScore: match?.overallMatchScore || 70,
-        recommendation: match?.recommendation || 'APPLY NOW',
+        matchScore: match?.overallMatchScore ?? 0,
+        recommendation: match?.recommendation ?? 'APPLY NOW',
         status,
         notes: notes || `Added to ${status} stage.`,
         appliedAt: status === 'applied' ? new Date().toISOString() : undefined,
@@ -705,7 +746,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const updated = {
             ...app,
             status,
-            appliedAt: status === 'applied' && !app.appliedAt ? new Date().toISOString() : app.appliedAt,
+            appliedAt:
+              status === 'applied' && !app.appliedAt ? new Date().toISOString() : app.appliedAt,
             updatedAt: new Date().toISOString(),
           }
           if (currentUser && isSupabaseConfigured) {

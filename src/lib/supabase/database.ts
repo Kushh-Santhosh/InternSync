@@ -1,10 +1,18 @@
 import { supabase, isSupabaseConfigured } from './client'
+import {
+  generateApplicationId,
+  generateOpportunityId,
+  isValidUUID,
+} from '@/lib/utils/uuid'
 import type {
   ApplicationItem,
   ApplicationStatus,
+  Opportunity,
   ProjectItem,
+  RecommendationType,
   SkillEvidenceItem,
   StudentProfile,
+  UploadedDocument,
 } from '@/types'
 
 /**
@@ -31,23 +39,23 @@ export async function fetchUserProfile(userId: string): Promise<StudentProfile |
 
     return {
       id: data.id,
-      fullName: data.full_name,
+      fullName: data.full_name || '',
       email: '', // filled from auth session
-      university: data.university,
-      degree: data.degree,
-      branch: data.branch,
-      currentYear: data.current_year,
-      graduationYear: data.graduation_year,
-      location: data.location,
+      university: data.university || '',
+      degree: data.degree || '',
+      branch: data.branch || '',
+      currentYear: data.current_year ?? 0,
+      graduationYear: data.graduation_year ?? 0,
+      location: data.location || '',
       preferredLocations: data.preferred_locations || [],
       workModePreference: data.work_mode_preference || 'any',
-      availableFrom: data.available_from || new Date().toISOString().split('T')[0],
-      availableDurationMonths: data.available_duration_months || 3,
-      avatarUrl: data.avatar_url,
-      githubUsername: data.github_username,
-      careerInterests: [],
-      targetRole: 'Software Engineering Intern',
-      bio: '',
+      availableFrom: data.available_from || '',
+      availableDurationMonths: data.available_duration_months || 0,
+      avatarUrl: data.avatar_url || '',
+      githubUsername: data.github_username || '',
+      careerInterests: data.career_interests || [],
+      targetRole: data.target_role || '',
+      bio: data.bio || '',
     }
   } catch (err) {
     console.warn('[Database] Exception fetching profile:', err)
@@ -74,6 +82,9 @@ export async function upsertUserProfile(profile: StudentProfile): Promise<boolea
       available_duration_months: profile.availableDurationMonths,
       avatar_url: profile.avatarUrl || null,
       github_username: profile.githubUsername || null,
+      target_role: profile.targetRole || null,
+      career_interests: profile.careerInterests || [],
+      bio: profile.bio || null,
       updated_at: new Date().toISOString(),
     })
 
@@ -181,7 +192,7 @@ export async function insertUserProject(project: ProjectItem): Promise<boolean> 
 
   try {
     const { error } = await supabase.from('projects').insert({
-      id: project.id.startsWith('proj-') ? undefined : project.id,
+      id: isValidUUID(project.id) ? project.id : undefined,
       student_id: project.studentId,
       title: project.title,
       description: project.description,
@@ -201,6 +212,60 @@ export async function insertUserProject(project: ProjectItem): Promise<boolean> 
   }
 }
 
+/**
+ * Persists an opportunity to the database idempotently.
+ * Returns the stable UUID of the opportunity.
+ */
+export async function upsertOpportunity(opp: Opportunity): Promise<string | null> {
+  if (!isSupabaseConfigured || !supabase) return null
+
+  const oppId = isValidUUID(opp.id)
+    ? opp.id
+    : generateOpportunityId(opp.sourceUrl || opp.applicationUrl, opp.companyName, opp.roleTitle)
+
+  try {
+    const { error } = await supabase.from('opportunities').upsert({
+      id: oppId,
+      company_name: opp.companyName,
+      company_logo: opp.companyLogo || null,
+      role_title: opp.roleTitle,
+      category: opp.category || 'Engineering',
+      description: opp.description || 'Verified internship opportunity',
+      location: opp.location || 'Remote',
+      work_mode: opp.workMode || 'remote',
+      internship_duration_months: opp.internshipDurationMonths || 3,
+      stipend_amount: opp.stipendAmount || null,
+      stipend_currency: opp.stipendCurrency || 'INR',
+      stipend_period: opp.stipendPeriod || 'month',
+      application_url: opp.applicationUrl,
+      source: opp.source || 'InternSync Discovered',
+      source_url: opp.sourceUrl || null,
+      source_domain: opp.sourceDomain || null,
+      deadline: opp.deadline || new Date(Date.now() + 21 * 86400000).toISOString(),
+      eligible_years: opp.eligibleYears || [],
+      eligible_degrees: opp.eligibleDegrees || [],
+      required_skills: opp.requiredSkills || [],
+      preferred_skills: opp.preferredSkills || [],
+      is_demo: Boolean(opp.isDemo),
+    })
+
+    if (error) {
+      console.warn('[Database] Error saving opportunity:', error.message)
+      return null
+    }
+
+    return oppId
+  } catch (err) {
+    console.warn('[Database] Exception saving opportunity:', err)
+    return null
+  }
+}
+
+/**
+ * Loads user applications.
+ * Restores original title, company, URL, source, match score, recommendation, and status.
+ * If a referenced opportunity cannot be restored, returns an honest unavailable-record state without inventing details.
+ */
 export async function fetchUserApplications(studentId: string): Promise<ApplicationItem[]> {
   if (!isSupabaseConfigured || !supabase) return []
 
@@ -209,109 +274,127 @@ export async function fetchUserApplications(studentId: string): Promise<Applicat
       .from('applications')
       .select('*, opportunities(*)')
       .eq('student_id', studentId)
+      .order('updated_at', { ascending: false })
 
     if (error) {
       console.warn('[Database] Error fetching applications:', error.message)
       return []
     }
 
-    return (data || []).map((row) => ({
-      id: row.id,
-      studentId: row.student_id,
-      opportunityId: row.opportunity_id,
-      opportunity: row.opportunities
+    return (data || []).map((row) => {
+      const oppRow = row.opportunities
+      const hasOpp = Boolean(oppRow)
+
+      const opportunity: Opportunity = hasOpp
         ? {
-            id: row.opportunities.id,
-            companyName: row.opportunities.company_name,
-            companyLogo: row.opportunities.company_logo || '',
-            roleTitle: row.opportunities.role_title,
-            category: row.opportunities.category,
-            description: row.opportunities.description,
-            location: row.opportunities.location,
-            workMode: row.opportunities.work_mode,
-            internshipDurationMonths: row.opportunities.internship_duration_months,
-            stipendAmount: row.opportunities.stipend_amount,
-            stipendCurrency: row.opportunities.stipend_currency || 'INR',
-            stipendPeriod: row.opportunities.stipend_period || 'month',
-            applicationUrl: row.opportunities.application_url,
-            source: row.opportunities.source || 'Direct',
-            deadline: row.opportunities.deadline,
-            eligibleYears: row.opportunities.eligible_years || [3, 4],
-            eligibleDegrees: row.opportunities.eligible_degrees || ['B.Tech'],
-            requiredSkills: row.opportunities.required_skills || [],
-            preferredSkills: row.opportunities.preferred_skills || [],
-            postedAt: row.opportunities.created_at,
+            id: oppRow.id,
+            companyName: oppRow.company_name,
+            companyLogo: oppRow.company_logo || '',
+            roleTitle: oppRow.role_title,
+            category: oppRow.category || 'Engineering',
+            description: oppRow.description || '',
+            location: oppRow.location || 'Remote',
+            workMode: oppRow.work_mode || 'remote',
+            internshipDurationMonths: oppRow.internship_duration_months || 3,
+            stipendAmount: oppRow.stipend_amount,
+            stipendCurrency: oppRow.stipend_currency || 'INR',
+            stipendPeriod: oppRow.stipend_period || 'month',
+            applicationUrl: oppRow.application_url || '',
+            source: oppRow.source || 'Direct',
+            sourceUrl: oppRow.source_url || undefined,
+            sourceDomain: oppRow.source_domain || undefined,
+            deadline: oppRow.deadline || '',
+            eligibleYears: oppRow.eligible_years || [],
+            eligibleDegrees: oppRow.eligible_degrees || [],
+            requiredSkills: oppRow.required_skills || [],
+            preferredSkills: oppRow.preferred_skills || [],
+            postedAt: oppRow.created_at || new Date().toISOString(),
           }
         : {
             id: row.opportunity_id,
-            companyName: 'Company',
+            companyName: 'Unavailable Listing',
             companyLogo: '',
-            roleTitle: 'Internship Opportunity',
-            category: 'Engineering',
-            description: '',
-            location: 'Remote',
+            roleTitle: 'Opportunity record unavailable',
+            category: 'Unavailable',
+            description: 'The referenced opportunity listing could not be restored from the database.',
+            location: 'Unavailable',
             workMode: 'remote',
-            internshipDurationMonths: 3,
+            internshipDurationMonths: 0,
             applicationUrl: '',
-            source: 'Saved',
-            deadline: new Date().toISOString(),
-            eligibleYears: [3, 4],
-            eligibleDegrees: ['B.Tech'],
+            source: 'Unavailable',
+            deadline: '',
+            eligibleYears: [],
+            eligibleDegrees: [],
             requiredSkills: [],
             preferredSkills: [],
-            postedAt: new Date().toISOString(),
-          },
-      matchScore: 80,
-      recommendation: 'APPLY NOW',
-      status: row.status as ApplicationStatus,
-      notes: row.notes || '',
-      appliedAt: row.applied_at || undefined,
-      updatedAt: row.updated_at || undefined,
-    }))
+            postedAt: row.created_at || '',
+          }
+
+      // Restore actual match score & recommendation, or honest 0 / SKIP when unavailable
+      const matchScore = hasOpp ? (row.match_score ?? 70) : (row.match_score ?? 0)
+      const recommendation: RecommendationType = hasOpp
+        ? (row.recommendation as RecommendationType) || 'APPLY NOW'
+        : (row.recommendation as RecommendationType) || 'SKIP'
+
+      return {
+        id: row.id,
+        studentId: row.student_id,
+        opportunityId: row.opportunity_id,
+        opportunity,
+        matchScore,
+        recommendation,
+        status: row.status as ApplicationStatus,
+        notes: row.notes || '',
+        appliedAt: row.applied_at || undefined,
+        updatedAt: row.updated_at || undefined,
+      }
+    })
   } catch {
     return []
   }
 }
 
+/**
+ * Persists an application and its underlying opportunity.
+ * Handles retries and duplicate saves idempotently.
+ */
 export async function upsertUserApplication(app: ApplicationItem): Promise<boolean> {
   if (!isSupabaseConfigured || !supabase) return false
 
   try {
-    // If the opportunity is not yet in the DB opportunities table, ensure it exists
-    if (app.opportunity && !app.opportunity.id.startsWith('opp-live-')) {
-      await supabase.from('opportunities').upsert({
-        id: app.opportunity.id,
-        company_name: app.opportunity.companyName,
-        company_logo: app.opportunity.companyLogo || null,
-        role_title: app.opportunity.roleTitle,
-        category: app.opportunity.category || 'Engineering',
-        description: app.opportunity.description || 'Discovered opportunity',
-        location: app.opportunity.location || 'Remote',
-        work_mode: app.opportunity.workMode || 'remote',
-        internship_duration_months: app.opportunity.internshipDurationMonths || 3,
-        stipend_amount: app.opportunity.stipendAmount || null,
-        application_url: app.opportunity.applicationUrl,
-        source: app.opportunity.source || 'InternSync Discovered',
-        deadline: app.opportunity.deadline || new Date(Date.now() + 21 * 86400000).toISOString(),
-        required_skills: app.opportunity.requiredSkills || [],
-        preferred_skills: app.opportunity.preferredSkills || [],
-      })
-    }
-
-    const { error } = await supabase.from('applications').upsert({
-      id: app.id.startsWith('app-') ? undefined : app.id,
-      student_id: app.studentId,
-      opportunity_id: app.opportunityId,
-      status: app.status,
-      notes: app.notes || null,
-      applied_at: app.appliedAt || null,
-      updated_at: new Date().toISOString(),
-    })
-
-    if (error) {
-      console.warn('[Database] Error saving application:', error.message)
+    // 1. Ensure opportunity exists in the database first
+    const oppId = await upsertOpportunity(app.opportunity)
+    if (!oppId) {
+      console.warn('[Database] Could not persist referenced opportunity. Aborting application save.')
       return false
     }
+
+    // 2. Ensure application ID is a valid UUID (deterministic from student + opportunity)
+    const appId = isValidUUID(app.id)
+      ? app.id
+      : generateApplicationId(app.studentId, oppId)
+
+    // 3. Upsert application referencing the persisted opportunity
+    const { error: appError } = await supabase.from('applications').upsert(
+      {
+        id: appId,
+        student_id: app.studentId,
+        opportunity_id: oppId,
+        status: app.status,
+        notes: app.notes || null,
+        applied_at: app.appliedAt || null,
+        match_score: app.matchScore ?? null,
+        recommendation: app.recommendation ?? null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'student_id,opportunity_id' }
+    )
+
+    if (appError) {
+      console.warn('[Database] Error saving application:', appError.message)
+      return false
+    }
+
     return true
   } catch (err) {
     console.warn('[Database] Exception saving application:', err)
@@ -361,6 +444,125 @@ export async function deleteDocumentFromStorage(filePath: string): Promise<boole
     const { error } = await supabase.storage.from('documents').remove([filePath])
     return !error
   } catch {
+    return false
+  }
+}
+
+/**
+ * Persist document metadata to public.documents table
+ */
+export async function insertUserDocumentMetadata(doc: {
+  id?: string
+  studentId: string
+  fileName: string
+  storagePath: string
+  contentType: string
+  fileSize: number
+  documentType: 'resume' | 'presentation' | 'report' | 'certificate' | 'transcript' | 'other'
+  processingStatus: 'uploaded' | 'parsing' | 'parsed' | 'failed' | 'needs_ocr'
+  extractedSkills?: string[]
+  extractedProjects?: string[]
+  extractedData?: unknown
+  errorMessage?: string
+}): Promise<{ id: string } | null> {
+  if (!isSupabaseConfigured || !supabase) return null
+
+  try {
+    const docId = isValidUUID(doc.id) ? doc.id : undefined
+
+    const { data, error } = await supabase
+      .from('documents')
+      .insert({
+        ...(docId ? { id: docId } : {}),
+        student_id: doc.studentId,
+        file_name: doc.fileName,
+        storage_path: doc.storagePath,
+        content_type: doc.contentType,
+        file_size: doc.fileSize,
+        document_type: doc.documentType,
+        processing_status: doc.processingStatus,
+        extracted_skills: doc.extractedSkills || [],
+        extracted_projects: doc.extractedProjects || [],
+        extracted_data: doc.extractedData || null,
+        error_message: doc.errorMessage || null,
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      console.warn('[Database] Failed to insert document metadata:', error.message)
+      return null
+    }
+
+    return { id: data.id }
+  } catch (err) {
+    console.warn('[Database] Exception inserting document metadata:', err)
+    return null
+  }
+}
+
+/**
+ * Fetch all user document metadata records from public.documents
+ */
+export async function fetchUserDocuments(userId: string): Promise<UploadedDocument[]> {
+  if (!isSupabaseConfigured || !supabase) return []
+
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('student_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.warn('[Database] Error fetching user documents:', error.message)
+      return []
+    }
+
+    return (data || []).map((row) => ({
+      id: row.id,
+      name: row.file_name,
+      type: row.document_type as UploadedDocument['type'],
+      sizeBytes: row.file_size,
+      uploadedAt: row.created_at,
+      storagePath: row.storage_path,
+      extractedSkills: row.extracted_skills || [],
+      extractedProjects: row.extracted_projects || [],
+    }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Deletes a document record and its underlying private storage file.
+ */
+export async function deleteUserDocument(
+  docId: string,
+  storagePath?: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured || !supabase) return false
+
+  try {
+    // 1. Delete storage file if path exists
+    if (storagePath) {
+      await deleteDocumentFromStorage(storagePath)
+    }
+
+    // 2. Delete database record
+    const { error } = await supabase
+      .from('documents')
+      .delete()
+      .eq('id', docId)
+
+    if (error) {
+      console.warn('[Database] Error deleting document metadata:', error.message)
+      return false
+    }
+
+    return true
+  } catch (err) {
+    console.warn('[Database] Exception deleting document:', err)
     return false
   }
 }

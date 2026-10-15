@@ -24,23 +24,21 @@ export const OnboardingPage: React.FC = () => {
   const [uploadedResumeName, setUploadedResumeName] = useState<string | null>(null)
   const [uploadedPresentationName, setUploadedPresentationName] = useState<string | null>(null)
 
+  const [step1Error, setStep1Error] = useState('')
   const [formData, setFormData] = useState({
     fullName: profile.fullName || '',
     email: profile.email || '',
     university: profile.university || '',
-    degree: profile.degree || 'B.Tech',
-    branch: profile.branch || 'Computer Science & Engineering',
-    currentYear: profile.currentYear || 3,
-    graduationYear: profile.graduationYear || 2026,
-    location: profile.location || 'Bengaluru',
-    preferredLocations: profile.preferredLocations?.join(', ') || 'Bengaluru, Remote',
-    workModePreference: profile.workModePreference || 'hybrid',
+    degree: profile.degree || '',
+    branch: profile.branch || '',
+    currentYear: profile.currentYear || 0,
+    graduationYear: profile.graduationYear || 0,
+    location: profile.location || '',
+    preferredLocations: profile.preferredLocations?.join(', ') || '',
+    workModePreference: profile.workModePreference || 'any',
     availableDurationMonths: profile.availableDurationMonths || 3,
-    careerInterests:
-      profile.careerInterests?.length > 0
-        ? profile.careerInterests
-        : ['AI Engineering', 'Full Stack Development'],
-    targetRole: profile.targetRole || 'Software Engineering Intern',
+    careerInterests: profile.careerInterests || [],
+    targetRole: profile.targetRole || '',
   })
 
   // Resume upload & extraction states
@@ -229,10 +227,12 @@ export const OnboardingPage: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, currentYear: Number(e.target.value) })}
                   className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 >
+                  <option value={0}>Select current year</option>
                   <option value={1}>1st Year (Fresher)</option>
                   <option value={2}>2nd Year (Sophomore)</option>
                   <option value={3}>3rd Year (Pre-final)</option>
                   <option value={4}>4th Year (Final)</option>
+                  <option value={5}>5th Year (Dual Degree / Integrated)</option>
                 </select>
               </div>
 
@@ -250,9 +250,26 @@ export const OnboardingPage: React.FC = () => {
               </div>
             </div>
 
+            {step1Error && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
+                {step1Error}
+              </div>
+            )}
+
             <div className="pt-6 flex justify-end">
               <Button
-                onClick={() => setCurrentStep(2)}
+                onClick={() => {
+                  if (!formData.university.trim() || !formData.degree.trim()) {
+                    setStep1Error('Please specify your university and degree program.')
+                    return
+                  }
+                  if (!formData.currentYear || formData.currentYear < 1) {
+                    setStep1Error('Please select your current year of study.')
+                    return
+                  }
+                  setStep1Error('')
+                  setCurrentStep(2)
+                }}
                 className="bg-slate-900 hover:bg-slate-800 text-white text-xs px-6 py-2.5 rounded-xl"
               >
                 <span>Continue to Resume</span>
@@ -275,7 +292,7 @@ export const OnboardingPage: React.FC = () => {
             <input
               type="file"
               ref={fileInputRef}
-              accept=".pdf,.docx,.doc"
+              accept=".pdf,.docx"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0]

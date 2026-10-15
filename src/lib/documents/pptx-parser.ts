@@ -88,12 +88,27 @@ function extractTechnologies(text: string): string[] {
   return Array.from(found)
 }
 
+import { isLegacyOleBinary } from './docx-parser'
+
 /**
  * Real PPTX presentation parser using JSZip.
  * Operates on Uint8Array or ArrayBuffer.
  */
 export async function parsePptx(fileData: ArrayBuffer | Uint8Array): Promise<ParsedPresentation> {
-  const zip = await JSZip.loadAsync(fileData)
+  const bytes = fileData instanceof Uint8Array ? fileData : new Uint8Array(fileData)
+
+  if (isLegacyOleBinary(bytes)) {
+    throw new Error(
+      'Legacy binary Microsoft PowerPoint (.ppt) format is not supported. Please export or save your presentation as modern .pptx before uploading.'
+    )
+  }
+
+  let zip: JSZip
+  try {
+    zip = await JSZip.loadAsync(bytes)
+  } catch {
+    throw new Error('Invalid PPTX format: The file is corrupted or not a valid presentation archive.')
+  }
   const slides: ParsedSlide[] = []
 
   // Collect all slide xml files (ppt/slides/slide1.xml, etc.)

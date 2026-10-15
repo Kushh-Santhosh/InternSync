@@ -15,6 +15,7 @@ export const SignupPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [verificationSent, setVerificationSent] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,9 +32,13 @@ export const SignupPage: React.FC = () => {
     setIsLoading(true)
 
     try {
-      await signup(fullName.trim(), email.trim(), password)
-      // Redirect to onboarding wizard
-      navigate('/onboarding')
+      const res = await signup(fullName.trim(), email.trim(), password)
+      if (res.requiresVerification) {
+        setVerificationSent(true)
+      } else {
+        // Redirect to onboarding wizard
+        navigate('/onboarding')
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Account creation failed. Please try again.')
     } finally {
@@ -44,6 +49,38 @@ export const SignupPage: React.FC = () => {
   const handleEnterDemo = () => {
     enterDemoMode()
     navigate('/dashboard')
+  }
+
+  if (verificationSent) {
+    return (
+      <div className="min-h-screen bg-[#fafbfc] flex flex-col justify-center py-12 sm:px-6 lg:px-8 selection:bg-indigo-100 selection:text-indigo-900">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
+          <div className="flex justify-center mb-6">
+            <InternSyncLogo variant="full" size="lg" to="/" />
+          </div>
+        </div>
+
+        <div className="mt-4 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
+          <div className="bg-white py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/50 rounded-3xl border border-slate-200/80 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-2xs">
+              <Mail className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-900">Verify your email</h2>
+            <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+              We sent a verification link to <strong className="text-slate-900 font-semibold">{email}</strong>. Please check your inbox and verify your email before signing in.
+            </p>
+            <div className="pt-3">
+              <Button
+                onClick={() => navigate('/login')}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2.5 rounded-xl font-semibold shadow-xs"
+              >
+                Proceed to Log In
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

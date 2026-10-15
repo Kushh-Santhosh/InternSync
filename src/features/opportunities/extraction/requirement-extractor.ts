@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { SKILL_TAXONOMY, normalizeSkill } from '@/lib/matching/taxonomy'
+import { generateOpportunityId, isValidUUID } from '@/lib/utils/uuid'
 import type { Opportunity, RawSearchResult } from '@/types'
 
 export const OpportunityExtractionSchema = z.object({
@@ -155,8 +156,12 @@ export function buildOpportunityFromExtraction(
   raw: RawSearchResult,
   data: ExtractedOpportunityData
 ): Opportunity {
+  const finalId = isValidUUID(id)
+    ? id
+    : generateOpportunityId(raw.url || data.application_url, data.company, data.title)
+
   return {
-    id,
+    id: finalId,
     companyName: data.company,
     companyLogo: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.company)}&background=0F172A&color=fff&size=128`,
     roleTitle: data.title,

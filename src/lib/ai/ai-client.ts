@@ -13,7 +13,7 @@ import type { AIProvider, StructuredResumeResult } from './ai-provider'
 export class DemoAIProvider implements AIProvider {
   name = 'Deterministic Demo Intelligence Engine'
 
-  async analyzeResume(resumeText: string): Promise<StructuredResumeResult> {
+  async analyzeResume(_resumeText: string): Promise<StructuredResumeResult> {
     // Return structured profile calibrated for candidate
     return {
       personal: {
@@ -82,7 +82,7 @@ export class DemoAIProvider implements AIProvider {
     }
   }
 
-  async generateCareerDirection(interests: string[]): Promise<CareerDirectionRoleFit[]> {
+  async generateCareerDirection(_interests: string[]): Promise<CareerDirectionRoleFit[]> {
     return [
       {
         role: 'AI / Machine Learning Engineer',

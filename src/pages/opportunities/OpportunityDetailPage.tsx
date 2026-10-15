@@ -52,13 +52,13 @@ export const OpportunityDetailPage: React.FC = () => {
     }
   }
 
-  const handleMarkAsApplied = () => {
-    addApplication(opportunity.id, 'applied', 'Marked as applied by student.')
+  const handleMarkAsApplied = async () => {
+    await addApplication(opportunity.id, 'applied', 'Marked as applied by student.')
     navigate('/applications')
   }
 
-  const handleSaveToPipeline = () => {
-    addApplication(opportunity.id, 'saved', 'Saved to pipeline.')
+  const handleSaveToPipeline = async () => {
+    await addApplication(opportunity.id, 'saved', 'Saved to pipeline.')
     navigate('/applications')
   }
 

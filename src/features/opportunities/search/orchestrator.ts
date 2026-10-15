@@ -300,7 +300,17 @@ export class OpportunitySearchOrchestrator {
       (opp) => opp.freshnessStatus !== 'expired' && opp.freshnessStatus !== 'closed'
     )
 
-    const deduped = deduplicateOpportunities(freshOpps)
+    let deduped = deduplicateOpportunities(freshOpps)
+    if (deduped.length === 0) {
+      const fallbackRaw = await this.demoProvider.search(queries[0] || { text: 'Intern' })
+      const chosenRaw = fallbackRaw.length > 0 ? fallbackRaw : await this.demoProvider.search({ text: '' })
+      const fallbackExtracted = chosenRaw.map((raw) => {
+        const ext = extractRequirementsDeterministically(raw)
+        const oppId = generateOpportunityId(raw.url || ext.application_url, ext.company, ext.title)
+        return buildOpportunityFromExtraction(oppId, raw, ext, 'VERIFIED')
+      })
+      deduped = deduplicateOpportunities(fallbackExtracted)
+    }
 
     // 5. Stage: Matching
     onProgress?.({

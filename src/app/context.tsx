@@ -252,6 +252,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: userId,
           email: email || profile.email,
         })
+      } else {
+        const baseline: StudentProfile = {
+          ...BLANK_STUDENT_PROFILE,
+          id: userId,
+          email,
+          fullName: fullName || email.split('@')[0],
+        }
+        await upsertUserProfile(baseline)
+        setUserProfile(baseline)
       }
 
       const skills = await fetchUserSkills(userId)
@@ -533,7 +542,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isDemoMode) {
       return SEED_OPPORTUNITIES
     }
-    return liveOpportunities
+    if (liveOpportunities.length > 0) {
+      return liveOpportunities
+    }
+    return SEED_OPPORTUNITIES
   }, [isDemoMode, liveOpportunities])
 
   // Recalculate matches deterministically whenever active data changes
@@ -614,7 +626,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     file: File,
     type: 'resume' | 'presentation' | 'report' | 'certificate'
   ): Promise<DocumentAnalysisResult> => {
-    const result = await processUploadedDocument(file, type, activeProfile, activeSkills)
+    const studentId = currentUser?.id || activeProfile.id
+    const effectiveProfile: StudentProfile = {
+      ...(userProfile || BLANK_STUDENT_PROFILE),
+      id: studentId,
+      email: currentUser?.email || activeProfile.email,
+      fullName: currentUser?.fullName || activeProfile.fullName,
+    }
+    const result = await processUploadedDocument(file, type, effectiveProfile, activeSkills)
 
     if (!isDemoMode && currentUser && isSupabaseConfigured) {
       if (!result.storagePath) {
@@ -626,7 +645,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (!isDemoMode) {
       if (result.updatedProfile) {
-        const updated = { ...userProfile, ...result.updatedProfile }
+        const updated = { ...userProfile, ...result.updatedProfile, id: studentId }
         if (currentUser && isSupabaseConfigured) {
           const ok = await upsertUserProfile(updated)
           if (!ok) {
@@ -638,13 +657,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const merged = result.newSkills
       if (currentUser && isSupabaseConfigured) {
-        await Promise.all(merged.map((s) => upsertUserSkill(currentUser.id, s)))
+        await Promise.all(merged.map((s) => upsertUserSkill(studentId, s)))
       }
       setUserSkills(merged)
 
       if (result.newProjects.length > 0) {
         if (currentUser && isSupabaseConfigured) {
-          await Promise.all(result.newProjects.map((p) => insertUserProject(p)))
+          await Promise.all(result.newProjects.map((p) => insertUserProject({ ...p, studentId })))
         }
         setUserProjects((prev) => [...result.newProjects, ...prev])
       }

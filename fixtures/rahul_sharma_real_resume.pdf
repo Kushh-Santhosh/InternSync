@@ -1,0 +1,89 @@
+%PDF-1.4
+1 0 obj
+<</Type/Catalog/Pages 2 0 R>>
+endobj
+2 0 obj
+<</Type/Pages/Kids[3 0 R 4 0 R]/Count 2>>
+endobj
+3 0 obj
+<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<</Font<</F1 7 0 R>>>>/Contents 5 0 R>>
+endobj
+4 0 obj
+<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<</Font<</F1 7 0 R>>>>/Contents 6 0 R>>
+endobj
+5 0 obj
+<</Length 1094>>
+stream
+BT
+/F1 14 Tf
+50 720 Td (RAHUL SHARMA) Tj
+/F1 10 Tf
+0 -18 Td (New Delhi, India | rahul.sharma.dev2026@gmail.com | github.com/rahul-sharma) Tj
+/F1 12 Tf
+0 -28 Td (EDUCATION) Tj
+/F1 10 Tf
+0 -16 Td (Delhi Technological University - B.Tech in Computer Science and Engineering) Tj
+0 -14 Td (Current Year: 3rd Year | Graduation Year: 2026 | CGPA: 8.8 / 10.0) Tj
+/F1 12 Tf
+0 -26 Td (CORE SKILLS & TECHNOLOGIES) Tj
+/F1 10 Tf
+0 -16 Td (Languages: TypeScript, JavaScript, Python, SQL, C++) Tj
+0 -14 Td (Frontend: React, Next.js, Tailwind CSS, Redux Toolkit, HTML5, CSS3) Tj
+0 -14 Td (Backend: Node.js, Express, FastAPI, PostgreSQL, Supabase, REST APIs) Tj
+0 -14 Td (Tools: Docker, Git, Linux, GitHub Actions, Vitest, Playwright) Tj
+/F1 12 Tf
+0 -26 Td (PROFESSIONAL WORK EXPERIENCE) Tj
+/F1 11 Tf
+0 -16 Td (Software Engineering Intern - TechNova Solutions, Bangalore) Tj
+/F1 10 Tf
+0 -14 Td (Duration: May 2025 - July 2025) Tj
+0 -14 Td (Implemented responsive client-side telemetry dashboards in React and TypeScript.) Tj
+0 -14 Td (Optimized PostgreSQL queries reducing endpoint latency by 32 percent.) Tj
+ET
+endstream
+endobj
+6 0 obj
+<</Length 927>>
+stream
+BT
+/F1 14 Tf
+50 720 Td (RAHUL SHARMA - PROJECTS & EVIDENCE) Tj
+/F1 12 Tf
+0 -28 Td (KEY TECHNICAL PROJECTS) Tj
+/F1 11 Tf
+0 -16 Td (1. InternSync - Opportunity Readiness Platform) Tj
+/F1 10 Tf
+0 -14 Td (Full-stack AI readiness system matching students to verified opportunities.) Tj
+0 -14 Td (Built with React 19, TypeScript, PostgreSQL, and Google Gemini SDK.) Tj
+0 -14 Td (Engineered deterministic weighted compatibility engine and resume analysis pipeline.) Tj
+/F1 11 Tf
+0 -20 Td (2. NeuroVision Real-time Image Classifier) Tj
+/F1 10 Tf
+0 -14 Td (High-throughput inference microservice using Python, FastAPI, and Docker.) Tj
+0 -14 Td (Containerized with multi-stage Docker builds and automated CI testing.) Tj
+/F1 12 Tf
+0 -26 Td (CERTIFICATIONS & ACHIEVEMENTS) Tj
+/F1 10 Tf
+0 -16 Td (AWS Certified Cloud Practitioner - Issued 2025) Tj
+0 -14 Td (Finalist in National AI Hackathon 2025 for student readiness intelligence.) Tj
+ET
+endstream
+endobj
+7 0 obj
+<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000054 00000 n 
+0000000111 00000 n 
+0000000223 00000 n 
+0000000335 00000 n 
+0000001479 00000 n 
+0000002455 00000 n 
+trailer
+<</Size 8/Root 1 0 R>>
+startxref
+2518
+%%EOF

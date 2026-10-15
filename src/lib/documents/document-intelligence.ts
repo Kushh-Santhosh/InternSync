@@ -6,6 +6,7 @@ import { SKILL_TAXONOMY, normalizeSkill } from '@/lib/matching/taxonomy'
 import {
   insertUserDocumentMetadata,
   uploadDocumentToStorage,
+  upsertUserProfile,
 } from '@/lib/supabase/database'
 import { isValidUUID } from '@/lib/utils/uuid'
 import type {
@@ -333,22 +334,28 @@ export function extractProfileFromResumeText(text: string): Partial<StudentProfi
 export async function extractStructuredResumeAI(text: string): Promise<ExtractedResumeData | null> {
   if (!text || text.trim().length < 30) return null
   try {
+    console.log('[extractStructuredResumeAI] Posting to /api/ai/extract-resume with length:', text.length)
     const res = await fetch('/api/ai/extract-resume', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
     })
 
+    console.log('[extractStructuredResumeAI] HTTP response status:', res.status)
     if (!res.ok) return null
     const json = await res.json()
+    console.log('[extractStructuredResumeAI] Parsed JSON, success:', json.success)
     if (!json.success || !json.extracted) return null
 
     const parsed = ExtractedResumeSchema.safeParse(json.extracted)
     if (parsed.success) {
+      console.log('[extractStructuredResumeAI] Schema validated successfully!')
       return parsed.data
     }
+    console.warn('[extractStructuredResumeAI] Schema validation failed:', parsed.error)
     return null
-  } catch {
+  } catch (err) {
+    console.error('[extractStructuredResumeAI] Fetch exception:', err)
     return null
   }
 }
@@ -473,7 +480,15 @@ export async function processUploadedDocument(
       if (aiExtraction.university) profileUpdates.university = aiExtraction.university
       if (aiExtraction.degree) profileUpdates.degree = aiExtraction.degree
       if (aiExtraction.branch) profileUpdates.branch = aiExtraction.branch
-      if (aiExtraction.currentYear) profileUpdates.currentYear = aiExtraction.currentYear
+      if (aiExtraction.currentYear) {
+        let yr = aiExtraction.currentYear
+        if (yr > 5 && aiExtraction.graduationYear) {
+          yr = Math.max(1, Math.min(5, 4 - (aiExtraction.graduationYear - 2025)))
+        } else if (yr > 5) {
+          yr = 3
+        }
+        profileUpdates.currentYear = yr
+      }
       if (aiExtraction.graduationYear) profileUpdates.graduationYear = aiExtraction.graduationYear
       if (aiExtraction.location) profileUpdates.location = aiExtraction.location
 
@@ -563,12 +578,19 @@ export async function processUploadedDocument(
   // 5. Upload to Supabase Storage & Database if user is authenticated
   let storagePath: string | undefined
   if (currentProfile.id) {
+    console.log('[processUploadedDocument] Ensuring profile row exists for:', currentProfile.id)
+    await upsertUserProfile(currentProfile)
+
+    console.log('[processUploadedDocument] Uploading to private Supabase storage...')
     const uploadRes = await uploadDocumentToStorage(currentProfile.id, file)
     if (uploadRes.error) {
+      console.error('[processUploadedDocument] Storage upload error:', uploadRes.error)
       throw new Error(`Failed to upload document to storage: ${uploadRes.error}`)
     }
     storagePath = uploadRes.path
+    console.log('[processUploadedDocument] Storage upload successful, path:', storagePath)
 
+    console.log('[processUploadedDocument] Inserting document metadata into public.documents...')
     const metaRes = await insertUserDocumentMetadata({
       id: isValidUUID(docId) ? docId : undefined,
       studentId: currentProfile.id,
@@ -587,8 +609,10 @@ export async function processUploadedDocument(
     })
 
     if (!metaRes) {
+      console.error('[processUploadedDocument] Metadata insertion failed')
       throw new Error('Failed to record document metadata in database.')
     }
+    console.log('[processUploadedDocument] Document metadata saved successfully!')
     summaryNotes.push('Stored and recorded securely in private document storage.')
   }
 

@@ -76,6 +76,7 @@ Return list of discovered internship opportunities. For each opportunity provide
           },
           { role: 'user', content: prompt },
         ],
+        max_tokens: 1500,
         tools: [
           {
             type: 'openrouter:web_search',

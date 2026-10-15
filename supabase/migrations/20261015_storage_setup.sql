@@ -22,8 +22,8 @@ ON CONFLICT (id) DO UPDATE SET
   file_size_limit = EXCLUDED.file_size_limit,
   allowed_mime_types = EXCLUDED.allowed_mime_types;
 
--- 2. Ensure RLS is enabled on storage.objects
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+-- 2. Note: RLS is already enabled by Supabase on storage.objects by default.
+-- (Executing ALTER TABLE storage.objects produces ERROR 42501: must be owner of table objects)
 
 -- 3. Policy: Authenticated users can upload documents ONLY to their own folder (auth.uid()/<file>)
 DROP POLICY IF EXISTS "Authenticated users can upload own documents" ON storage.objects;

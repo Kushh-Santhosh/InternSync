@@ -76,19 +76,20 @@ interface AppContextType {
   integrations: {
     openrouter?: ProviderHealth
     adzuna?: ProviderHealth
+    supabase?: ProviderHealth
   }
   setIsDemoMode: (isDemo: boolean) => void
-  updateProfile: (profile: Partial<StudentProfile>) => void
+  updateProfile: (profile: Partial<StudentProfile>) => Promise<boolean>
   recordAssessmentResult: (skillName: string, score: number) => void
   uploadDocument: (
     file: File,
     type: 'resume' | 'presentation' | 'report' | 'certificate'
   ) => Promise<DocumentAnalysisResult>
-  deleteDocument: (docId: string) => Promise<void>
+  deleteDocument: (docId: string) => Promise<boolean>
   searchLiveOpportunities: (forceRefresh?: boolean) => Promise<void>
   refreshIntegrations: () => Promise<void>
-  addApplication: (opportunityId: string, status?: ApplicationStatus, notes?: string) => void
-  updateApplicationStatus: (applicationId: string, status: ApplicationStatus) => void
+  addApplication: (opportunityId: string, status?: ApplicationStatus, notes?: string) => Promise<boolean>
+  updateApplicationStatus: (applicationId: string, status: ApplicationStatus) => Promise<boolean>
   updateApplicationNotes: (applicationId: string, notes: string) => void
   toggleComparison: (opportunityId: string) => void
   clearComparison: () => void
@@ -218,6 +219,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [integrations, setIntegrations] = useState<{
     openrouter?: ProviderHealth
     adzuna?: ProviderHealth
+    supabase?: ProviderHealth
   }>({})
 
   // Comparison drawer state
@@ -575,18 +577,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }
 
-  const updateProfile = (updates: Partial<StudentProfile>) => {
+  const updateProfile = async (updates: Partial<StudentProfile>): Promise<boolean> => {
     if (isDemoMode) {
-      // Demo mode updates remain in-memory
-    } else {
-      setUserProfile((prev) => {
-        const updated = { ...prev, ...updates }
-        if (currentUser && isSupabaseConfigured) {
-          upsertUserProfile(updated)
-        }
-        return updated
-      })
+      setUserProfile((prev) => ({ ...prev, ...updates }))
+      return true
     }
+
+    const updated = { ...userProfile, ...updates }
+    if (currentUser && isSupabaseConfigured) {
+      const ok = await upsertUserProfile(updated)
+      if (!ok) {
+        throw new Error('Failed to save profile changes to Supabase database. Please ensure migrations are applied.')
+      }
+    }
+    setUserProfile(updated)
+    return true
   }
 
   // Upload document handler with true persistence
@@ -596,35 +601,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ): Promise<DocumentAnalysisResult> => {
     const result = await processUploadedDocument(file, type, activeProfile, activeSkills)
 
+    if (!isDemoMode && currentUser && isSupabaseConfigured) {
+      if (!result.storagePath) {
+        throw new Error('Upload failed: Document could not be saved to private Supabase storage.')
+      }
+    }
+
     setDocuments((prev) => [result.document, ...prev])
 
     if (!isDemoMode) {
       if (result.updatedProfile) {
-        setUserProfile((prev) => {
-          const updated = { ...prev, ...result.updatedProfile }
-          if (currentUser && isSupabaseConfigured) {
-            upsertUserProfile(updated)
+        const updated = { ...userProfile, ...result.updatedProfile }
+        if (currentUser && isSupabaseConfigured) {
+          const ok = await upsertUserProfile(updated)
+          if (!ok) {
+            console.warn('[Context] Failed to persist extracted profile updates to Supabase.')
           }
-          return updated
-        })
+        }
+        setUserProfile(updated)
       }
 
-      setUserSkills((_prev) => {
-        const merged = result.newSkills
-        if (currentUser && isSupabaseConfigured) {
-          merged.forEach((s) => upsertUserSkill(currentUser.id, s))
-        }
-        return merged
-      })
+      const merged = result.newSkills
+      if (currentUser && isSupabaseConfigured) {
+        await Promise.all(merged.map((s) => upsertUserSkill(currentUser.id, s)))
+      }
+      setUserSkills(merged)
 
       if (result.newProjects.length > 0) {
-        setUserProjects((prev) => {
-          const updated = [...result.newProjects, ...prev]
-          if (currentUser && isSupabaseConfigured) {
-            result.newProjects.forEach((p) => insertUserProject(p))
-          }
-          return updated
-        })
+        if (currentUser && isSupabaseConfigured) {
+          await Promise.all(result.newProjects.map((p) => insertUserProject(p)))
+        }
+        setUserProjects((prev) => [...result.newProjects, ...prev])
       }
     }
 
@@ -632,16 +639,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }
 
   // Delete document handler connected to actual DB and Storage
-  const deleteDocument = async (docId: string): Promise<void> => {
+  const deleteDocument = async (docId: string): Promise<boolean> => {
     const doc = documents.find((d) => d.id === docId)
     if (currentUser && isSupabaseConfigured) {
-      try {
-        await deleteUserDocument(docId, doc?.storagePath)
-      } catch (err) {
-        console.warn('[Context] Failed to delete document from backend:', err)
+      const ok = await deleteUserDocument(docId, doc?.storagePath)
+      if (!ok) {
+        throw new Error('Failed to delete document from Supabase storage / database.')
       }
     }
     setDocuments((prev) => prev.filter((d) => d.id !== docId))
+    return true
   }
 
   // Live opportunity search runner
@@ -730,60 +737,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }
 
-  const addApplication = (
+  const addApplication = async (
     opportunityId: string,
     status: ApplicationStatus = 'saved',
     notes = ''
-  ) => {
+  ): Promise<boolean> => {
     const opp = activeOpportunities.find((o) => o.id === opportunityId)
-    if (!opp) return
+    if (!opp) return false
 
-    setApplications((prev) => {
-      if (prev.some((a) => a.opportunityId === opportunityId)) {
-        return prev
-      }
-      const match = matches.get(opportunityId)
-      const studentId = activeProfile.id || currentUser?.id || 'guest-student'
-      const newApp: ApplicationItem = {
-        id: generateApplicationId(studentId, opportunityId),
-        studentId,
-        opportunityId,
-        opportunity: opp,
-        matchScore: match?.overallMatchScore ?? 0,
-        recommendation: match?.recommendation ?? 'APPLY NOW',
-        status,
-        notes: notes || `Added to ${status} stage.`,
-        appliedAt: status === 'applied' ? new Date().toISOString() : undefined,
-        updatedAt: new Date().toISOString(),
-      }
+    if (applications.some((a) => a.opportunityId === opportunityId)) {
+      return true
+    }
 
-      if (currentUser && isSupabaseConfigured) {
-        upsertUserApplication(newApp)
-      }
+    const match = matches.get(opportunityId)
+    const studentId = activeProfile.id || currentUser?.id || 'guest-student'
+    const newApp: ApplicationItem = {
+      id: generateApplicationId(studentId, opportunityId),
+      studentId,
+      opportunityId,
+      opportunity: opp,
+      matchScore: match?.overallMatchScore ?? 0,
+      recommendation: match?.recommendation ?? 'APPLY NOW',
+      status,
+      notes: notes || `Added to ${status} stage.`,
+      appliedAt: status === 'applied' ? new Date().toISOString() : undefined,
+      updatedAt: new Date().toISOString(),
+    }
 
-      return [newApp, ...prev]
-    })
+    if (currentUser && isSupabaseConfigured) {
+      const ok = await upsertUserApplication(newApp)
+      if (!ok) {
+        throw new Error('Failed to persist application to Supabase database. Please ensure migrations are applied.')
+      }
+    }
+
+    setApplications((prev) => [newApp, ...prev.filter((a) => a.opportunityId !== opportunityId)])
+    return true
   }
 
-  const updateApplicationStatus = (applicationId: string, status: ApplicationStatus) => {
-    setApplications((prev) =>
-      prev.map((app) => {
-        if (app.id === applicationId) {
-          const updated = {
-            ...app,
-            status,
-            appliedAt:
-              status === 'applied' && !app.appliedAt ? new Date().toISOString() : app.appliedAt,
-            updatedAt: new Date().toISOString(),
-          }
-          if (currentUser && isSupabaseConfigured) {
-            upsertUserApplication(updated)
-          }
-          return updated
-        }
-        return app
-      })
-    )
+  const updateApplicationStatus = async (
+    applicationId: string,
+    status: ApplicationStatus
+  ): Promise<boolean> => {
+    const app = applications.find((a) => a.id === applicationId)
+    if (!app) return false
+
+    const updated: ApplicationItem = {
+      ...app,
+      status,
+      appliedAt:
+        status === 'applied' && !app.appliedAt ? new Date().toISOString() : app.appliedAt,
+      updatedAt: new Date().toISOString(),
+    }
+
+    if (currentUser && isSupabaseConfigured) {
+      const ok = await upsertUserApplication(updated)
+      if (!ok) {
+        throw new Error('Failed to update application status in Supabase database.')
+      }
+    }
+
+    setApplications((prev) => prev.map((a) => (a.id === applicationId ? updated : a)))
+    return true
   }
 
   const updateApplicationNotes = (applicationId: string, notes: string) => {

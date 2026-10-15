@@ -4,6 +4,7 @@ import { verifyOpportunityUrl } from '@/features/opportunities/url-verifier/url-
 import {
   extractRequirementsDeterministically,
   buildOpportunityFromExtraction,
+  evaluateOpportunityFreshness,
 } from '@/features/opportunities/extraction/requirement-extractor'
 import { deduplicateOpportunities } from '@/features/opportunities/deduplication/deduplicator'
 import { calculateMatch } from '@/lib/matching/engine'
@@ -201,3 +202,80 @@ describe('Live Discovered Opportunity Deterministic Matching', () => {
     expect(match.whyMatched.length).toBeGreaterThan(0)
   })
 })
+
+describe('Opportunity Freshness, Evidence, and Stale Listing Rules', () => {
+  it('correctly classifies a posting from December 2024 as expired and excludes from recommendations', () => {
+    const rawStale: RawSearchResult = {
+      title: 'Software Development Engineer Intern @ CloudScale',
+      url: 'https://cloudscale.io/careers/sde-intern-2024',
+      domain: 'cloudscale.io',
+      snippet: 'Posted: December 2024. CloudScale is looking for 2024 batch interns. Strong knowledge of Python and Go required.',
+      source: 'Tech Aggregator',
+    }
+
+    const evaluation = evaluateOpportunityFreshness(`${rawStale.title} ${rawStale.snippet}`)
+    expect(evaluation.freshness).toBe('expired')
+    expect(evaluation.reason).toContain('2024 or earlier')
+
+    const data = extractRequirementsDeterministically(rawStale)
+    const opp = buildOpportunityFromExtraction('opp-stale-1', rawStale, data)
+    expect(opp.freshnessStatus).toBe('expired')
+  })
+
+  it('correctly classifies an explicitly closed or expired posting as closed', () => {
+    const rawClosed: RawSearchResult = {
+      title: 'Frontend Engineering Intern @ UIProto',
+      url: 'https://jobs.lever.co/uiproto/frontend-intern',
+      domain: 'jobs.lever.co',
+      snippet: 'Applications are closed for the Summer internship cycle. We are no longer accepting applications.',
+      source: 'Lever',
+    }
+
+    const evaluation = evaluateOpportunityFreshness(`${rawClosed.title} ${rawClosed.snippet}`)
+    expect(evaluation.freshness).toBe('closed')
+    expect(evaluation.reason).toContain('applications are closed')
+
+    const data = extractRequirementsDeterministically(rawClosed)
+    const opp = buildOpportunityFromExtraction('opp-closed-1', rawClosed, data)
+    expect(opp.freshnessStatus).toBe('closed')
+  })
+
+  it('does not invent a deadline for undated postings, preserves original URLs, and flags isUndated', () => {
+    const rawUndated: RawSearchResult = {
+      title: 'Full Stack Engineering Intern @ TechSphere',
+      url: 'https://careers.techsphere.com/apply/fullstack',
+      domain: 'careers.techsphere.com',
+      snippet: 'Rolling admissions for high-performing engineering students. Strong React and Node.js skills needed. Work mode: Remote.',
+      source: 'Direct Careers',
+    }
+
+    const data = extractRequirementsDeterministically(rawUndated)
+    // Must NOT have fabricated a deadline
+    expect(data.deadline).toBeUndefined()
+
+    const opp = buildOpportunityFromExtraction('opp-undated-1', rawUndated, data)
+    expect(opp.isUndated).toBe(true)
+    expect(opp.deadline).toBe('')
+    expect(opp.applicationUrl).toBe('https://careers.techsphere.com/apply/fullstack')
+    expect(opp.sourceUrl).toBe('https://careers.techsphere.com/apply/fullstack')
+  })
+
+  it('correctly extracts and retains explicit future deadline for active listing', () => {
+    const rawActive: RawSearchResult = {
+      title: 'Data Science Intern @ MetricGen',
+      url: 'https://metricgen.ai/careers/ds-intern',
+      domain: 'metricgen.ai',
+      snippet: 'Looking for 3rd and 4th year students. Python and SQL required. Application Deadline: 2026-11-30. Stipend: ₹35,000.',
+      source: 'MetricGen Direct',
+    }
+
+    const data = extractRequirementsDeterministically(rawActive)
+    expect(data.deadline).toBe('2026-11-30')
+
+    const opp = buildOpportunityFromExtraction('opp-active-1', rawActive, data, 'VERIFIED')
+    expect(opp.freshnessStatus).toBe('active')
+    expect(opp.isUndated).toBe(false)
+    expect(opp.deadline).toBe('2026-11-30')
+  })
+})
+

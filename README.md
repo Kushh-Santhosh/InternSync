@@ -136,22 +136,45 @@ VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 # Internal AI & Search Discovery (Server-side implementation details)
 OPENROUTER_API_KEY=sk-or-v1-your-key-here
-OPENROUTER_DEFAULT_MODEL=google/gemini-2.0-flash-001
+OPENROUTER_PRIMARY_MODEL=meta-llama/llama-3.3-70b-instruct
+OPENROUTER_FALLBACK_MODELS=openai/gpt-4o-mini,meta-llama/llama-3.1-70b-instruct,qwen/qwen-2.5-72b-instruct
 
-# Adzuna Live Jobs API (Optional secondary opportunity source)
-ADZUNA_APP_ID=your-adzuna-app-id
-***REMOVED***your-adzuna-app-key
+# Adzuna Live Jobs API (Permanently disabled for free plan operation)
+ADZUNA_ENABLED=false
 ```
 
 ---
 
-## 🗄️ Database Setup & Migrations
+## 🗄️ Database Setup & Storage Migrations
 
-To apply database tables, constraints, indexes, and Row Level Security:
+InternSync requires PostgreSQL 15+ and Supabase Storage. All migrations are **100% idempotent** with safe `DROP POLICY IF EXISTS`, `ADD COLUMN IF NOT EXISTS`, and conflict handling.
 
-1. In your Supabase dashboard or CLI, run the migration in:
-   `supabase/migrations/20260329000001_initial_schema.sql`
-2. Ensure the private Storage bucket `documents` is created with authenticated upload/read policies.
+### Option A: Run All-In-One Script (Recommended)
+Copy the entire contents of [`supabase/migrations/20261015_all_migrations_combined.sql`](file:///Users/kushal/Documents/projects/InternSync/supabase/migrations/20261015_all_migrations_combined.sql) and execute it in your **Supabase Dashboard -> SQL Editor**.
+
+### Option B: Run Migrations in Exact Dependency Order
+If applying migrations individually, execute them in this exact order:
+
+1. **`supabase/migrations/20261005_init.sql`**
+   - Enables UUID extensions (`uuid-ossp`, `pgcrypto`).
+   - Creates tables: `profiles`, `skills`, `student_skills`, `projects`, `opportunities`, `match_results`, `applications`, `assessment_questions`, `assistant_conversations`.
+   - Enables Row Level Security (RLS) on all tables and creates student ownership policies.
+
+2. **`supabase/migrations/20261015_documents_and_preferences.sql`**
+   - Adds profile columns: `target_role`, `career_interests`, `bio`.
+   - Adds opportunity columns: `source_url`, `source_domain`.
+   - Adds application unique constraint (`student_id, opportunity_id`) and scoring columns.
+   - Creates the `documents` metadata table and its RLS policies.
+
+3. **`supabase/migrations/20261015_storage_setup.sql`**
+   - Creates the private `documents` bucket in `storage.buckets` (10MB limit, allowed types: PDF, DOCX, DOC, PPTX, TXT).
+   - Enables RLS on `storage.objects`.
+   - Adds per-user folder-namespaced policies for upload, read, update, and delete:
+     `(storage.foldername(name))[1] = auth.uid()::text`.
+   - Guarantees strict multi-tenant isolation where students cannot read or write to another user's documents.
+
+### Safe Schema & Storage Health Check
+InternSync provides a safe schema-health check at `/api/settings/health` and in **Settings -> Integrations & Cloud**. It automatically distinguishes between a configured Supabase connection and a database whose application tables and storage bucket are verified ready. If any tables or buckets are missing, it flags `CONFIGURED_SCHEMA_PENDING` and specifies the exact migration needed.
 
 ---
 
@@ -188,9 +211,9 @@ InternSync is configured for seamless deployment to Vercel with dedicated server
    - `VITE_SUPABASE_URL`: Supabase URL
    - `VITE_SUPABASE_ANON_KEY`: Supabase Anonymous Public Key
    - `OPENROUTER_API_KEY`: Server-side OpenRouter Key
-   - `OPENROUTER_DEFAULT_MODEL`: Server-side Model (default: `google/gemini-2.0-flash-001`)
-   - `ADZUNA_APP_ID`: (Optional) Adzuna App ID
-   - `ADZUNA_APP_KEY`: (Optional) Adzuna App Key
+   - `OPENROUTER_PRIMARY_MODEL`: Server-side Primary Model (default: `meta-llama/llama-3.3-70b-instruct`)
+   - `OPENROUTER_FALLBACK_MODELS`: Server-side Fallback Models (`openai/gpt-4o-mini,meta-llama/llama-3.1-70b-instruct,qwen/qwen-2.5-72b-instruct`)
+   - `ADZUNA_ENABLED`: `false`
 
 ---
 

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { SKILL_TAXONOMY, normalizeSkill } from '@/lib/matching/taxonomy'
 import { generateOpportunityId, isValidUUID } from '@/lib/utils/uuid'
-import type { Opportunity, RawSearchResult } from '@/types'
+import type { Opportunity, RawSearchResult, UrlVerificationStatus } from '@/types'
 
 export const OpportunityExtractionSchema = z.object({
   title: z.string(),
@@ -124,10 +124,16 @@ export function extractRequirementsDeterministically(
     if (parsed >= 5000 && parsed <= 150000) stipend_amount = parsed
   }
 
-  // 7. Deadline (default 3 weeks from now)
-  const deadlineDate = new Date()
-  deadlineDate.setDate(deadlineDate.getDate() + 21)
-  const deadline = deadlineDate.toISOString().split('T')[0]
+  // 7. Deadline: Extract genuine deadline ONLY if explicitly mentioned. NEVER invent or fabricate.
+  let deadline: string | undefined
+  const deadlineMatch = text.match(/(?:deadline|apply\s+by|last\s+date|due\s+date|closes\s+on)\s*[:-]?\s*([A-Za-z0-9, -]{4,25})/i)
+  if (deadlineMatch) {
+    const rawDateStr = deadlineMatch[1].trim()
+    const parsed = Date.parse(rawDateStr)
+    if (!isNaN(parsed)) {
+      deadline = new Date(parsed).toISOString().split('T')[0]
+    }
+  }
 
   return {
     title: role,
@@ -148,17 +154,83 @@ export function extractRequirementsDeterministically(
   }
 }
 
+export type OpportunityFreshness = 'active' | 'unverified' | 'expired' | 'closed'
+
 /**
- * Transforms extracted data into a canonical Opportunity object
+ * Strict evaluation of freshness, evidence, and past deadlines.
+ * Flags expired postings (e.g., from 2024 or past deadlines) and closed positions.
+ */
+export function evaluateOpportunityFreshness(
+  text: string,
+  urlStatus?: UrlVerificationStatus
+): { freshness: OpportunityFreshness; reason: string; explicitDeadline?: string; isUndated: boolean } {
+  // 1. Check for closed / expired wording in content
+  const closedRegex = /\b(?:applications\s+(?:are\s+)?closed|position\s+(?:is\s+)?closed|no\s+longer\s+accepting\s+applications|job\s+(?:has\s+)?expired|listing\s+(?:has\s+)?expired|closed\s+on|archive|archived\s+posting|this\s+opportunity\s+has\s+closed)\b/i
+  if (closedRegex.test(text)) {
+    return { freshness: 'closed', reason: 'Posting explicitly states applications are closed or expired.', isUndated: false }
+  }
+
+  // 2. Check for stale / past dates (e.g. "December 2024", "Dec 2024", 2024 or earlier dates)
+  const staleYearRegex = /\b(?:dec(?:ember)?|nov(?:ember)?|oct(?:ober)?|sep(?:tember)?|aug(?:ust)?|jul(?:y)?|jun(?:e)?|may|apr(?:il)?|mar(?:ch)?|feb(?:ruary)?|jan(?:uary)?)\s+202[0-4]\b|\b202[0-4]-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])\b|\bbatch\s+(?:of\s+)?202[0-4]\b/i
+  if (staleYearRegex.test(text)) {
+    return { freshness: 'expired', reason: 'Posting is from 2024 or earlier with no evidence applications remain open.', isUndated: false }
+  }
+
+  // 3. Extract explicit deadline if mentioned in text
+  let explicitDeadline: string | undefined
+  const deadlineMatch = text.match(/(?:deadline|apply\s+by|last\s+date|due\s+date|closes\s+on)\s*[:-]?\s*([A-Za-z0-9, -]{4,25})/i)
+  if (deadlineMatch) {
+    const rawDateStr = deadlineMatch[1].trim()
+    const parsed = Date.parse(rawDateStr)
+    if (!isNaN(parsed)) {
+      const d = new Date(parsed)
+      // If the parsed deadline is in the past
+      if (d.getTime() < Date.now() - 86400000) {
+        return {
+          freshness: 'expired',
+          reason: `Application deadline (${rawDateStr}) has passed.`,
+          explicitDeadline: d.toISOString().split('T')[0],
+          isUndated: false,
+        }
+      }
+      explicitDeadline = d.toISOString().split('T')[0]
+    }
+  }
+
+  // 4. Incorporate reachability check
+  if (urlStatus === 'EXPIRED') {
+    return { freshness: 'expired', reason: 'Listing page returned 404/410 expired.', explicitDeadline, isUndated: !explicitDeadline }
+  }
+  if (urlStatus === 'BROKEN') {
+    return { freshness: 'closed', reason: 'Application URL is unreachable or broken.', explicitDeadline, isUndated: !explicitDeadline }
+  }
+  if (urlStatus === 'UNVERIFIED') {
+    return { freshness: 'unverified', reason: 'Listing URL could not be verified in real-time.', explicitDeadline, isUndated: !explicitDeadline }
+  }
+
+  return {
+    freshness: 'active',
+    reason: 'Verified active opportunity.',
+    explicitDeadline,
+    isUndated: !explicitDeadline,
+  }
+}
+
+/**
+ * Transforms extracted data into a canonical Opportunity object with verified freshness
  */
 export function buildOpportunityFromExtraction(
   id: string,
   raw: RawSearchResult,
-  data: ExtractedOpportunityData
+  data: ExtractedOpportunityData,
+  urlStatus?: UrlVerificationStatus
 ): Opportunity {
   const finalId = isValidUUID(id)
     ? id
     : generateOpportunityId(raw.url || data.application_url, data.company, data.title)
+
+  const text = `${raw.title} ${raw.snippet || ''}`
+  const freshnessInfo = evaluateOpportunityFreshness(text, urlStatus)
 
   return {
     id: finalId,
@@ -178,7 +250,10 @@ export function buildOpportunityFromExtraction(
     sourceUrl: raw.url,
     sourceDomain: raw.domain,
     postedAt: raw.discoveredAt || new Date().toISOString(),
-    deadline: data.deadline || new Date(Date.now() + 1814400000).toISOString().split('T')[0],
+    deadline: data.deadline || freshnessInfo.explicitDeadline || '',
+    isUndated: freshnessInfo.isUndated,
+    freshnessStatus: freshnessInfo.freshness,
+    urlStatus: urlStatus || (freshnessInfo.freshness === 'expired' ? 'EXPIRED' : freshnessInfo.freshness === 'closed' ? 'BROKEN' : 'VERIFIED'),
     eligibleYears: data.eligible_years,
     eligibleDegrees: data.eligible_degrees,
     requiredSkills: data.required_skills.map((s) => normalizeSkill(s)),

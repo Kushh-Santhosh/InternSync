@@ -67,7 +67,7 @@ Return list of discovered internship opportunities. For each opportunity provide
 5. Source name (e.g. Greenhouse, Lever, Company Careers, LinkedIn)`
 
       const payload = {
-        model: this.config.model || 'google/gemini-2.0-flash-001',
+        model: this.config.model || 'meta-llama/llama-3.3-70b-instruct',
         messages: [
           {
             role: 'system',

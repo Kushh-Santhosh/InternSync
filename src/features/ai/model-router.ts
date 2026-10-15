@@ -54,8 +54,8 @@ export class OpenRouterModelRouter {
     PRIMARY: 'meta-llama/llama-3.3-70b-instruct',
     FALLBACKS: [
       'openai/gpt-4o-mini',
-      'google/gemini-2.0-flash-001',
-      'anthropic/claude-3.5-haiku',
+      'meta-llama/llama-3.1-70b-instruct',
+      'qwen/qwen-2.5-72b-instruct',
     ],
   }
 

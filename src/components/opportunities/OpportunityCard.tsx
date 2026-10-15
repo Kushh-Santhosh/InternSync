@@ -150,8 +150,20 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           <span>·</span>
           <span className="flex items-center gap-1">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <span>Due {new Date(opportunity.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            <span>
+              {opportunity.deadline && !isNaN(Date.parse(opportunity.deadline))
+                ? `Due ${new Date(opportunity.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                : 'Rolling applications'}
+            </span>
           </span>
+          {opportunity.freshnessStatus === 'unverified' && (
+            <>
+              <span>·</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                Unverified
+              </span>
+            </>
+          )}
           {onCompareToggle && (
             <>
               <span>·</span>

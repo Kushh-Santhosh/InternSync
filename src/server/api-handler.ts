@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { createClient } from '@supabase/supabase-js'
 import { OpenRouterModelRouter, type ChatMessage } from '../features/ai/model-router.js'
 
 export interface ServerConfig {
@@ -11,6 +12,8 @@ export interface ServerConfig {
   adzunaAppId: string
   adzunaAppKey: string
   adzunaCountry: string
+  supabaseUrl: string
+  supabaseAnonKey: string
 }
 
 const defaultConfig: ServerConfig = {
@@ -18,13 +21,15 @@ const defaultConfig: ServerConfig = {
   openrouterModel: 'meta-llama/llama-3.3-70b-instruct',
   openrouterFallbackModels: [
     'openai/gpt-4o-mini',
-    'google/gemini-2.0-flash-001',
-    'anthropic/claude-3.5-haiku',
+    'meta-llama/llama-3.1-70b-instruct',
+    'qwen/qwen-2.5-72b-instruct',
   ],
   adzunaEnabled: false,
   adzunaAppId: '',
   adzunaAppKey: '',
   adzunaCountry: 'in',
+  supabaseUrl: '',
+  supabaseAnonKey: '',
 }
 
 // In local development, read .env if present
@@ -48,6 +53,8 @@ if (process.env.NODE_ENV !== 'production') {
           if (key === 'ADZUNA_APP_ID' && val) defaultConfig.adzunaAppId = val
           if (key === 'ADZUNA_APP_KEY' && val) defaultConfig.adzunaAppKey = val
           if (key === 'ADZUNA_COUNTRY' && val) defaultConfig.adzunaCountry = val
+          if ((key === 'VITE_SUPABASE_URL' || key === 'SUPABASE_URL') && val) defaultConfig.supabaseUrl = val
+          if ((key === 'VITE_SUPABASE_ANON_KEY' || key === 'SUPABASE_ANON_KEY') && val) defaultConfig.supabaseAnonKey = val
         }
       }
     }
@@ -71,12 +78,14 @@ export function getServerConfig(): ServerConfig {
       process.env.OPENROUTER_PRIMARY_MODEL ||
       process.env.OPENROUTER_MODEL ||
       defaultConfig.openrouterModel ||
-      'google/gemini-2.0-flash-001',
+      'meta-llama/llama-3.3-70b-instruct',
     openrouterFallbackModels: parsedFallbacks.length > 0 ? parsedFallbacks : defaultConfig.openrouterFallbackModels,
     adzunaEnabled: process.env.ADZUNA_ENABLED === 'true' || defaultConfig.adzunaEnabled,
     adzunaAppId: process.env.ADZUNA_APP_ID || defaultConfig.adzunaAppId || '',
     adzunaAppKey: process.env.ADZUNA_APP_KEY || defaultConfig.adzunaAppKey || '',
     adzunaCountry: process.env.ADZUNA_COUNTRY || defaultConfig.adzunaCountry || 'in',
+    supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || defaultConfig.supabaseUrl || '',
+    supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || defaultConfig.supabaseAnonKey || '',
   }
 }
 
@@ -175,6 +184,84 @@ export async function handleSettingsHealth(_req: any, res: any): Promise<void> {
       model: config.openrouterModel,
       lastChecked: new Date().toISOString(),
     },
+  }
+
+  // Supabase cloud database & storage health check
+  const supabaseUrl = config.supabaseUrl
+  const supabaseAnonKey = config.supabaseAnonKey
+  const supabaseConfigured = Boolean(
+    supabaseUrl &&
+    supabaseAnonKey &&
+    supabaseUrl !== 'https://your-project.supabase.co' &&
+    !supabaseUrl.includes('example.com')
+  )
+
+  if (supabaseConfigured) {
+    try {
+      const client = createClient(supabaseUrl, supabaseAnonKey)
+      const missingItems: string[] = []
+
+      const pCheck = await client.from('profiles').select('id').limit(1)
+      if (pCheck.error && pCheck.error.code !== 'PGRST116') missingItems.push('table profiles')
+
+      const oCheck = await client.from('opportunities').select('id').limit(1)
+      if (oCheck.error && oCheck.error.code !== 'PGRST116') missingItems.push('table opportunities')
+
+      const dCheck = await client.from('documents').select('id').limit(1)
+      if (dCheck.error && dCheck.error.code !== 'PGRST116') missingItems.push('table documents')
+
+      const aCheck = await client.from('applications').select('id').limit(1)
+      if (aCheck.error && aCheck.error.code !== 'PGRST116') missingItems.push('table applications')
+
+      const bCheck = await client.storage.getBucket('documents')
+      const storageReady = !bCheck.error
+      if (!storageReady) missingItems.push('storage bucket documents')
+
+      const schemaReady = missingItems.filter((m) => m.startsWith('table')).length === 0
+
+      if (schemaReady && storageReady) {
+        payload.supabase = {
+          provider: 'Supabase Cloud (PostgreSQL & Storage)',
+          status: 'ACTIVE',
+          configured: true,
+          schemaReady: true,
+          storageReady: true,
+          message: 'Supabase connected: application schema and private documents storage are verified.',
+          lastChecked: new Date().toISOString(),
+        }
+      } else {
+        payload.supabase = {
+          provider: 'Supabase Cloud (PostgreSQL & Storage)',
+          status: 'CONFIGURED_SCHEMA_PENDING',
+          configured: true,
+          schemaReady,
+          storageReady,
+          missingItems,
+          message: `Supabase credentials configured, but cloud environment is missing: ${missingItems.join(', ')}. Please run migrations in the Supabase SQL Editor.`,
+          lastChecked: new Date().toISOString(),
+        }
+      }
+    } catch (err: unknown) {
+      payload.supabase = {
+        provider: 'Supabase Cloud (PostgreSQL & Storage)',
+        status: 'CONNECTION_ERROR',
+        configured: true,
+        schemaReady: false,
+        storageReady: false,
+        message: err instanceof Error ? err.message : 'Failed to connect to Supabase.',
+        lastChecked: new Date().toISOString(),
+      }
+    }
+  } else {
+    payload.supabase = {
+      provider: 'Supabase Cloud (PostgreSQL & Storage)',
+      status: 'NOT_CONFIGURED',
+      configured: false,
+      schemaReady: false,
+      storageReady: false,
+      message: 'Supabase credentials not configured.',
+      lastChecked: new Date().toISOString(),
+    }
   }
 
   // Only expose Adzuna status if explicitly enabled

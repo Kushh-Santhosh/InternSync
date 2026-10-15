@@ -79,6 +79,8 @@ export interface Opportunity {
   sourceUrl?: string
   sourceDomain?: string
   urlStatus?: UrlVerificationStatus
+  freshnessStatus?: 'active' | 'unverified' | 'expired' | 'closed'
+  isUndated?: boolean
   duplicateSources?: string[]
   lastVerifiedAt?: string
   postedAt: string
@@ -219,10 +221,14 @@ export interface SearchQuery {
 
 export interface ProviderHealth {
   provider: string
-  status: 'ACTIVE' | 'NOT_CONFIGURED' | 'ERROR'
+  status: 'ACTIVE' | 'NOT_CONFIGURED' | 'CONFIGURED_SCHEMA_PENDING' | 'ERROR' | 'CONNECTION_ERROR'
   message?: string
   model?: string
   lastChecked: string
+  configured?: boolean
+  schemaReady?: boolean
+  storageReady?: boolean
+  missingItems?: string[]
 }
 
 export interface UploadedDocument {

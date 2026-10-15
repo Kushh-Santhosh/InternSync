@@ -17,16 +17,28 @@ import {
   MapPin,
   Briefcase,
   FileCheck,
+  Database,
+  RefreshCw,
 } from 'lucide-react'
 import { useApp } from '@/app/context'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils/cn'
 
-type SettingsTab = 'profile' | 'preferences' | 'documents' | 'account' | 'privacy'
+type SettingsTab = 'profile' | 'preferences' | 'documents' | 'integrations' | 'account' | 'privacy'
 
 export const SettingsPage: React.FC = () => {
-  const { profile, updateProfile, logout, documents, uploadDocument, deleteDocument } = useApp()
+  const {
+    profile,
+    updateProfile,
+    logout,
+    documents,
+    uploadDocument,
+    deleteDocument,
+    integrations,
+    refreshIntegrations,
+  } = useApp()
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
+  const [isRefreshingHealth, setIsRefreshingHealth] = useState(false)
 
   // Profile form state
   const [fullName, setFullName] = useState(profile.fullName || '')
@@ -67,33 +79,43 @@ export const SettingsPage: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500)
   }
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
-    updateProfile({
-      fullName,
-      email,
-      university,
-      degree,
-      graduationYear: Number(graduationYear),
-      currentYear: Number(currentYear),
-    })
-    setIsSaving(false)
-    showToast('Profile information saved.')
+    try {
+      await updateProfile({
+        fullName,
+        email,
+        university,
+        degree,
+        graduationYear: Number(graduationYear),
+        currentYear: Number(currentYear),
+      })
+      showToast('Profile information saved.')
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to save profile.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleSavePreferences = (e: React.FormEvent) => {
+  const handleSavePreferences = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
-    updateProfile({
-      targetRole: targetRole.trim(),
-      preferredLocations: preferredLocations.split(',').map((s: string) => s.trim()).filter(Boolean),
-      workModePreference: workModePreference as 'remote' | 'hybrid' | 'onsite' | 'any',
-      availableDurationMonths: Number(availableDurationMonths),
-      careerInterests: careerInterests.split(',').map((s: string) => s.trim()).filter(Boolean),
-    })
-    setIsSaving(false)
-    showToast('Career preferences saved.')
+    try {
+      await updateProfile({
+        targetRole: targetRole.trim(),
+        preferredLocations: preferredLocations.split(',').map((s: string) => s.trim()).filter(Boolean),
+        workModePreference: workModePreference as 'remote' | 'hybrid' | 'onsite' | 'any',
+        availableDurationMonths: Number(availableDurationMonths),
+        careerInterests: careerInterests.split(',').map((s: string) => s.trim()).filter(Boolean),
+      })
+      showToast('Career preferences saved.')
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to save preferences.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleDeleteDocument = async (id: string) => {
@@ -167,6 +189,7 @@ export const SettingsPage: React.FC = () => {
     { id: 'profile' as const, label: 'Profile', icon: User },
     { id: 'preferences' as const, label: 'Career Preferences', icon: Sliders },
     { id: 'documents' as const, label: 'Documents', icon: FileText },
+    { id: 'integrations' as const, label: 'Integrations & Cloud', icon: Database },
     { id: 'account' as const, label: 'Account', icon: Lock },
     { id: 'privacy' as const, label: 'Privacy', icon: Shield },
   ]
@@ -465,7 +488,119 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 4: ACCOUNT */}
+      {/* TAB 4: INTEGRATIONS & CLOUD HEALTH */}
+      {activeTab === 'integrations' && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Backend & Cloud Health</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Live verification of AI model router, Supabase database schema, and storage buckets.
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="gap-2 self-start sm:self-auto cursor-pointer"
+                disabled={isRefreshingHealth}
+                onClick={async () => {
+                  setIsRefreshingHealth(true)
+                  await refreshIntegrations()
+                  setIsRefreshingHealth(false)
+                  showToast('Cloud connection health updated.')
+                }}
+              >
+                <RefreshCw className={cn('w-3.5 h-3.5', isRefreshingHealth && 'animate-spin')} />
+                <span>{isRefreshingHealth ? 'Verifying...' : 'Check Health'}</span>
+              </Button>
+            </div>
+
+            {/* Supabase Status Card */}
+            <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <Database className="w-5 h-5 text-indigo-600 shrink-0" />
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Supabase Cloud Database & Storage</h3>
+                    <p className="text-xs text-slate-500">PostgreSQL 15+ & private document storage</p>
+                  </div>
+                </div>
+                <span
+                  className={cn(
+                    'px-2.5 py-1 rounded-full text-xs font-semibold',
+                    integrations.supabase?.status === 'ACTIVE'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : integrations.supabase?.status === 'CONFIGURED_SCHEMA_PENDING'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-slate-100 text-slate-600 border border-slate-200'
+                  )}
+                >
+                  {integrations.supabase?.status === 'ACTIVE'
+                    ? 'Connected & Verified'
+                    : integrations.supabase?.status === 'CONFIGURED_SCHEMA_PENDING'
+                      ? 'Schema Pending'
+                      : integrations.supabase?.status || 'Unknown'}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {integrations.supabase?.message || 'Checking database connection and application schema...'}
+              </p>
+
+              {integrations.supabase?.status === 'CONFIGURED_SCHEMA_PENDING' && (
+                <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-2">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Action Required in Supabase Project</span>
+                  </div>
+                  <p className="text-amber-800">
+                    To enable live cloud persistence and document storage, run the verified migration script in your Supabase SQL Editor:
+                  </p>
+                  <code className="block p-2 rounded bg-white/80 border border-amber-300 font-mono text-[11px] text-amber-950 select-all">
+                    supabase/migrations/20261015_all_migrations_combined.sql
+                  </code>
+                </div>
+              )}
+            </div>
+
+            {/* OpenRouter AI Router Card */}
+            <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <Sliders className="w-5 h-5 text-indigo-600 shrink-0" />
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">OpenRouter AI Router & Search</h3>
+                    <p className="text-xs text-slate-500">Autonomous fallback across verified LLMs</p>
+                  </div>
+                </div>
+                <span
+                  className={cn(
+                    'px-2.5 py-1 rounded-full text-xs font-semibold',
+                    integrations.openrouter?.status === 'ACTIVE'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+                  )}
+                >
+                  {integrations.openrouter?.status === 'ACTIVE' ? 'Active' : 'Unconfigured'}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {integrations.openrouter?.message || 'OpenRouter model routing status.'}
+              </p>
+            </div>
+
+            {/* Adzuna Status (Disabled) */}
+            <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50 text-xs text-slate-500 flex items-center justify-between">
+              <span>Adzuna Paid Job Feed</span>
+              <span className="font-semibold text-slate-600">Disabled (Adzuna Disabled)</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: ACCOUNT */}
       {activeTab === 'account' && (
         <div className="space-y-6">
           {/* Change Password Card */}

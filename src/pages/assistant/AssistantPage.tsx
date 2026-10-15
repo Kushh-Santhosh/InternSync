@@ -13,6 +13,15 @@ import { cn } from '@/lib/utils/cn'
 
 import { AssistantToolExecutor } from '@/features/ai/assistant-tools'
 
+function createChatMessage(role: 'user' | 'assistant', content: string): AssistantMessage {
+  return {
+    id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    role,
+    content,
+    timestamp: new Date().toISOString(),
+  }
+}
+
 export const AssistantPage: React.FC = () => {
   const { profile, skills, projects, opportunities, matches, isDemoMode } = useApp()
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -37,12 +46,7 @@ export const AssistantPage: React.FC = () => {
     const query = (textToSend || inputMessage).trim()
     if (!query || isTyping) return
 
-    const userMsg: AssistantMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: query,
-      timestamp: new Date().toISOString(),
-    }
+    const userMsg = createChatMessage('user', query)
 
     setMessages((prev) => [...prev, userMsg])
     setInputMessage('')
@@ -124,23 +128,12 @@ How can I help you take your next best career step?
 - "Build me a 14-day preparation plan"`
       }
 
-      const assistantMsg: AssistantMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: response,
-        timestamp: new Date().toISOString(),
-      }
-
+      const assistantMsg = createChatMessage('assistant', response)
       setMessages((prev) => [...prev, assistantMsg])
     } catch {
       setMessages((prev) => [
         ...prev,
-        {
-          id: `err-${Date.now()}`,
-          role: 'assistant',
-          content: 'Sorry, I encountered an issue analyzing your request. Please try again.',
-          timestamp: new Date().toISOString(),
-        },
+        createChatMessage('assistant', 'Sorry, I encountered an issue analyzing your request. Please try again.'),
       ])
     } finally {
       setIsTyping(false)

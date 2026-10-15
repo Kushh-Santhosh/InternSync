@@ -239,21 +239,25 @@ export class OpportunitySearchOrchestrator {
       skipCount: 0,
     })
 
-    // Fan out search tasks concurrently with bounded concurrency (3 tasks at a time)
+    // Target top 2 most relevant query vectors (role-focused and core skill-focused)
+    const targetQueries = queries.slice(0, 2)
     const queryTasks: Array<{ query: SearchQuery; provider: OpportunityProvider }> = []
-    for (const q of queries) {
-      for (const provider of activeProviders) {
-        queryTasks.push({ query: q, provider })
+    
+    // In connected mode, server endpoint queries configured providers in bounded parallel
+    for (const q of targetQueries) {
+      queryTasks.push({ query: q, provider: this.openrouterProvider })
+      if (this.adzunaEnabled && this.adzunaProvider.isConfigured()) {
+        queryTasks.push({ query: q, provider: this.adzunaProvider })
       }
     }
 
     const taskResults = await runWithConcurrency(
       queryTasks,
-      3,
+      2,
       async ({ query, provider }: { query: SearchQuery; provider: OpportunityProvider }) => {
         try {
           const timeoutPromise = new Promise<RawSearchResult[]>((_, reject) =>
-            setTimeout(() => reject(new Error('Search provider timeout')), 8000)
+            setTimeout(() => reject(new Error('Search provider timeout')), 14000)
           )
           return await Promise.race([provider.search(query), timeoutPromise])
         } catch {

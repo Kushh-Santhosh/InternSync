@@ -1,10 +1,16 @@
 import { extractText } from 'unpdf'
 
+export interface PdfPageContent {
+  pageNumber: number
+  text: string
+}
+
 /**
  * Result of structured PDF extraction.
  */
 export interface PdfParseResult {
   text: string
+  pages: PdfPageContent[]
   totalPages: number
   isScanned: boolean
   isEmpty: boolean
@@ -14,6 +20,7 @@ export interface PdfParseResult {
 /**
  * Extracts clean, multi-page text from compressed or standard PDF files.
  * Accurately detects empty files and distinguishes text-based PDFs from scanned PDFs requiring OCR.
+ * Preserves page boundaries and page provenance for traceable evidence.
  */
 export async function parsePdfDetailed(fileData: ArrayBuffer | Uint8Array): Promise<PdfParseResult> {
   const bytes = fileData instanceof Uint8Array ? fileData : new Uint8Array(fileData)
@@ -21,6 +28,7 @@ export async function parsePdfDetailed(fileData: ArrayBuffer | Uint8Array): Prom
   if (bytes.length < 5) {
     return {
       text: '',
+      pages: [],
       totalPages: 0,
       isScanned: false,
       isEmpty: true,
@@ -33,6 +41,7 @@ export async function parsePdfDetailed(fileData: ArrayBuffer | Uint8Array): Prom
   if (header !== '%PDF-') {
     return {
       text: '',
+      pages: [],
       totalPages: 0,
       isScanned: false,
       isEmpty: true,
@@ -42,17 +51,32 @@ export async function parsePdfDetailed(fileData: ArrayBuffer | Uint8Array): Prom
 
   try {
     // Pass a copy so the original bytes are not detached by PDF.js worker transfer
-    const result = await extractText(new Uint8Array(bytes.slice()), { mergePages: true })
+    const result = await extractText(new Uint8Array(bytes.slice()), { mergePages: false })
     const totalPages = result.totalPages || 0
-    const rawText = typeof result.text === 'string' ? result.text : String(result.text || '')
-    const trimmed = rawText.trim()
+    const rawPages: string[] = Array.isArray(result.text)
+      ? result.text
+      : [String(result.text || '')]
+
+    const pages: PdfPageContent[] = rawPages.map((pageText, idx) => ({
+      pageNumber: idx + 1,
+      text: typeof pageText === 'string' ? pageText.trim() : String(pageText || '').trim(),
+    }))
+
+    // Build formatted multi-page text with clear page boundary markers
+    const formattedText =
+      pages.length > 1
+        ? pages.map((p) => `--- Page ${p.pageNumber} ---\n${p.text}`).join('\n\n')
+        : pages[0]?.text || ''
+
+    const totalTextLength = pages.reduce((acc, p) => acc + p.text.length, 0)
 
     // Detect scanned PDFs (pages exist, but virtually zero selectable text streams)
-    const isScanned = totalPages > 0 && trimmed.length < 20
-    const isEmpty = trimmed.length === 0
+    const isScanned = totalPages > 0 && totalTextLength < 20
+    const isEmpty = totalTextLength === 0
 
     return {
-      text: trimmed,
+      text: formattedText.trim(),
+      pages,
       totalPages,
       isScanned,
       isEmpty,
@@ -68,6 +92,7 @@ export async function parsePdfDetailed(fileData: ArrayBuffer | Uint8Array): Prom
     if (rawFallback.length >= 3) {
       return {
         text: rawFallback,
+        pages: [{ pageNumber: 1, text: rawFallback }],
         totalPages: 1,
         isScanned: false,
         isEmpty: false,
@@ -77,6 +102,7 @@ export async function parsePdfDetailed(fileData: ArrayBuffer | Uint8Array): Prom
     const message = err instanceof Error ? err.message : String(err)
     return {
       text: '',
+      pages: [],
       totalPages: 0,
       isScanned: false,
       isEmpty: true,

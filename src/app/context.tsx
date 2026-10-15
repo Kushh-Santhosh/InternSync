@@ -565,8 +565,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [])
 
   useEffect(() => {
-    refreshIntegrations()
-  }, [refreshIntegrations])
+    let isCancelled = false
+    const loadInitialHealth = async () => {
+      try {
+        const res = await fetch('/api/settings/health')
+        if (res.ok && !isCancelled) {
+          const data = await res.json()
+          setIntegrations(data)
+        }
+      } catch {
+        // fallback
+      }
+    }
+    loadInitialHealth()
+    return () => {
+      isCancelled = true
+    }
+  }, [])
 
   const setIsDemoMode = (demo: boolean) => {
     setIsDemoModeState(demo)

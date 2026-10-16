@@ -109,6 +109,51 @@ export const SKILL_TAXONOMY: CanonicalSkill[] = [
     category: 'data',
     aliases: ['pandas', 'data analysis', 'numpy'],
   },
+  {
+    canonicalName: 'Figma',
+    category: 'tools',
+    aliases: ['figma', 'figma prototypes', 'wireframing', 'wireframes'],
+  },
+  {
+    canonicalName: 'UI/UX Design',
+    category: 'frontend',
+    aliases: [
+      'ui/ux',
+      'ui/ux design',
+      'ui design',
+      'ux design',
+      'user experience',
+      'user interface',
+      'product design',
+      'interaction design',
+    ],
+  },
+  {
+    canonicalName: 'Product Prototyping',
+    category: 'frontend',
+    aliases: ['product prototyping', 'prototyping', 'product builder', 'user flows'],
+  },
+  {
+    canonicalName: 'Full-Stack Development',
+    category: 'backend',
+    aliases: [
+      'full-stack development',
+      'full-stack',
+      'fullstack',
+      'full stack development',
+      'full stack',
+    ],
+  },
+  {
+    canonicalName: 'Web Development',
+    category: 'frontend',
+    aliases: ['web development', 'responsive web design', 'web applications', 'frontend development'],
+  },
+  {
+    canonicalName: 'Prompt Engineering',
+    category: 'ai_ml',
+    aliases: ['prompt engineering', 'ai-assisted development', 'ai workflows'],
+  },
 ]
 
 const aliasMap = new Map<string, string>()

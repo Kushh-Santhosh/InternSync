@@ -528,6 +528,7 @@ export async function fetchUserDocuments(userId: string): Promise<UploadedDocume
       storagePath: row.storage_path,
       extractedSkills: row.extracted_skills || [],
       extractedProjects: row.extracted_projects || [],
+      extractedData: row.extracted_data || undefined,
     }))
   } catch {
     return []

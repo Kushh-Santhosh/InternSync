@@ -26,6 +26,17 @@ export const ExtractedResumeSchema = z.object({
   graduationYear: z.number().int().nullable().optional(),
   currentYear: z.number().int().min(1).max(5).nullable().optional(),
   location: z.string().nullable().optional(),
+  academicMetric: z.string().nullable().optional(),
+  ambiguousFields: z
+    .array(
+      z.object({
+        field: z.string(),
+        rawValue: z.string(),
+        reason: z.string(),
+        actionNeeded: z.string(),
+      })
+    )
+    .default([]),
   skills: z
     .array(
       z.object({
@@ -76,6 +87,7 @@ export interface DocumentAnalysisResult {
   newSkills: SkillEvidenceItem[]
   newProjects: ProjectItem[]
   summaryNotes: string[]
+  ambiguousFields?: { field: string; rawValue: string; reason: string; actionNeeded: string }[]
   storagePath?: string
   error?: string
 }
@@ -470,9 +482,10 @@ export async function processUploadedDocument(
 
   // 3. Profile & Skills Extraction: AI Structured with Deterministic Fallback
   let detectedSkills: { skillName: string; confidence: number; evidenceQuote?: string }[] = []
+  let aiExtraction: ExtractedResumeData | null = null
 
   if (type === 'resume') {
-    const aiExtraction = await extractStructuredResumeAI(parsedText)
+    aiExtraction = await extractStructuredResumeAI(parsedText)
     if (aiExtraction) {
       summaryNotes.push('Synthesized structured credentials via AI evidence extraction.')
 
@@ -490,6 +503,10 @@ export async function processUploadedDocument(
         profileUpdates.currentYear = yr
       }
       if (aiExtraction.graduationYear) profileUpdates.graduationYear = aiExtraction.graduationYear
+      const rangeMatch = parsedText.match(/20\d{2}\s*[–-]\s*(20\d{2})/)
+      if (rangeMatch && rangeMatch[1]) {
+        profileUpdates.graduationYear = parseInt(rangeMatch[1], 10)
+      }
       if (aiExtraction.location) profileUpdates.location = aiExtraction.location
 
       // Map AI skills
@@ -512,6 +529,14 @@ export async function processUploadedDocument(
           evidenceStrength: p.evidenceStrength,
           highlights: p.highlights || [],
         })
+      }
+
+      if (aiExtraction.ambiguousFields && aiExtraction.ambiguousFields.length > 0) {
+        for (const amb of aiExtraction.ambiguousFields) {
+          summaryNotes.push(
+            `Ambiguous metric detected (${amb.field}: "${amb.rawValue}"): ${amb.reason} — Action: ${amb.actionNeeded}`
+          )
+        }
       }
     } else {
       // Deterministic taxonomy fallback
@@ -605,6 +630,9 @@ export async function processUploadedDocument(
       extractedData: {
         skillCount: detectedSkills.length,
         projectCount: extractedProjects.length,
+        ambiguousFields: aiExtraction?.ambiguousFields || [],
+        academicMetric: aiExtraction?.academicMetric || null,
+        certifications: aiExtraction?.certifications || [],
       },
     })
 

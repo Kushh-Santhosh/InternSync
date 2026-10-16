@@ -30,3 +30,6 @@ playwright-report/
 .vercel
 test-evidence/
 supabase/.temp/
+fixtures/KUSHAL*
+*KUSHAL*RESUME*
+*.pdf.pdf

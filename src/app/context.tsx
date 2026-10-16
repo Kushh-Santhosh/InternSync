@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { DEMO_STUDENT_PROFILE, DEMO_STUDENT_PROJECTS, DEMO_STUDENT_SKILLS } from '@/data/demo-profile'
 import { SEED_OPPORTUNITIES } from '@/data/seed-opportunities'
 import { processUploadedDocument, type DocumentAnalysisResult } from '@/lib/documents/document-intelligence'
@@ -139,6 +139,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return BLANK_STUDENT_PROFILE
     }
   })
+
+  const userProfileRef = useRef<StudentProfile>(userProfile)
+  useEffect(() => {
+    userProfileRef.current = userProfile
+  }, [userProfile])
 
   // User Skills (empty by default for new accounts)
   const [userSkills, setUserSkills] = useState<SkillEvidenceItem[]>(() => {
@@ -605,19 +610,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }
 
   const updateProfile = async (updates: Partial<StudentProfile>): Promise<boolean> => {
+    const updated = { ...userProfileRef.current, ...updates }
+    userProfileRef.current = updated
+    setUserProfile(updated)
+
     if (isDemoMode) {
-      setUserProfile((prev) => ({ ...prev, ...updates }))
       return true
     }
 
-    const updated = { ...userProfile, ...updates }
     if (currentUser && isSupabaseConfigured) {
       const ok = await upsertUserProfile(updated)
       if (!ok) {
         throw new Error('Failed to save profile changes to Supabase database. Please ensure migrations are applied.')
       }
     }
-    setUserProfile(updated)
     return true
   }
 

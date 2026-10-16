@@ -34,6 +34,12 @@ export interface StudentProfile {
   bio?: string
   resumeFileName?: string
   resumeUploadedAt?: string
+  academicMetric?: string
+  academicMetricType?: 'percentage' | 'cgpa_10' | 'cgpa_4' | 'other' | 'unconfirmed'
+  isAcademicMetricConfirmed?: boolean
+  academicMetricScale?: string
+  conversionRule?: string
+  isCurrentYearConfirmed?: boolean
 }
 
 export interface SkillEvidenceItem {

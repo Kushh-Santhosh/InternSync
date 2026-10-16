@@ -129,22 +129,31 @@ test.describe.serial('Kushal Santhosh Real Resume Acceptance & Cloud Persistence
     await page.waitForURL('**/career-dna')
     await page.waitForTimeout(1500)
 
-    // Verify Name, Degree, Institution, and Graduation Batch
+    // Verify Name, Degree, Institution, and Exact Graduation Batch (Class of 2028)
     await expect(page.getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible()
     await expect(page.getByText(/CMR University/i).first()).toBeVisible()
-    await expect(page.getByText(/Class of 202[78]/i).first()).toBeVisible()
+    await expect(page.getByText('Class of 2028').first()).toBeVisible()
 
-    // Verify Academic Metric Ambiguity Banner
-    console.log('--- Step 5: Verify Ambiguity Detection Banner for CGPA 81.08 ---')
-    const ambiguityBanner = page.locator('text=Academic Metric Verification Needed').first()
+    // Verify Academic Credentials Ambiguity Banner
+    console.log('--- Step 5: Verify Ambiguity Detection Banner for CGPA 81.08 and Academic Year ---')
+    const ambiguityBanner = page.locator('text=Academic Credentials Verification Needed').first()
     await expect(ambiguityBanner).toBeVisible()
     await page.screenshot({ path: path.join(evidenceDir, '05_ambiguity_flag_detected.png') })
 
-    // Confirm the metric interactively
-    const confirmBtn = page.getByRole('button', { name: /Confirm as 81.08% \/ 8.11 CGPA/i }).first()
-    await expect(confirmBtn).toBeVisible()
-    await confirmBtn.click()
+    // Confirm the metric as 81.08% percentage (no automatic 10-point conversion)
+    const confirmPercentageBtn = page.getByRole('button', { name: /Confirm as 81.08% Percentage/i }).first()
+    await expect(confirmPercentageBtn).toBeVisible()
+    await confirmPercentageBtn.click()
+    await page.waitForTimeout(500)
+
+    // Confirm current academic standing as Year 2
+    const confirmYearBtn = page.getByRole('button', { name: /^Year 2$/i }).first()
+    await expect(confirmYearBtn).toBeVisible()
+    await confirmYearBtn.click()
+
     await page.waitForTimeout(1000)
+    await expect(page.getByText(/Class of 2028/i).first()).toBeVisible()
+    await expect(page.getByText(/81.08% \(Confirmed\)/i).first()).toBeVisible()
     await page.screenshot({ path: path.join(evidenceDir, '06_ambiguity_confirmed.png') })
 
     // Verify UI/UX and Full Stack direction fit
@@ -155,6 +164,7 @@ test.describe.serial('Kushal Santhosh Real Resume Acceptance & Cloud Persistence
     await page.reload()
     await page.waitForURL('**/career-dna')
     await expect(page.getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible()
+    await expect(page.getByText('Class of 2028').first()).toBeVisible()
 
     // Check private storage file exists in Supabase bucket
     const { data: storageFiles } = await adminClient.storage.from('documents').list(testUserId)
@@ -196,6 +206,7 @@ test.describe.serial('Kushal Santhosh Real Resume Acceptance & Cloud Persistence
     await page.goto('/career-dna')
     await page.waitForURL('**/career-dna')
     await expect(page.getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('Class of 2028').first()).toBeVisible()
     await page.screenshot({ path: path.join(evidenceDir, '10_relogin_career_dna_persisted.png') })
 
     console.log('\n🎉 Kushal Santhosh Real Resume Acceptance Walkthrough Succeeded 100%!')

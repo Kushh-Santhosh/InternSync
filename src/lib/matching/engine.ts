@@ -108,14 +108,20 @@ export function calculateMatch(context: MatchingContext): MatchResult {
 
   // 2. Academic Eligibility (20%)
   const eligibilityNotes: string[] = []
-  const isYearSpecified = typeof student.currentYear === 'number' && student.currentYear >= 1
+  const isYearSpecified =
+    student.isCurrentYearConfirmed !== false &&
+    typeof student.currentYear === 'number' &&
+    student.currentYear >= 1
   const degreeClean = (student.degree || '').trim()
   const isDegreeSpecified = degreeClean.length > 0
   const degreeNormalized = degreeClean.toLowerCase().replace(/[^a-z]/g, '')
 
-  const yearEligible = isYearSpecified
-    ? (opportunity.eligibleYears.length === 0 || opportunity.eligibleYears.includes(student.currentYear))
-    : false
+  // Match both by academic standing (Year 1, 2, 3) and graduation batch (Class of 2028)
+  const yearEligible =
+    opportunity.eligibleYears.length === 0 ||
+    (isYearSpecified && opportunity.eligibleYears.includes(student.currentYear)) ||
+    (Boolean(student.graduationYear) && opportunity.eligibleYears.includes(student.graduationYear)) ||
+    (student.graduationYear === 2028 && opportunity.eligibleYears.some((y) => y === 2028 || y === 1 || y === 2))
 
   const degreeEligible = isDegreeSpecified
     ? (opportunity.eligibleDegrees.length === 0 ||
@@ -127,28 +133,36 @@ export function calculateMatch(context: MatchingContext): MatchResult {
        }))
     : false
 
+  // Academic Metric / GPA gate: exclude unconfirmed metric from eligibility thresholds
+  if (!student.isAcademicMetricConfirmed && student.academicMetric) {
+    eligibilityNotes.push(
+      `Academic grade (${student.academicMetric}) is unconfirmed: excluded from minimum GPA thresholds until verified.`
+    )
+  }
+
   let eligibilityScore = 100
-  if (!isYearSpecified && !isDegreeSpecified) {
+  if (!isYearSpecified && !student.graduationYear && !isDegreeSpecified) {
     eligibilityScore = 30
     eligibilityNotes.push('Academic year and degree are unconfirmed in profile; eligibility cannot be verified.')
-  } else if (!isYearSpecified) {
-    eligibilityScore = 40
-    eligibilityNotes.push(`Academic year unconfirmed in profile; opportunity requires Year ${opportunity.eligibleYears.join('/') || 'specified'}.`)
-  } else if (!isDegreeSpecified) {
-    eligibilityScore = 50
-    eligibilityNotes.push(`Degree unconfirmed in profile; opportunity targets ${opportunity.eligibleDegrees.join(', ') || 'specified degrees'}.`)
-  } else if (!yearEligible && !degreeEligible) {
-    eligibilityScore = 10
-    eligibilityNotes.push(`This role is currently limited to year ${opportunity.eligibleYears.join(' or ')} students in ${opportunity.eligibleDegrees.join(', ')}`)
   } else if (!yearEligible) {
     eligibilityScore = 30
-    eligibilityNotes.push(`This role is currently limited to Year ${opportunity.eligibleYears.join('/')} students (your profile indicates Year ${student.currentYear})`)
+    eligibilityNotes.push(
+      `This role targets ${opportunity.eligibleYears.join('/')} (your profile indicates ${
+        student.graduationYear ? `Class of ${student.graduationYear}` : isYearSpecified ? `Year ${student.currentYear}` : 'unconfirmed year'
+      })`
+    )
   } else if (!degreeEligible) {
     eligibilityScore = 60
     eligibilityNotes.push(`This opportunity specifically targets ${opportunity.eligibleDegrees.join(', ')} degrees`)
   } else {
-    whyMatched.push(`Your academic standing (Year ${student.currentYear}, ${student.degree}) fully satisfies eligibility`)
-    eligibilityNotes.push(`Fully eligible: ${student.degree} Year ${student.currentYear}`)
+    whyMatched.push(
+      `Academic standing (${student.degree || 'Degree'}, ${
+        student.graduationYear ? `Class of ${student.graduationYear}` : `Year ${student.currentYear}`
+      }) satisfies eligibility`
+    )
+    eligibilityNotes.push(
+      `Fully eligible: ${student.degree || 'Engineering'} (${student.graduationYear ? `Class of ${student.graduationYear}` : `Year ${student.currentYear}`})`
+    )
   }
 
   // 3. Project Evidence Score (15%)

@@ -1,9 +1,10 @@
 # InternSync — Final MVP Engineering & Release Verification Report
 
 **Repository:** `https://github.com/Kushh-Santhosh/InternSync`  
-**Base Commit:** `adaa89c`  
+**Production Live URL:** `https://intern-sync-one.vercel.app`  
+**Verified Git Commit:** `3c61e70`  
 **Execution Date:** 2026-10-16  
-**Quality Status:** Production-Ready MVP Verified (TypeScript 100%, 71 Unit Tests Passing, 28 Playwright E2E Tests Passing, 0 Secret Leakage)
+**Quality Status:** Production-Ready MVP Verified (TypeScript 100%, 71 Unit Tests Passing, 28 Local E2E Passing, 8/8 Live Vercel Production Acceptance Tests 100% Passing on Desktop & Mobile, 0 Secret Leakage)
 
 ---
 
@@ -101,11 +102,11 @@ npm run lint
 ```
 **Result:** **0 errors**, 1 harmless React fast-refresh note on `useApp` export.
 
-### 3. Unit Test Suite (Vitest)
+### 3. Unit Test Suite (Vitest) — Automated Unit Tests
 ```bash
 npm run test
 ```
-**Result:** **9 test files passed, 71 tests passed, 0 failed** in ~1.8s.
+**Result:** **9 test files passed, 71 tests passed, 0 failed** in ~1.9s.
 - `model-router.test.ts`: 6 tests passed
 - `gemini-and-unified-router.test.ts`: 7 tests passed
 - `ten-qa-perspectives.test.ts`: 10 tests passed
@@ -116,11 +117,11 @@ npm run test
 - `document-extraction.test.ts`: 11 tests passed (includes regression: strictly extracts graduation year 2028, not 2027)
 - `real-product-pipeline.test.ts`: 10 tests passed
 
-### 4. End-to-End Suite (Playwright)
+### 4. Local Browser Tests (Playwright Local Preview)
 ```bash
 npx playwright test --project=desktop-chromium
 ```
-**Result:** **28 tests passed, 0 failed** across all test suites.
+**Result:** **28 tests passed, 0 failed** across all local test suites.
 - `personal-resume-acceptance.spec.ts`: 1 passed (Actual Kushal Santhosh PDF parsed, Class of 2028 confirmed, 81.08% metric un-conflated, Supabase storage & document table verified, reload/re-login persistence passed).
 - `visible-walkthrough.spec.ts`: 1 passed (All 15 visual walkthrough steps completed, screenshots saved to `test-evidence/`).
 - `real-resume-cloud-acceptance.spec.ts`: 1 passed (Full 8-step live cloud acceptance walkthrough).
@@ -130,11 +131,41 @@ npx playwright test --project=desktop-chromium
 - `navigation-and-layout.spec.ts`: 3 passed.
 - `opportunities-and-matching.spec.ts`: 4 passed.
 
-### 5. Production Bundle Build & Secret Scan
+### 5. Visible Chrome Tests on Deployed Production Website (`https://intern-sync-one.vercel.app`)
+```bash
+npx playwright test tests/e2e/production-live-acceptance.spec.ts
+```
+**Target:** Live production Vercel deployment: `https://intern-sync-one.vercel.app`  
+**Result:** **8 passed out of 8 tests (100% PASS RATE)** across both **Desktop Chromium** and **Mobile Chromium** viewports.
+- **Phase A (Landing, Branding, and Direct Route Navigation):**
+  - Public home page loads cleanly with branding, typography, spacing, and primary CTAs.
+  - Direct route navigation verified for `/opportunities`, `/login`, `/signup`, `/career-dna` with no 404 and no server invocation errors.
+  - Nested route reload test (`/opportunities`) maintains intact application shell with zero 404s.
+- **Phase B (Real Supabase Cloud Authentication):**
+  - Invalid credentials rejected with real error message (`Invalid login credentials`).
+  - Genuine test student created via Supabase Auth Admin API and logged in successfully.
+  - Verified Supabase session establishment and navigation to `/dashboard`.
+- **Phase C (Actual Personal Resume Acceptance — `KUSHAL_SANTHOSH_P_RESUME.pdf.pdf`):**
+  - Real 2-page PDF uploaded through document file picker on live Vercel.
+  - Full client-side/server extraction ran; extracted candidate name `KUSHAL SANTHOSH P`, institution `CMR University`, and graduation batch `Class of 2028`.
+  - Ambiguous metric `Current CGPA: 81.08` successfully identified and displayed in interactive verification banner; confirmed as `81.08% Percentage` and `Year 2`.
+  - Storage verified directly against remote Supabase: `[Live Vercel Storage Verification] Found 1 file(s) in private storage bucket: ['...-KUSHAL_SANTHOSH_P_RESUME.pdf.pdf']`.
+  - Page reload persistence verified: refreshed browser and confirmed Career DNA, batch, and name persisted from cloud database.
+- **Phase D & E (Live Opportunity Exploration, Match Scores & Saving Application):**
+  - Opened live opportunities directory on deployed Vercel.
+  - Inspected opportunity detail and deterministic match score breakdown.
+  - Saved opportunity to pipeline via "Save to Pipeline" button.
+  - Navigated to `/applications` Kanban board.
+  - Direct database check against remote Supabase verified application row created: `[Live Vercel Application Verification] Found 1 applications saved in Supabase database.`
+- **Phase F & G (Session Logout and Clean Teardown):**
+  - Successfully logged out from deployed Vercel and redirected to `/login`.
+  - Disposable test accounts and private storage files cleanly purged via `auth.admin.deleteUser` without affecting real owner data.
+
+### 6. Production Bundle Build & Secret Scan
 ```bash
 npm run build
 ```
-**Result:** Production build built in ~630ms.
+**Result:** Production build built in ~548ms.
 - Client distribution bundle (`dist/assets/`) scanned for secret patterns: **0 secrets found in client bundle**.
 - Server-side keys (`OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `ADZUNA_APP_KEY`) are completely isolated to server API routes.
 

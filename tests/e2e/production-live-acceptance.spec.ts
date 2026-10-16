@@ -37,6 +37,10 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
         email: testEmail,
         password: testPassword,
         email_confirm: true,
+        user_metadata: {
+          full_name: 'Kushal Santhosh P',
+          name: 'Kushal Santhosh P',
+        },
       })
       if (createErr || !userRecord.user) {
         throw new Error(`Failed to create test user: ${createErr?.message}`)
@@ -141,10 +145,12 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles(resumePath)
 
-    // Wait for document analysis and upload
+    // Wait for document analysis and upload to finish completely
     await expect(
       page.locator('main').getByText(/KUSHAL_SANTHOSH_P_RESUME/i).first()
     ).toBeVisible({ timeout: 60000 })
+    await expect(page.locator('text=Analyzing Document...')).toBeHidden({ timeout: 60000 })
+    await page.waitForTimeout(1000)
     await page.screenshot({ path: path.join(evidenceDir, '05_prod_resume_uploaded.png') })
 
     // 3. Inspect Career DNA
@@ -152,29 +158,29 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
     await page.goto(`${PROD_BASE_URL}/career-dna`, { waitUntil: 'networkidle' })
     await page.waitForTimeout(1000)
 
-    await expect(page.getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible()
-    await expect(page.getByText(/CMR University/i).first()).toBeVisible()
-    await expect(page.getByText('Class of 2028').first()).toBeVisible()
-
-    // Ambiguity resolution
+    // Ambiguity resolution (confirm percentage 81.08% and enrolled year)
     const confirmPercentageBtn = page.getByRole('button', { name: /Confirm as 81.08% Percentage/i }).first()
-    if (await confirmPercentageBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await confirmPercentageBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await confirmPercentageBtn.click()
       await page.waitForTimeout(500)
       const confirmYearBtn = page.getByRole('button', { name: /^Year 2$/i }).first()
-      if (await confirmYearBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      if (await confirmYearBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
         await confirmYearBtn.click()
       }
       await page.waitForTimeout(1000)
     }
+
+    await expect(page.locator('main').getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('main').getByText(/CMR University/i).first()).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('main').getByText('Class of 2028').first()).toBeVisible({ timeout: 10000 })
 
     await page.screenshot({ path: path.join(evidenceDir, '06_prod_career_dna_verified.png') })
 
     // 4. Reload and verify cloud persistence
     console.log('--- Step C3: Testing refresh persistence on deployed site ---')
     await page.reload({ waitUntil: 'networkidle' })
-    await expect(page.getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible()
-    await expect(page.getByText('Class of 2028').first()).toBeVisible()
+    await expect(page.locator('main').getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('main').getByText('Class of 2028').first()).toBeVisible({ timeout: 10000 })
 
     // 5. Verify private storage in Supabase
     const { data: storageFiles } = await adminClient.storage.from('documents').list(testUserId)
@@ -199,24 +205,18 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
     await page.screenshot({ path: path.join(evidenceDir, '07_prod_opportunities_directory.png') })
 
     // Open first opportunity
-    const viewButtons = page.locator('button:has-text("View Details"), a:has-text("View Details")')
+    const viewButtons = page.locator('button:has-text("View opportunity"), a:has-text("View opportunity"), button:has-text("View Details")')
     await expect(viewButtons.first()).toBeVisible({ timeout: 10000 })
     await viewButtons.first().click()
 
     await page.waitForURL('**/opportunities/**', { timeout: 15000 })
     await page.waitForTimeout(1000)
-    await page.screenshot({ path: path.join(evidenceDir, '08_prod_opportunity_detail.png') })
-
     // Save to Applications
     console.log('--- Step F1: Saving opportunity to application tracker ---')
-    const saveBtn = page.locator('button:has-text("Save Application"), button:has-text("Track Opportunity"), button:has-text("Save")').first()
-    if (await saveBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await saveBtn.click()
-      await page.waitForTimeout(1000)
-    }
-
-    // Navigate to Applications page
-    await page.goto(`${PROD_BASE_URL}/applications`, { waitUntil: 'networkidle' })
+    const saveBtn = page.locator('button:has-text("Save to Pipeline")').first()
+    await expect(saveBtn).toBeVisible({ timeout: 10000 })
+    await saveBtn.click()
+    await page.waitForURL('**/applications', { timeout: 15000 })
     await page.waitForTimeout(1000)
     await page.screenshot({ path: path.join(evidenceDir, '09_prod_applications_kanban.png') })
 

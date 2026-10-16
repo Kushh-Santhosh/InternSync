@@ -2,8 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createClient } from '@supabase/supabase-js'
-import { OpenRouterModelRouter, UnifiedAiRouter, type ChatMessage } from '../features/ai/model-router.js'
-import { GeminiProvider } from '../features/ai/gemini-provider.js'
+import { OpenRouterModelRouter, UnifiedAiRouter, type ChatMessage } from '../features/ai/model-router.ts'
+import { GeminiProvider } from '../features/ai/gemini-provider.ts'
 
 export interface ServerConfig {
   openrouterApiKey: string
@@ -566,9 +566,9 @@ export async function handleSearchLive(req: any, res: any): Promise<void> {
 
       // Prioritize ultra-fast search models (e.g. gpt-4o-mini finishes in ~5s vs ~16s on large models)
       const searchCandidates = [
-        ...candidateModels.filter((m) => m.includes('gpt-4o') || m.includes('mini')),
+        ...candidateModels.filter((m: string) => m.includes('gpt-4o') || m.includes('mini')),
         ...candidateModels,
-      ].filter((m, i, arr) => arr.indexOf(m) === i)
+      ].filter((m: string, i: number, arr: string[]) => arr.indexOf(m) === i)
 
       const prompt = `Search live public web listings for active internship opportunities:
 Query: "${cleanQueryText}"

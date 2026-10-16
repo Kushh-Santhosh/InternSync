@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { handleSearchLive, sendJson } from '../../src/server/api-handler.ts'
+// @ts-ignore
+import { handleSearchLive, sendJson } from '../_handler.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {

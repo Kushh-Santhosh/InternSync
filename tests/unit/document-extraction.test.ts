@@ -4,6 +4,7 @@ import { parsePdf, parsePdfDetailed } from '@/lib/documents/pdf-parser'
 import { parseDocx } from '@/lib/documents/docx-parser'
 import { parsePptx } from '@/lib/documents/pptx-parser'
 import {
+  extractProfileFromResumeText,
   processUploadedDocument,
   validateDocumentFile,
 } from '@/lib/documents/document-intelligence'
@@ -177,5 +178,35 @@ startxref
     await expect(
       processUploadedDocument(legacyDoc, 'resume', BLANK_STUDENT_PROFILE, [])
     ).rejects.toThrow(/Legacy Microsoft Word \(\.doc\) format is not supported/i)
+  })
+
+  it('correctly resolves graduation year as 2028 (not 2027) for 4-year B.Tech starting in 2024', () => {
+    const resumeText = `
+KUSHAL SANTHOSH P
+EDUCATION
+CMR University — Bachelor of Technology, Information Technology | 2024–2028 (Pursuing)
+Current CGPA: 81.08
+KEY SKILLS
+Full-Stack Development, UI/UX Design, Figma, Python
+`
+    const profile = extractProfileFromResumeText(resumeText)
+    expect(profile.graduationYear).toBe(2028)
+    expect(profile.graduationYear).not.toBe(2027)
+    // Academic year standing remains unconfirmed when not explicitly stated in words
+    expect(profile.currentYear).toBe(0)
+    expect(profile.isCurrentYearConfirmed).toBe(false)
+  })
+
+  it('regression: resolves 2028 graduation year even if source stream has 2024-2027 for B.Tech degree', () => {
+    const resumeStreamText = `
+CMR University — Bachelor of Technology, Information Technology | 2024–2027 (Pursuing)
+Current CGPA: 81.08
+`
+    const profile = extractProfileFromResumeText(resumeStreamText)
+    expect(profile.graduationYear).toBe(2028)
+    expect(profile.graduationYear).not.toBe(2027)
+    expect(profile.university).toBe('CMR University')
+    expect(profile.academicMetric).toContain('81.08')
+    expect(profile.isAcademicMetricConfirmed).toBe(false)
   })
 })

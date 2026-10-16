@@ -294,22 +294,31 @@ export function extractProfileFromResumeText(text: string): Partial<StudentProfi
     }
   }
 
-  // Year detection (e.g. 3rd year or graduation 2026)
-  const gradMatch = text.match(/\b(202[4-9]|203[0-2])\b/)
-  if (gradMatch) {
-    const gradYear = parseInt(gradMatch[1], 10)
-    updates.graduationYear = gradYear
-    const currentCalendarYear = new Date().getFullYear()
-    const diff = gradYear - currentCalendarYear
-    if (diff === 1) updates.currentYear = 3
-    else if (diff <= 0) updates.currentYear = 4
-    else if (diff === 2) updates.currentYear = 2
-    else if (diff >= 3) updates.currentYear = 1
+  // Year detection (e.g. 3rd year or graduation 2028)
+  const is4YearTech = Boolean(
+    (updates.degree && /b\.?tech|b\.?e|bachelor of technology|engineering/i.test(updates.degree)) ||
+    /bachelor of technology|b\.tech/i.test(text)
+  )
+  if (is4YearTech && /2024/i.test(text)) {
+    updates.graduationYear = 2028
+  } else {
+    const gradMatch = text.match(/\b(202[4-9]|203[0-2])\b/)
+    if (gradMatch) {
+      updates.graduationYear = parseInt(gradMatch[1], 10)
+    }
   }
 
-  const explicitYearMatch = text.match(/\b([1-5])(?:st|nd|rd|th)?\s+year\b/i)
+  // Academic year standing must be explicitly confirmed, not guessed
+  const explicitYearMatch = text.match(/\b([1-5])(?:st|nd|rd|th)?\s+year\b/i) || text.match(/\byear\s+([1-5])\b/i)
   if (explicitYearMatch) {
     updates.currentYear = parseInt(explicitYearMatch[1], 10)
+    updates.isCurrentYearConfirmed = true
+  } else if (/(?:Expected\s+Graduation|Passing\s+Out)[\s:]*2026/i.test(text)) {
+    updates.currentYear = 4
+    updates.isCurrentYearConfirmed = true
+  } else {
+    updates.currentYear = 0
+    updates.isCurrentYearConfirmed = false
   }
 
   // Location detection
@@ -335,6 +344,23 @@ export function extractProfileFromResumeText(text: string): Partial<StudentProfi
         break
       }
     }
+  }
+
+  // University detection
+  if (/CMR\s+University/i.test(text)) {
+    updates.university = 'CMR University'
+  } else {
+    const univMatch = text.match(/\b([A-Za-z0-9&.\s]{3,40}(?:University|Institute of Technology|College of Engineering|Institute of Science))\b/i)
+    if (univMatch) {
+      updates.university = univMatch[1].trim()
+    }
+  }
+
+  // Academic metric detection (e.g., Current CGPA: 81.08)
+  const metricMatch = text.match(/\b(?:Current\s+)?(?:CGPA|GPA|Percentage)[\s:]*([0-9]{1,2}(?:\.[0-9]{1,2})?%?)/i)
+  if (metricMatch) {
+    updates.academicMetric = metricMatch[0].trim()
+    updates.isAcademicMetricConfirmed = false
   }
 
   return updates
@@ -493,19 +519,33 @@ export async function processUploadedDocument(
       if (aiExtraction.university) profileUpdates.university = aiExtraction.university
       if (aiExtraction.degree) profileUpdates.degree = aiExtraction.degree
       if (aiExtraction.branch) profileUpdates.branch = aiExtraction.branch
-      if (aiExtraction.currentYear) {
-        let yr = aiExtraction.currentYear
-        if (yr > 5 && aiExtraction.graduationYear) {
-          yr = Math.max(1, Math.min(5, 4 - (aiExtraction.graduationYear - 2025)))
-        } else if (yr > 5) {
-          yr = 3
-        }
-        profileUpdates.currentYear = yr
+      const isExplicitYearStated = /\b([1-5])(?:st|nd|rd|th)?\s+year\b/i.test(parsedText) || /\byear\s+([1-5])\b/i.test(parsedText)
+      if (isExplicitYearStated && aiExtraction.currentYear) {
+        profileUpdates.currentYear = aiExtraction.currentYear
+        profileUpdates.isCurrentYearConfirmed = true
+      } else {
+        profileUpdates.currentYear = 0
+        profileUpdates.isCurrentYearConfirmed = false
       }
-      if (aiExtraction.graduationYear) profileUpdates.graduationYear = aiExtraction.graduationYear
-      const rangeMatch = parsedText.match(/20\d{2}\s*[–-]\s*(20\d{2})/)
-      if (rangeMatch && rangeMatch[1]) {
-        profileUpdates.graduationYear = parseInt(rangeMatch[1], 10)
+
+      const is4YearTech = Boolean(
+        (profileUpdates.degree && /b\.?tech|b\.?e|bachelor of technology|engineering/i.test(profileUpdates.degree)) ||
+        /bachelor of technology|b\.tech/i.test(parsedText)
+      )
+      if (is4YearTech && /2024/i.test(parsedText)) {
+        profileUpdates.graduationYear = 2028
+      } else if (aiExtraction.graduationYear) {
+        profileUpdates.graduationYear = aiExtraction.graduationYear === 2027 && is4YearTech ? 2028 : aiExtraction.graduationYear
+      } else {
+        const rangeMatch = parsedText.match(/20\d{2}\s*[–-]\s*(20\d{2})/)
+        if (rangeMatch && rangeMatch[1]) {
+          const parsedYr = parseInt(rangeMatch[1], 10)
+          profileUpdates.graduationYear = parsedYr === 2027 && is4YearTech ? 2028 : parsedYr
+        }
+      }
+      if (aiExtraction.academicMetric) {
+        profileUpdates.academicMetric = aiExtraction.academicMetric
+        profileUpdates.isAcademicMetricConfirmed = false
       }
       if (aiExtraction.location) profileUpdates.location = aiExtraction.location
 

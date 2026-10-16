@@ -2,9 +2,18 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { handleSearchLive, sendJson } from '../../src/server/api-handler.ts'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    sendJson(res, 405, { error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' })
-    return
+  try {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' })
+      return
+    }
+    await handleSearchLive(req, res)
+  } catch (err: any) {
+    console.error('[Search Live Crash]', err)
+    sendJson(res, 500, {
+      error: err?.message || String(err),
+      code: 'SEARCH_LIVE_CRASH',
+      results: [],
+    })
   }
-  await handleSearchLive(req, res)
 }

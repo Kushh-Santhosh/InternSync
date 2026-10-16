@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
-import type { ChatMessage, RouterCompletionResult } from './model-router.js'
+import type { ChatMessage, RouterCompletionResult } from './model-router.ts'
 
 export interface GeminiConfig {
   apiKey: string

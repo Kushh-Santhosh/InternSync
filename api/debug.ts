@@ -1,23 +1,33 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import fs from 'node:fs'
+import path from 'node:path'
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
-  const info: Record<string, any> = {
-    nodeVersion: process.version,
-    env: process.env.NODE_ENV,
+  let rootFiles: string[] = []
+  let apiFiles: string[] = []
+  let srcFiles: string[] = []
+
+  try {
+    rootFiles = fs.readdirSync('/var/task')
+  } catch (e: any) {
+    rootFiles = [e.message]
   }
 
   try {
-    const mod = await import('../src/server/api-handler.ts')
-    info.apiHandlerImport = 'SUCCESS'
-    info.keys = Object.keys(mod)
-  } catch (err: any) {
-    info.apiHandlerImport = 'FAILED'
-    info.error = {
-      message: err?.message,
-      code: err?.code,
-      stack: err?.stack,
-    }
+    apiFiles = fs.readdirSync('/var/task/api')
+  } catch (e: any) {
+    apiFiles = [e.message]
   }
 
-  res.status(200).json(info)
+  try {
+    srcFiles = fs.readdirSync('/var/task/src')
+  } catch (e: any) {
+    srcFiles = [e.message]
+  }
+
+  res.status(200).json({
+    rootFiles,
+    apiFiles,
+    srcFiles,
+  })
 }

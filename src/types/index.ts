@@ -242,6 +242,11 @@ export interface UploadedDocument {
   slideCount?: number
   extractedSkills: string[]
   extractedProjects: string[]
+  extractedData?: {
+    ambiguousFields?: { field: string; rawValue: string; reason: string; actionNeeded: string }[]
+    academicMetric?: string | null
+    [key: string]: unknown
+  }
 }
 
 export interface LiveSearchProgress {

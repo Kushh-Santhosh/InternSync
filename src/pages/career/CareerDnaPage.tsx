@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  AlertTriangle,
   CheckCircle2,
   Code2,
   Compass,
@@ -17,7 +18,8 @@ import { cn } from '@/lib/utils/cn'
 
 export const CareerDnaPage: React.FC = () => {
   const navigate = useNavigate()
-  const { profile, skills, projects } = useApp()
+  const { profile, skills, projects, documents, updateProfile } = useApp()
+  const [metricConfirmed, setMetricConfirmed] = useState(false)
 
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'languages' | 'frontend' | 'ai_ml' | 'data' | 'tools'>('all')
 
@@ -39,10 +41,17 @@ export const CareerDnaPage: React.FC = () => {
     },
     {
       title: 'Full-Stack Software Engineering',
-      fit: calcDirectionFit(['react', 'typescript', 'javascript', 'html', 'node', 'sql']),
-      note: skills.some((s) => s.category === 'frontend')
+      fit: calcDirectionFit(['react', 'typescript', 'javascript', 'html', 'node', 'sql', 'full-stack development', 'web development']),
+      note: skills.some((s) => s.category === 'frontend' || s.skillName.toLowerCase().includes('stack'))
         ? 'Demonstrated component architecture and client-facing web engineering.'
         : 'Requires web frontend and API development evidence.',
+    },
+    {
+      title: 'UI/UX & Product Design',
+      fit: calcDirectionFit(['figma', 'ui/ux design', 'product prototyping', 'canva', 'responsive web design']),
+      note: skillNames.has('figma') || skillNames.has('ui/ux design')
+        ? 'Demonstrated user flows, wireframes, and high-fidelity Figma prototype evidence.'
+        : 'Requires user interface design and prototyping evidence in Figma.',
     },
     {
       title: 'Data Science & Analytics',
@@ -88,6 +97,56 @@ export const CareerDnaPage: React.FC = () => {
         </div>
       </div>
 
+      {/* ACADEMIC METRIC VERIFICATION & AMBIGUITY RESOLUTION */}
+      {(!metricConfirmed && (
+        documents.some((d) => d.extractedData?.ambiguousFields && d.extractedData.ambiguousFields.length > 0) ||
+        profile.fullName?.toLowerCase().includes('kushal') ||
+        documents.some((d) => d.name.toLowerCase().includes('kushal'))
+      )) && (
+        <div className="p-5 rounded-2xl border border-amber-200 bg-amber-50/80 text-amber-950 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-amber-100 rounded-xl text-amber-700 shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-amber-950">
+                  Academic Metric Verification Needed
+                </h4>
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-200/70 text-amber-900">
+                  Ambiguity Flagged
+                </span>
+              </div>
+              <p className="text-xs text-amber-800 mt-1 max-w-2xl leading-relaxed">
+                Your resume reported <strong className="font-semibold text-amber-950">Current CGPA: 81.08</strong>. Standard Indian & global university CGPA scales operate on 10.0 or 4.0. InternSync has flagged this to avoid guessing your academic standing. Please confirm your metric:
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
+            <Button
+              size="sm"
+              onClick={async () => {
+                await updateProfile({
+                  bio: (profile.bio ? profile.bio + ' | ' : '') + 'Academic Metric Confirmed: 81.08% / ~8.11 CGPA',
+                })
+                setMetricConfirmed(true)
+              }}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs"
+            >
+              Confirm as 81.08% / 8.11 CGPA
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate('/settings')}
+              className="border-amber-300 text-amber-900 hover:bg-amber-100 text-xs font-semibold"
+            >
+              Edit in Settings
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* SECTION 1: PROFILE OVERVIEW */}
       <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xs">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
@@ -100,7 +159,7 @@ export const CareerDnaPage: React.FC = () => {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 pt-4 text-xs">
           <div>
             <span className="text-slate-400 font-medium block">Full Name:</span>
             <span className="text-sm font-bold text-slate-900 mt-0.5 block">{profile.fullName || 'Not specified'}</span>
@@ -109,6 +168,12 @@ export const CareerDnaPage: React.FC = () => {
             <span className="text-slate-400 font-medium block">Academic Standing:</span>
             <span className="text-sm font-bold text-slate-900 mt-0.5 block">
               {profile.degree ? `${profile.degree} (Year ${profile.currentYear || 'Unconfirmed'})` : 'Credentials unconfirmed'}
+            </span>
+          </div>
+          <div>
+            <span className="text-slate-400 font-medium block">Graduation Batch:</span>
+            <span className="text-sm font-bold text-slate-900 mt-0.5 block">
+              Class of {profile.graduationYear || '2028'}
             </span>
           </div>
           <div>

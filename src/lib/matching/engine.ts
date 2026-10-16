@@ -116,16 +116,19 @@ export function calculateMatch(context: MatchingContext): MatchResult {
   const isDegreeSpecified = degreeClean.length > 0
   const degreeNormalized = degreeClean.toLowerCase().replace(/[^a-z]/g, '')
 
+  const oppYears = Array.isArray(opportunity.eligibleYears) ? opportunity.eligibleYears : []
+  const oppDegrees = Array.isArray(opportunity.eligibleDegrees) ? opportunity.eligibleDegrees : []
+
   // Match both by academic standing (Year 1, 2, 3) and graduation batch (Class of 2028)
   const yearEligible =
-    opportunity.eligibleYears.length === 0 ||
-    (isYearSpecified && opportunity.eligibleYears.includes(student.currentYear)) ||
-    (Boolean(student.graduationYear) && opportunity.eligibleYears.includes(student.graduationYear)) ||
-    (student.graduationYear === 2028 && opportunity.eligibleYears.some((y) => y === 2028 || y === 1 || y === 2))
+    oppYears.length === 0 ||
+    (isYearSpecified && oppYears.includes(student.currentYear)) ||
+    (Boolean(student.graduationYear) && oppYears.includes(student.graduationYear)) ||
+    (student.graduationYear === 2028 && oppYears.some((y) => y === 2028 || y === 1 || y === 2))
 
   const degreeEligible = isDegreeSpecified
-    ? (opportunity.eligibleDegrees.length === 0 ||
-       opportunity.eligibleDegrees.some((deg) => {
+    ? (oppDegrees.length === 0 ||
+       oppDegrees.some((deg) => {
          const lower = deg.toLowerCase()
          if (lower.includes('any') || lower.includes('all') || lower.includes('open')) return true
          const norm = lower.replace(/[^a-z]/g, '')

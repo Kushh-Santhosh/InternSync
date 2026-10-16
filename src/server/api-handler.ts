@@ -37,8 +37,9 @@ const defaultConfig: ServerConfig = {
   adzunaAppId: '',
   adzunaAppKey: '',
   adzunaCountry: 'in',
-  supabaseUrl: '',
-  supabaseAnonKey: '',
+  supabaseUrl: 'https://kkgnhoflqusupqnhgzkz.supabase.co',
+  supabaseAnonKey:
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrZ25ob2ZscXVzdXBxbmhnemt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNjc2NDEsImV4cCI6MjEwNzY0MzY0MX0.OmC1bbSOB12ouCWC8Oei86G4l2vE25Zi6YPY1tfgsO4',
 }
 
 // Read local .env if present on filesystem (supporting both local dev and preview)

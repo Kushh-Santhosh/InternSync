@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build:server": "esbuild src/server/api-handler.ts --bundle --platform=node --format=esm --outfile=api/_handler.js",
+    "build:server": "esbuild src/server/api-handler.ts --bundle --platform=node --format=esm --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --outfile=api/_handler.js",
     "build": "npm run build:server && tsc -b && vite build",
     "typecheck": "tsc -b",
     "lint": "oxlint",

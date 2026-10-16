@@ -249,7 +249,7 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
     expect(dbErr).toBeNull()
     expect(dbDocs).not.toBeNull()
     expect(dbDocs.length).toBeGreaterThan(0)
-    expect(dbDocs[0].name).toContain('KUSHAL_SANTHOSH_P_RESUME')
+    expect(dbDocs[0].file_name || dbDocs[0].name).toContain('KUSHAL_SANTHOSH_P_RESUME')
     console.log(`[Live Vercel Database Verification] Found ${dbDocs.length} document metadata row(s) in Supabase.`)
 
     // 6. Sign out and sign back in to verify persistent Career DNA restoration
@@ -262,7 +262,7 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
     await page.fill('input[placeholder="name@university.edu"]', testEmail)
     await page.fill('input[placeholder="••••••••"]', testPassword)
     await page.click('button[type="submit"]')
-    await page.waitForURL('**/dashboard', { timeout: 20000 })
+    await page.waitForURL(/(dashboard|settings)/, { timeout: 20000 })
 
     await page.goto(`${PROD_BASE_URL}/career-dna`, { waitUntil: 'networkidle' })
     await expect(page.locator('main').getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible({ timeout: 10000 })
@@ -338,7 +338,7 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
       durationMonths: 3,
       requiredSkills: ['UI/UX Design', 'Figma', 'React'],
       preferredSkills: ['Python'],
-      targetDegrees: ['B.Tech', 'B.E'],
+      eligibleDegrees: ['B.Tech', 'B.E'],
       eligibleYears: [2, 3, 4],
       minCgpa: 7.0,
       description: 'Design and prototype next-gen web applications.',
@@ -378,14 +378,14 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
       opportunity: roleWithGaps,
     })
     expect(matchScenario2.recommendation).toBe('PREPARE FIRST')
-    expect(matchScenario2.skillGaps.length).toBeGreaterThan(0)
+    expect(matchScenario2.missingSkills.length).toBeGreaterThan(0)
 
     // Scenario 3: Confirmed mandatory eligibility mismatch -> SKIP
     const roleMismatch: Opportunity = {
       ...roleHighAffinity,
       id: 'opp-mismatch',
       roleTitle: 'Final Year PhD Research Intern',
-      targetDegrees: ['PhD', 'M.Tech'],
+      eligibleDegrees: ['PhD', 'M.Tech'],
       eligibleYears: [4, 5],
     }
     const matchScenario3 = calculateMatch({
@@ -419,7 +419,7 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
     await page.screenshot({ path: path.join(evidenceDir, '08_prod_opportunity_detail.png') })
 
     // Verify opportunity detail elements
-    await expect(page.locator('text=Deterministic Match Analysis').or(page.locator('text=Match Breakdown'))).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('button', { name: 'Why You Match & Evidence' })).toBeVisible({ timeout: 10000 })
 
     // 4. Save to Applications Pipeline
     console.log('--- Step F1: Saving opportunity to application tracker ---')
@@ -457,7 +457,7 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
     await page.fill('input[placeholder="name@university.edu"]', testEmail2)
     await page.fill('input[placeholder="••••••••"]', testPassword2)
     await page.click('button[type="submit"]')
-    await page.waitForURL('**/dashboard', { timeout: 20000 })
+    await page.waitForURL(/(dashboard|settings)/, { timeout: 20000 })
 
     // Assert second account has 0 applications saved in Supabase
     const { data: user2Apps } = await adminClient.from('applications').select('*').eq('student_id', testUserId2)

@@ -201,7 +201,8 @@ test.describe.serial('Real Resume Acceptance & Cloud Persistence E2E Test', () =
     // Refresh page to confirm instant reload
     await page.reload()
     await page.waitForURL('**/applications')
-    await expect(page.locator('.w-72').getByText(/NovaStack/i).first()).toBeVisible({ timeout: 15000 })
+    const savedCard = page.locator('.w-72').locator('div').filter({ hasText: /Saved to pipeline/i }).first()
+    await expect(savedCard).toBeVisible({ timeout: 15000 })
     await page.screenshot({ path: path.join(evidenceDir, '10_applications_after_reload.png') })
 
     // Logout
@@ -238,7 +239,8 @@ test.describe.serial('Real Resume Acceptance & Cloud Persistence E2E Test', () =
     // Check Applications are still there
     await page.goto('/applications')
     await page.waitForURL('**/applications')
-    await expect(page.locator('.w-72').getByText(/NovaStack/i).first()).toBeVisible({ timeout: 15000 })
+    const reloginSavedCard = page.locator('.w-72').locator('div').filter({ hasText: /Saved to pipeline/i }).first()
+    await expect(reloginSavedCard).toBeVisible({ timeout: 15000 })
     await page.screenshot({ path: path.join(evidenceDir, '14_relogin_applications_persisted.png') })
 
     console.log('\n🎉 ALL ACCEPTANCE WALKTHROUGH STEPS COMPLETED WITH 100% SUCCESS!')

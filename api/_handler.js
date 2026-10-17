@@ -69294,10 +69294,31 @@ var GreenhouseSourceAdapter = class {
     const matchedJobs = jobs.filter((job) => {
       const titleLower = (job.title || "").toLowerCase();
       const jobLoc = (job.location?.name || "").toLowerCase();
+      const isSeniorOrManager = titleLower.includes("manager") || titleLower.includes("director") || titleLower.includes("vice president") || titleLower.includes("head of") || titleLower.includes("lead ") || titleLower.includes("principal") || titleLower.includes("staff ") || titleLower.includes("sr.") || titleLower.includes("senior");
+      if (isInternTarget && isSeniorOrManager && !titleLower.includes("intern")) {
+        return false;
+      }
       const isInternTitle = titleLower.includes("intern") || titleLower.includes("trainee") || titleLower.includes("apprentice") || titleLower.includes("co-op") || titleLower.includes("graduate") || titleLower.includes("fellow") || titleLower.includes("campus") || titleLower.includes("early career") || titleLower.includes("junior") || titleLower.includes("associate");
+      const isDesignQuery = qLower.includes("design") || roleLower.includes("design") || qLower.includes("ui") || roleLower.includes("ui") || qLower.includes("ux") || roleLower.includes("ux");
+      const isDesignJob = titleLower.includes("design") || titleLower.includes("ui") || titleLower.includes("ux") || titleLower.includes("creative") || titleLower.includes("product designer");
+      if (isDesignQuery && !isDesignJob) {
+        return false;
+      }
+      const isDevQuery = qLower.includes("software") || roleLower.includes("software") || qLower.includes("developer") || roleLower.includes("developer") || qLower.includes("frontend") || roleLower.includes("frontend") || qLower.includes("backend") || roleLower.includes("backend") || qLower.includes("full stack") || roleLower.includes("full stack");
+      const isDevJob = titleLower.includes("engineer") || titleLower.includes("developer") || titleLower.includes("software") || titleLower.includes("frontend") || titleLower.includes("backend") || titleLower.includes("full stack") || titleLower.includes("web");
+      if (isDevQuery && isDesignJob && !isDevJob) {
+        return false;
+      }
+      const stopWords = /* @__PURE__ */ new Set(["intern", "internship", "student", "summer", "winter", "2025", "2026", "india", "remote", "the", "and", "for", "with", "in", "at"]);
+      const specificTerms = qLower.split(/\s+/).filter((w) => w.length > 2 && !stopWords.has(w));
+      const isHighlySpecificSearch = specificTerms.some((t2) => ["quantum", "submarine", "aerospace", "biotech", "neuro", "hardware", "rf", "robotics"].includes(t2));
+      if (isHighlySpecificSearch) {
+        const matchesSpecific = specificTerms.some((t2) => titleLower.includes(t2));
+        if (!matchesSpecific) return false;
+      }
       const matchesKeyword = !qLower || titleLower.includes(qLower) || roleLower && titleLower.includes(roleLower) || qLower.split(" ").some((term) => term.length > 3 && titleLower.includes(term));
       if (isInternTarget && !isInternTitle) {
-        if (!titleLower.includes("engineer") && !titleLower.includes("developer") && !titleLower.includes("analyst")) {
+        if (!isDevJob && !isDesignJob) {
           return false;
         }
       }
@@ -69305,12 +69326,12 @@ var GreenhouseSourceAdapter = class {
         return false;
       }
       if (locLower && locLower !== "any" && locLower !== "all") {
-        const isRemoteJob = jobLoc.includes("remote") || jobLoc.includes("home based") || jobLoc.includes("worldwide") || jobLoc.includes("anywhere");
-        const matchesLoc = isRemoteJob || jobLoc.includes(locLower) || locLower === "india" && (jobLoc.includes("bangalore") || jobLoc.includes("bengaluru") || jobLoc.includes("noida") || jobLoc.includes("gurgaon") || jobLoc.includes("hyderabad") || jobLoc.includes("pune") || jobLoc.includes("mumbai") || jobLoc.includes("chennai"));
+        const isRemoteJob = jobLoc.includes("remote") || jobLoc.includes("home based") || jobLoc.includes("worldwide") || jobLoc.includes("anywhere") || jobLoc.includes("global") || jobLoc.includes("virtual");
+        const isIndiaTarget = locLower.includes("india") || locLower.includes("bengaluru") || locLower.includes("bangalore") || locLower.includes("hyderabad") || locLower.includes("pune") || locLower.includes("mumbai") || locLower.includes("delhi") || locLower.includes("noida") || locLower.includes("gurgaon") || locLower.includes("chennai");
+        const jobInIndia = jobLoc.includes("india") || jobLoc.includes("bangalore") || jobLoc.includes("bengaluru") || jobLoc.includes("hyderabad") || jobLoc.includes("pune") || jobLoc.includes("mumbai") || jobLoc.includes("delhi") || jobLoc.includes("noida") || jobLoc.includes("gurgaon") || jobLoc.includes("chennai");
+        const matchesLoc = isRemoteJob || jobLoc.includes(locLower) || isIndiaTarget && jobInIndia;
         if (!matchesLoc) {
-          if (locLower === "india" || locLower === "bengaluru" || locLower === "bangalore") {
-            return false;
-          }
+          return false;
         }
       }
       return true;
@@ -69383,10 +69404,31 @@ var LeverSourceAdapter = class {
       const jobLoc = (posting.categories?.location || "").toLowerCase();
       const allLocs = (posting.categories?.allLocations || []).map((l) => l.toLowerCase()).join(" ");
       const combinedLoc = `${jobLoc} ${allLocs} ${posting.workplaceType || ""}`.toLowerCase();
+      const isSeniorOrManager = titleLower.includes("manager") || titleLower.includes("director") || titleLower.includes("vice president") || titleLower.includes("head of") || titleLower.includes("lead ") || titleLower.includes("principal") || titleLower.includes("staff ") || titleLower.includes("sr.") || titleLower.includes("senior");
+      if (isInternTarget && isSeniorOrManager && !titleLower.includes("intern")) {
+        return false;
+      }
       const isInternTitle = titleLower.includes("intern") || titleLower.includes("trainee") || titleLower.includes("apprentice") || titleLower.includes("co-op") || titleLower.includes("graduate") || titleLower.includes("junior") || titleLower.includes("associate") || commitment.includes("intern");
+      const isDesignQuery = qLower.includes("design") || roleLower.includes("design") || qLower.includes("ui") || roleLower.includes("ui") || qLower.includes("ux") || roleLower.includes("ux");
+      const isDesignJob = titleLower.includes("design") || titleLower.includes("ui") || titleLower.includes("ux") || titleLower.includes("creative") || titleLower.includes("product designer");
+      if (isDesignQuery && !isDesignJob) {
+        return false;
+      }
+      const isDevQuery = qLower.includes("software") || roleLower.includes("software") || qLower.includes("developer") || roleLower.includes("developer") || qLower.includes("frontend") || roleLower.includes("frontend") || qLower.includes("backend") || roleLower.includes("backend") || qLower.includes("full stack") || roleLower.includes("full stack");
+      const isDevJob = titleLower.includes("engineer") || titleLower.includes("developer") || titleLower.includes("software") || titleLower.includes("frontend") || titleLower.includes("backend") || titleLower.includes("full stack") || titleLower.includes("web");
+      if (isDevQuery && isDesignJob && !isDevJob) {
+        return false;
+      }
+      const stopWords = /* @__PURE__ */ new Set(["intern", "internship", "student", "summer", "winter", "2025", "2026", "india", "remote", "the", "and", "for", "with", "in", "at"]);
+      const specificTerms = qLower.split(/\s+/).filter((w) => w.length > 2 && !stopWords.has(w));
+      const isHighlySpecificSearch = specificTerms.some((t2) => ["quantum", "submarine", "aerospace", "biotech", "neuro", "hardware", "rf", "robotics"].includes(t2));
+      if (isHighlySpecificSearch) {
+        const matchesSpecific = specificTerms.some((t2) => titleLower.includes(t2));
+        if (!matchesSpecific) return false;
+      }
       const matchesKeyword = !qLower || titleLower.includes(qLower) || roleLower && titleLower.includes(roleLower) || qLower.split(" ").some((term) => term.length > 3 && titleLower.includes(term));
       if (isInternTarget && !isInternTitle) {
-        if (!titleLower.includes("engineer") && !titleLower.includes("developer") && !titleLower.includes("analyst")) {
+        if (!isDevJob && !isDesignJob) {
           return false;
         }
       }
@@ -69394,12 +69436,12 @@ var LeverSourceAdapter = class {
         return false;
       }
       if (locLower && locLower !== "any" && locLower !== "all") {
-        const isRemoteJob = combinedLoc.includes("remote") || posting.workplaceType === "remote" || combinedLoc.includes("worldwide");
-        const matchesLoc = isRemoteJob || combinedLoc.includes(locLower) || locLower === "india" && (combinedLoc.includes("bangalore") || combinedLoc.includes("bengaluru") || combinedLoc.includes("noida") || combinedLoc.includes("gurgaon") || combinedLoc.includes("hyderabad") || combinedLoc.includes("pune") || combinedLoc.includes("mumbai") || combinedLoc.includes("delhi"));
+        const isRemoteJob = combinedLoc.includes("remote") || posting.workplaceType === "remote" || combinedLoc.includes("worldwide") || combinedLoc.includes("anywhere") || combinedLoc.includes("global");
+        const isIndiaTarget = locLower.includes("india") || locLower.includes("bengaluru") || locLower.includes("bangalore") || locLower.includes("hyderabad") || locLower.includes("pune") || locLower.includes("mumbai") || locLower.includes("delhi") || locLower.includes("noida") || locLower.includes("gurgaon") || locLower.includes("chennai");
+        const jobInIndia = combinedLoc.includes("india") || combinedLoc.includes("bangalore") || combinedLoc.includes("bengaluru") || combinedLoc.includes("hyderabad") || combinedLoc.includes("pune") || combinedLoc.includes("mumbai") || combinedLoc.includes("delhi") || combinedLoc.includes("noida") || combinedLoc.includes("gurgaon") || combinedLoc.includes("chennai");
+        const matchesLoc = isRemoteJob || combinedLoc.includes(locLower) || isIndiaTarget && jobInIndia;
         if (!matchesLoc) {
-          if (locLower === "india" || locLower === "bengaluru" || locLower === "bangalore") {
-            return false;
-          }
+          return false;
         }
       }
       return true;
@@ -69470,9 +69512,30 @@ var PublicFeedsAdapter = class {
       const levelLower = (job.jobLevel || "").toLowerCase();
       const geoLower = (job.jobGeo || "").toLowerCase();
       const isEarlyCareer = titleLower.includes("intern") || titleLower.includes("trainee") || titleLower.includes("apprentice") || titleLower.includes("graduate") || titleLower.includes("junior") || titleLower.includes("associate") || levelLower.includes("entry") || levelLower.includes("junior") || levelLower.includes("intern");
+      const isSeniorOrManager = titleLower.includes("manager") || titleLower.includes("director") || titleLower.includes("vice president") || titleLower.includes("head of") || titleLower.includes("lead ") || titleLower.includes("principal") || titleLower.includes("staff ") || titleLower.includes("sr.") || titleLower.includes("senior");
+      if (isInternTarget && isSeniorOrManager && !titleLower.includes("intern")) {
+        return false;
+      }
+      const isDesignQuery = qLower.includes("design") || roleLower.includes("design") || qLower.includes("ui") || roleLower.includes("ui") || qLower.includes("ux") || roleLower.includes("ux");
+      const isDesignJob = titleLower.includes("design") || titleLower.includes("ui") || titleLower.includes("ux") || titleLower.includes("creative") || titleLower.includes("product designer");
+      if (isDesignQuery && !isDesignJob) {
+        return false;
+      }
+      const isDevQuery = qLower.includes("software") || roleLower.includes("software") || qLower.includes("developer") || roleLower.includes("developer") || qLower.includes("frontend") || roleLower.includes("frontend") || qLower.includes("backend") || roleLower.includes("backend") || qLower.includes("full stack") || roleLower.includes("full stack");
+      const isDevJob = titleLower.includes("engineer") || titleLower.includes("developer") || titleLower.includes("software") || titleLower.includes("frontend") || titleLower.includes("backend") || titleLower.includes("full stack") || titleLower.includes("web");
+      if (isDevQuery && isDesignJob && !isDevJob) {
+        return false;
+      }
+      const stopWords = /* @__PURE__ */ new Set(["intern", "internship", "student", "summer", "winter", "2025", "2026", "india", "remote", "the", "and", "for", "with", "in", "at"]);
+      const specificTerms = qLower.split(/\s+/).filter((w) => w.length > 2 && !stopWords.has(w));
+      const isHighlySpecificSearch = specificTerms.some((t2) => ["quantum", "submarine", "aerospace", "biotech", "neuro", "hardware", "rf", "robotics"].includes(t2));
+      if (isHighlySpecificSearch) {
+        const matchesSpecific = specificTerms.some((t2) => titleLower.includes(t2));
+        if (!matchesSpecific) return false;
+      }
       const matchesKeyword = !qLower || titleLower.includes(qLower) || roleLower && titleLower.includes(roleLower) || qLower.split(" ").some((term) => term.length > 3 && titleLower.includes(term));
       if (isInternTarget && !isEarlyCareer) {
-        if (!titleLower.includes("engineer") && !titleLower.includes("developer") && !titleLower.includes("analyst")) {
+        if (!isDevJob && !isDesignJob) {
           return false;
         }
       }
@@ -69482,8 +69545,8 @@ var PublicFeedsAdapter = class {
       if (locLower && locLower !== "any" && locLower !== "all") {
         const isWorldwide = geoLower.includes("anywhere") || geoLower.includes("worldwide") || geoLower.includes("remote") || geoLower.includes("global") || geoLower.includes("apac");
         const matchesLoc = isWorldwide || geoLower.includes(locLower);
-        if (!matchesLoc && (locLower === "india" || locLower === "bengaluru" || locLower === "bangalore")) {
-          if (!isWorldwide) return false;
+        if (!matchesLoc) {
+          return false;
         }
       }
       return true;

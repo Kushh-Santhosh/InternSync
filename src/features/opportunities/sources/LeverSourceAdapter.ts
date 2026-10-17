@@ -99,6 +99,22 @@ export class LeverSourceAdapter {
       const allLocs = (posting.categories?.allLocations || []).map((l) => l.toLowerCase()).join(' ')
       const combinedLoc = `${jobLoc} ${allLocs} ${posting.workplaceType || ''}`.toLowerCase()
 
+      // Exclude Senior / Manager / Director / Lead roles for student internship searches
+      const isSeniorOrManager =
+        titleLower.includes('manager') ||
+        titleLower.includes('director') ||
+        titleLower.includes('vice president') ||
+        titleLower.includes('head of') ||
+        titleLower.includes('lead ') ||
+        titleLower.includes('principal') ||
+        titleLower.includes('staff ') ||
+        titleLower.includes('sr.') ||
+        titleLower.includes('senior')
+
+      if (isInternTarget && isSeniorOrManager && !titleLower.includes('intern')) {
+        return false
+      }
+
       // 1. Role / Title / Commitment matching
       const isInternTitle =
         titleLower.includes('intern') ||
@@ -110,6 +126,60 @@ export class LeverSourceAdapter {
         titleLower.includes('associate') ||
         commitment.includes('intern')
 
+      // Domain filtering: Design vs Engineering
+      const isDesignQuery =
+        qLower.includes('design') ||
+        roleLower.includes('design') ||
+        qLower.includes('ui') ||
+        roleLower.includes('ui') ||
+        qLower.includes('ux') ||
+        roleLower.includes('ux')
+
+      const isDesignJob =
+        titleLower.includes('design') ||
+        titleLower.includes('ui') ||
+        titleLower.includes('ux') ||
+        titleLower.includes('creative') ||
+        titleLower.includes('product designer')
+
+      if (isDesignQuery && !isDesignJob) {
+        return false
+      }
+
+      const isDevQuery =
+        qLower.includes('software') ||
+        roleLower.includes('software') ||
+        qLower.includes('developer') ||
+        roleLower.includes('developer') ||
+        qLower.includes('frontend') ||
+        roleLower.includes('frontend') ||
+        qLower.includes('backend') ||
+        roleLower.includes('backend') ||
+        qLower.includes('full stack') ||
+        roleLower.includes('full stack')
+
+      const isDevJob =
+        titleLower.includes('engineer') ||
+        titleLower.includes('developer') ||
+        titleLower.includes('software') ||
+        titleLower.includes('frontend') ||
+        titleLower.includes('backend') ||
+        titleLower.includes('full stack') ||
+        titleLower.includes('web')
+
+      if (isDevQuery && isDesignJob && !isDevJob) {
+        return false
+      }
+
+      // Highly specific term matching (e.g., quantum, submarine, aerospace)
+      const stopWords = new Set(['intern', 'internship', 'student', 'summer', 'winter', '2025', '2026', 'india', 'remote', 'the', 'and', 'for', 'with', 'in', 'at'])
+      const specificTerms = qLower.split(/\s+/).filter((w) => w.length > 2 && !stopWords.has(w))
+      const isHighlySpecificSearch = specificTerms.some((t) => ['quantum', 'submarine', 'aerospace', 'biotech', 'neuro', 'hardware', 'rf', 'robotics'].includes(t))
+      if (isHighlySpecificSearch) {
+        const matchesSpecific = specificTerms.some((t) => titleLower.includes(t))
+        if (!matchesSpecific) return false
+      }
+
       const matchesKeyword =
         !qLower ||
         titleLower.includes(qLower) ||
@@ -117,7 +187,7 @@ export class LeverSourceAdapter {
         qLower.split(' ').some((term) => term.length > 3 && titleLower.includes(term))
 
       if (isInternTarget && !isInternTitle) {
-        if (!titleLower.includes('engineer') && !titleLower.includes('developer') && !titleLower.includes('analyst')) {
+        if (!isDevJob && !isDesignJob) {
           return false
         }
       }
@@ -131,17 +201,41 @@ export class LeverSourceAdapter {
         const isRemoteJob =
           combinedLoc.includes('remote') ||
           posting.workplaceType === 'remote' ||
-          combinedLoc.includes('worldwide')
+          combinedLoc.includes('worldwide') ||
+          combinedLoc.includes('anywhere') ||
+          combinedLoc.includes('global')
+
+        const isIndiaTarget =
+          locLower.includes('india') ||
+          locLower.includes('bengaluru') ||
+          locLower.includes('bangalore') ||
+          locLower.includes('hyderabad') ||
+          locLower.includes('pune') ||
+          locLower.includes('mumbai') ||
+          locLower.includes('delhi') ||
+          locLower.includes('noida') ||
+          locLower.includes('gurgaon') ||
+          locLower.includes('chennai')
+
+        const jobInIndia =
+          combinedLoc.includes('india') ||
+          combinedLoc.includes('bangalore') ||
+          combinedLoc.includes('bengaluru') ||
+          combinedLoc.includes('hyderabad') ||
+          combinedLoc.includes('pune') ||
+          combinedLoc.includes('mumbai') ||
+          combinedLoc.includes('delhi') ||
+          combinedLoc.includes('noida') ||
+          combinedLoc.includes('gurgaon') ||
+          combinedLoc.includes('chennai')
 
         const matchesLoc =
           isRemoteJob ||
           combinedLoc.includes(locLower) ||
-          (locLower === 'india' && (combinedLoc.includes('bangalore') || combinedLoc.includes('bengaluru') || combinedLoc.includes('noida') || combinedLoc.includes('gurgaon') || combinedLoc.includes('hyderabad') || combinedLoc.includes('pune') || combinedLoc.includes('mumbai') || combinedLoc.includes('delhi')))
+          (isIndiaTarget && jobInIndia)
 
         if (!matchesLoc) {
-          if (locLower === 'india' || locLower === 'bengaluru' || locLower === 'bangalore') {
-            return false
-          }
+          return false
         }
       }
 

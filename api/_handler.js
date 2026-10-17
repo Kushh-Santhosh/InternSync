@@ -69239,6 +69239,133 @@ var VERIFIED_EMPLOYER_REGISTRY = [
     status: "verified",
     lastVerifiedAt: "2026-10-17",
     notes: "Official Greenhouse board with mobility systems."
+  },
+  // Ashby ATS Employers (High-Growth AI, Tech & Design Leaders)
+  {
+    id: "emp-ramp",
+    name: "Ramp",
+    provider: "ashby",
+    boardToken: "ramp",
+    careersUrl: "https://ramp.com/careers",
+    officialDomain: "ramp.com",
+    retrievalMethod: "Ashby Public Posting API v1",
+    category: "global_remote",
+    locations: ["Remote", "New York", "Global"],
+    roleTypes: ["software", "frontend", "backend", "data_ai", "design"],
+    status: "verified",
+    healthStatus: "healthy",
+    attributionRequirement: "Ramp Official Careers",
+    termsOfUse: "Permitted public career board feed for candidate discovery",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Ashby board with Applied Scientist Intern, Frontend Intern, Backend Intern, and Mobile Intern roles."
+  },
+  {
+    id: "emp-notion",
+    name: "Notion",
+    provider: "ashby",
+    boardToken: "notion",
+    careersUrl: "https://www.notion.so/careers",
+    officialDomain: "notion.so",
+    retrievalMethod: "Ashby Public Posting API v1",
+    category: "global_remote",
+    locations: ["Remote", "San Francisco", "Global"],
+    roleTypes: ["software", "frontend", "backend", "product", "design"],
+    status: "verified",
+    healthStatus: "healthy",
+    attributionRequirement: "Notion Official Careers",
+    termsOfUse: "Permitted public career board feed for candidate discovery",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Ashby board with Software Engineer Intern (Winter/Summer 2027) and Mobile Intern roles."
+  },
+  {
+    id: "emp-cohere",
+    name: "Cohere",
+    provider: "ashby",
+    boardToken: "cohere",
+    careersUrl: "https://cohere.com/careers",
+    officialDomain: "cohere.com",
+    retrievalMethod: "Ashby Public Posting API v1",
+    category: "global_remote",
+    locations: ["Remote", "Toronto", "London", "Global"],
+    roleTypes: ["software", "data_ai", "backend"],
+    status: "verified",
+    healthStatus: "healthy",
+    attributionRequirement: "Cohere Official Careers",
+    termsOfUse: "Permitted public career board feed for candidate discovery",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Ashby board with Software Engineer Intern, Research Internship, and Machine Learning Intern roles."
+  },
+  {
+    id: "emp-perplexity",
+    name: "Perplexity",
+    provider: "ashby",
+    boardToken: "perplexity",
+    careersUrl: "https://www.perplexity.ai/careers",
+    officialDomain: "perplexity.ai",
+    retrievalMethod: "Ashby Public Posting API v1",
+    category: "global_remote",
+    locations: ["San Francisco", "Remote", "Global"],
+    roleTypes: ["software", "data_ai", "backend"],
+    status: "verified",
+    healthStatus: "healthy",
+    attributionRequirement: "Perplexity AI Official Careers",
+    termsOfUse: "Permitted public career board feed for candidate discovery",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Ashby board with Search Machine Learning Engineer Intern and Search Backend Infra Intern roles."
+  },
+  {
+    id: "emp-modal",
+    name: "Modal",
+    provider: "ashby",
+    boardToken: "modal",
+    careersUrl: "https://modal.com/careers",
+    officialDomain: "modal.com",
+    retrievalMethod: "Ashby Public Posting API v1",
+    category: "global_remote",
+    locations: ["Remote", "New York", "Global"],
+    roleTypes: ["software", "data_ai", "backend"],
+    status: "verified",
+    healthStatus: "healthy",
+    attributionRequirement: "Modal Labs Official Careers",
+    termsOfUse: "Permitted public career board feed for candidate discovery",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Ashby board with ML Research Intern roles."
+  },
+  {
+    id: "emp-linear",
+    name: "Linear",
+    provider: "ashby",
+    boardToken: "linear",
+    careersUrl: "https://linear.app/careers",
+    officialDomain: "linear.app",
+    retrievalMethod: "Ashby Public Posting API v1",
+    category: "global_remote",
+    locations: ["Remote", "Global"],
+    roleTypes: ["software", "frontend", "design"],
+    status: "verified",
+    healthStatus: "healthy",
+    attributionRequirement: "Linear Official Careers",
+    termsOfUse: "Permitted public career board feed for candidate discovery",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Ashby board for Linear app engineering."
+  },
+  {
+    id: "emp-posthog",
+    name: "PostHog",
+    provider: "ashby",
+    boardToken: "posthog",
+    careersUrl: "https://posthog.com/careers",
+    officialDomain: "posthog.com",
+    retrievalMethod: "Ashby Public Posting API v1",
+    category: "global_remote",
+    locations: ["Remote", "Global"],
+    roleTypes: ["software", "fullstack", "data_ai"],
+    status: "verified",
+    healthStatus: "healthy",
+    attributionRequirement: "PostHog Official Careers",
+    termsOfUse: "Permitted public career board feed for candidate discovery",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Ashby board for PostHog developer analytics."
   }
 ];
 function getVerifiedEmployerSources() {
@@ -69469,6 +69596,98 @@ var LeverSourceAdapter = class {
   }
 };
 
+// src/features/opportunities/sources/AshbySourceAdapter.ts
+var ashbyCache = /* @__PURE__ */ new Map();
+var BOARD_CACHE_TTL2 = 45 * 60 * 1e3;
+var AshbySourceAdapter = class {
+  async fetchBoardJobs(source) {
+    const cached = ashbyCache.get(source.boardToken);
+    if (cached && Date.now() - cached.timestamp < BOARD_CACHE_TTL2) {
+      return cached.jobs;
+    }
+    const url = `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(source.boardToken)}`;
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "InternSync-ReadinessPlatform/1.0 (Opportunity Discovery Engine)"
+        },
+        signal: AbortSignal.timeout(6e3)
+      });
+      if (!response.ok) {
+        return [];
+      }
+      const data = await response.json();
+      const jobs = Array.isArray(data?.jobs) ? data.jobs : [];
+      ashbyCache.set(source.boardToken, {
+        timestamp: Date.now(),
+        jobs
+      });
+      return jobs;
+    } catch {
+      return [];
+    }
+  }
+  async searchEmployer(source, queryText, targetRole, locationFilter) {
+    const jobs = await this.fetchBoardJobs(source);
+    if (jobs.length === 0) return [];
+    const qLower = (queryText || "").toLowerCase().trim();
+    const roleLower = (targetRole || "").toLowerCase().trim();
+    const locLower = (locationFilter || "").toLowerCase().trim();
+    const isInternTarget = qLower.includes("intern") || roleLower.includes("intern") || qLower.includes("student") || qLower.includes("trainee") || qLower.includes("graduate") || qLower.includes("early");
+    const matched = jobs.filter((job) => {
+      const titleLower = (job.title || "").toLowerCase();
+      const jobLoc = (job.location || "").toLowerCase();
+      const isSenior = /\b(?:senior|sr\.?|lead|staff|principal|director|head of|vice president|vp|manager|architect|sde[- ]*[2-5]|sde[- ]*(?:ii|iii|iv|v)|engineer[- ]*[2-5]|engineer[- ]*(?:ii|iii|iv|v))\b/i.test(
+        titleLower
+      );
+      if (isInternTarget && isSenior && !titleLower.includes("intern")) {
+        return false;
+      }
+      const cleanTitleForIntern = titleLower.replace(/\b(?:internal|international)\b/gi, "");
+      const isInternTitle = cleanTitleForIntern.includes("intern") || titleLower.includes("trainee") || titleLower.includes("apprentice") || titleLower.includes("co-op") || titleLower.includes("graduate") || titleLower.includes("fellow") || titleLower.includes("campus") || titleLower.includes("university") || titleLower.includes("early career");
+      const isDesignQuery = qLower.includes("design") || roleLower.includes("design") || qLower.includes("ui") || roleLower.includes("ui") || qLower.includes("ux") || roleLower.includes("ux");
+      const isDesignJob = titleLower.includes("design") || titleLower.includes("ui") || titleLower.includes("ux") || titleLower.includes("creative") || titleLower.includes("product designer");
+      if (isDesignQuery && !isDesignJob) {
+        return false;
+      }
+      const isDevQuery = qLower.includes("software") || roleLower.includes("software") || qLower.includes("developer") || roleLower.includes("developer") || qLower.includes("frontend") || roleLower.includes("frontend") || qLower.includes("backend") || roleLower.includes("backend") || qLower.includes("full stack") || roleLower.includes("full stack") || qLower.includes("data") || roleLower.includes("data") || qLower.includes("machine learning") || roleLower.includes("machine learning") || qLower.includes("ai") || roleLower.includes("ai");
+      const isDevJob = titleLower.includes("engineer") || titleLower.includes("developer") || titleLower.includes("data") || titleLower.includes("analyst") || titleLower.includes("science") || titleLower.includes("ai") || titleLower.includes("ml") || titleLower.includes("devops") || titleLower.includes("cloud") || titleLower.includes("intern");
+      if (isDevQuery && !isDevJob && !isDesignJob) {
+        return false;
+      }
+      const matchesKeyword = !qLower || cleanTitleForIntern.includes(qLower) || roleLower && cleanTitleForIntern.includes(roleLower) || qLower.split(" ").some((term) => term.length > 3 && cleanTitleForIntern.includes(term));
+      if (isInternTarget && !isInternTitle && !isDevJob && !isDesignJob) {
+        return false;
+      }
+      if (!matchesKeyword && !isInternTitle) {
+        return false;
+      }
+      if (locLower && locLower !== "any" && locLower !== "all") {
+        const isRemoteJob = Boolean(job.isRemote) || jobLoc.includes("remote") || jobLoc.includes("home based") || jobLoc.includes("worldwide") || jobLoc.includes("anywhere") || jobLoc.includes("global");
+        const isIndiaTarget = locLower.includes("india") || locLower.includes("bengaluru") || locLower.includes("bangalore");
+        const jobInIndia = jobLoc.includes("india") || jobLoc.includes("bangalore") || jobLoc.includes("bengaluru");
+        if (isIndiaTarget && !jobInIndia && !isRemoteJob) {
+          return false;
+        }
+      }
+      return true;
+    });
+    return matched.map((job) => {
+      const applyUrl = job.applyUrl || job.jobUrl;
+      return {
+        title: job.title,
+        company: source.name,
+        url: applyUrl,
+        domain: "jobs.ashbyhq.com",
+        snippet: job.descriptionPlain ? job.descriptionPlain.slice(0, 300).trim() : `${job.title} at ${source.name}. Department: ${job.department || "Engineering"}. Location: ${job.location || "Remote"}.`,
+        source: `Ashby (${source.name})`,
+        discoveredAt: job.publishedAt || (/* @__PURE__ */ new Date()).toISOString()
+      };
+    });
+  }
+};
+
 // src/features/opportunities/sources/PublicFeedsAdapter.ts
 var feedCache = null;
 var FEED_CACHE_TTL = 45 * 60 * 1e3;
@@ -69594,6 +69813,7 @@ async function runWithConcurrency(items, limit, fn) {
 var MultiSourceOpportunityEngine = class {
   greenhouseAdapter = new GreenhouseSourceAdapter();
   leverAdapter = new LeverSourceAdapter();
+  ashbyAdapter = new AshbySourceAdapter();
   publicFeedsAdapter = new PublicFeedsAdapter();
   /**
    * Discovers genuine opportunity listings across verified employer boards and public feeds.
@@ -69614,8 +69834,10 @@ var MultiSourceOpportunityEngine = class {
         try {
           if (source.provider === "greenhouse") {
             return await this.greenhouseAdapter.searchEmployer(source, queryText, targetRole, location2);
-          } else {
+          } else if (source.provider === "lever") {
             return await this.leverAdapter.searchEmployer(source, queryText, targetRole, location2);
+          } else {
+            return await this.ashbyAdapter.searchEmployer(source, queryText, targetRole, location2);
           }
         } catch {
           return [];
@@ -70324,7 +70546,7 @@ CRITICAL RULES:
           searchSucceeded = true;
           results.push(...publicEngineResult.results);
           sourcesQueried.push(...publicEngineResult.sourcesQueried);
-          modelsUsed.push(`PublicSources:Greenhouse+Lever(${publicEngineResult.uniqueCount})`);
+          modelsUsed.push(`PublicSources:Greenhouse+Lever+Ashby(${publicEngineResult.uniqueCount})`);
         }
       } catch {
       }
@@ -70403,6 +70625,7 @@ CRITICAL RULES:
       modelsUsed: modelsUsed.join(", "),
       totalDiscovered: dedupedResults.length,
       sources: sourcesQueried,
+      providerStatuses: providerErrors,
       cached: false,
       status: dedupedResults.length === 0 ? "ZERO_RESULTS" : "DISCOVERED",
       message: dedupedResults.length === 0 ? "No active public listings matched this specific query. Consider widening your search or adjusting location/role filters." : void 0

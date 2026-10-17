@@ -84,6 +84,10 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
               <div className="text-xs text-slate-500 font-medium flex items-center gap-2 mt-0.5">
                 <span className="font-semibold text-slate-700">{opportunity.companyName}</span>
                 <span>·</span>
+                <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-1.5 py-0.2 rounded">
+                  {opportunity.source || 'Direct ATS'}
+                </span>
+                <span>·</span>
                 <span className="flex items-center gap-0.5">
                   <MapPin className="w-3 h-3 text-slate-400" />
                   {opportunity.location} ({opportunity.workMode})

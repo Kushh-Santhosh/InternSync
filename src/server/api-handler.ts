@@ -844,7 +844,7 @@ CRITICAL RULES:
           searchSucceeded = true
           results.push(...publicEngineResult.results)
           sourcesQueried.push(...publicEngineResult.sourcesQueried)
-          modelsUsed.push(`PublicSources:Greenhouse+Lever(${publicEngineResult.uniqueCount})`)
+          modelsUsed.push(`PublicSources:Greenhouse+Lever+Ashby(${publicEngineResult.uniqueCount})`)
         }
       } catch {
         // Continue with optional providers if public engine encountered transient error
@@ -937,6 +937,7 @@ CRITICAL RULES:
       modelsUsed: modelsUsed.join(', '),
       totalDiscovered: dedupedResults.length,
       sources: sourcesQueried,
+      providerStatuses: providerErrors,
       cached: false,
       status: dedupedResults.length === 0 ? 'ZERO_RESULTS' : 'DISCOVERED',
       message:

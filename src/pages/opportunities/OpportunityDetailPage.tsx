@@ -15,6 +15,7 @@ import {
 import { useApp } from '@/app/context'
 import { generateSkillGapRoadmap } from '@/lib/matching/roadmap'
 import { isSafeApplicationUrl } from '@/features/opportunities/url-verifier/url-verifier'
+import { ResumeImprovementWorkspace } from '@/components/opportunities/ResumeImprovementWorkspace'
 import { Button } from '@/components/ui/Button'
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge'
 import { ScoreRing } from '@/components/ui/ScoreRing'
@@ -23,9 +24,18 @@ import { cn } from '@/lib/utils/cn'
 export const OpportunityDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { opportunities, matches, addApplication, toggleComparison, comparisonIds } = useApp()
+  const {
+    opportunities,
+    matches,
+    addApplication,
+    toggleComparison,
+    comparisonIds,
+    profile,
+    skills,
+    projects,
+  } = useApp()
 
-  const [activeTab, setActiveTab] = useState<'fit' | 'roadmap' | 'description'>('fit')
+  const [activeTab, setActiveTab] = useState<'fit' | 'resume' | 'roadmap' | 'description'>('fit')
 
   const opportunity = opportunities.find((o) => o.id === id)
   const match = opportunity ? matches.get(opportunity.id) : undefined
@@ -236,6 +246,7 @@ export const OpportunityDetailPage: React.FC = () => {
       <div className="flex items-center gap-2 border-b border-slate-200">
         {[
           { id: 'fit', label: 'Why You Match & Evidence' },
+          { id: 'resume', label: 'Resume Intelligence & Tuning' },
           { id: 'roadmap', label: '14-Day Preparation Sprint' },
           { id: 'description', label: 'Role & Requirements' },
         ].map((tab) => (
@@ -354,7 +365,18 @@ export const OpportunityDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: 14-Day Preparation Roadmap */}
+      {/* TAB 2: Resume Intelligence & Tuning Workspace */}
+      {activeTab === 'resume' && (
+        <ResumeImprovementWorkspace
+          opportunity={opportunity}
+          match={match}
+          profile={profile}
+          skills={skills}
+          projects={projects}
+        />
+      )}
+
+      {/* TAB 3: 14-Day Preparation Roadmap */}
       {activeTab === 'roadmap' && (
         <div className="space-y-6 animate-in fade-in">
           <div className="p-6 rounded-2xl border border-indigo-200 bg-indigo-50/40 shadow-xs">

@@ -2,6 +2,7 @@ import type { RawSearchResult, SearchQuery } from '../../../types/index.ts'
 import { getVerifiedEmployerSources, type EmployerSource } from './registry.ts'
 import { GreenhouseSourceAdapter } from './GreenhouseSourceAdapter.ts'
 import { LeverSourceAdapter } from './LeverSourceAdapter.ts'
+import { AshbySourceAdapter } from './AshbySourceAdapter.ts'
 import { PublicFeedsAdapter } from './PublicFeedsAdapter.ts'
 
 export interface MultiSourceEngineResult {
@@ -35,6 +36,7 @@ async function runWithConcurrency<T, R>(
 export class MultiSourceOpportunityEngine {
   private greenhouseAdapter = new GreenhouseSourceAdapter()
   private leverAdapter = new LeverSourceAdapter()
+  private ashbyAdapter = new AshbySourceAdapter()
   private publicFeedsAdapter = new PublicFeedsAdapter()
 
   /**
@@ -59,8 +61,10 @@ export class MultiSourceOpportunityEngine {
         try {
           if (source.provider === 'greenhouse') {
             return await this.greenhouseAdapter.searchEmployer(source, queryText, targetRole, location)
-          } else {
+          } else if (source.provider === 'lever') {
             return await this.leverAdapter.searchEmployer(source, queryText, targetRole, location)
+          } else {
+            return await this.ashbyAdapter.searchEmployer(source, queryText, targetRole, location)
           }
         } catch {
           return []

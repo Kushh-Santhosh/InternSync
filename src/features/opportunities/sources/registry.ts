@@ -1,4 +1,4 @@
-export type BoardProvider = 'greenhouse' | 'lever'
+export type BoardProvider = 'greenhouse' | 'lever' | 'ashby'
 
 export type RoleCategory =
   | 'software'
@@ -19,17 +19,23 @@ export interface EmployerSource {
   provider: BoardProvider
   boardToken: string
   careersUrl: string
+  officialDomain?: string
+  retrievalMethod?: string
   category: 'india_hub' | 'global_remote' | 'tech_startup' | 'enterprise_tech'
   locations: string[]
   roleTypes: RoleCategory[]
   status: 'verified' | 'disabled'
+  healthStatus?: 'healthy' | 'degraded' | 'rate_limited'
+  attributionRequirement?: string
+  termsOfUse?: string
   lastVerifiedAt: string
+  lastSuccessfulFetch?: string
   notes?: string
 }
 
 /**
  * Registry of verified official employer career boards.
- * Verified dynamically against official Greenhouse and Lever public endpoints.
+ * Verified dynamically against official Greenhouse, Lever, and Ashby public endpoints.
  */
 export const VERIFIED_EMPLOYER_REGISTRY: EmployerSource[] = [
   // India & Bengaluru Technology Hubs / Startups
@@ -463,6 +469,134 @@ export const VERIFIED_EMPLOYER_REGISTRY: EmployerSource[] = [
     status: 'verified',
     lastVerifiedAt: '2026-10-17',
     notes: 'Official Greenhouse board with mobility systems.',
+  },
+
+  // Ashby ATS Employers (High-Growth AI, Tech & Design Leaders)
+  {
+    id: 'emp-ramp',
+    name: 'Ramp',
+    provider: 'ashby',
+    boardToken: 'ramp',
+    careersUrl: 'https://ramp.com/careers',
+    officialDomain: 'ramp.com',
+    retrievalMethod: 'Ashby Public Posting API v1',
+    category: 'global_remote',
+    locations: ['Remote', 'New York', 'Global'],
+    roleTypes: ['software', 'frontend', 'backend', 'data_ai', 'design'],
+    status: 'verified',
+    healthStatus: 'healthy',
+    attributionRequirement: 'Ramp Official Careers',
+    termsOfUse: 'Permitted public career board feed for candidate discovery',
+    lastVerifiedAt: '2026-10-17',
+    notes: 'Official Ashby board with Applied Scientist Intern, Frontend Intern, Backend Intern, and Mobile Intern roles.',
+  },
+  {
+    id: 'emp-notion',
+    name: 'Notion',
+    provider: 'ashby',
+    boardToken: 'notion',
+    careersUrl: 'https://www.notion.so/careers',
+    officialDomain: 'notion.so',
+    retrievalMethod: 'Ashby Public Posting API v1',
+    category: 'global_remote',
+    locations: ['Remote', 'San Francisco', 'Global'],
+    roleTypes: ['software', 'frontend', 'backend', 'product', 'design'],
+    status: 'verified',
+    healthStatus: 'healthy',
+    attributionRequirement: 'Notion Official Careers',
+    termsOfUse: 'Permitted public career board feed for candidate discovery',
+    lastVerifiedAt: '2026-10-17',
+    notes: 'Official Ashby board with Software Engineer Intern (Winter/Summer 2027) and Mobile Intern roles.',
+  },
+  {
+    id: 'emp-cohere',
+    name: 'Cohere',
+    provider: 'ashby',
+    boardToken: 'cohere',
+    careersUrl: 'https://cohere.com/careers',
+    officialDomain: 'cohere.com',
+    retrievalMethod: 'Ashby Public Posting API v1',
+    category: 'global_remote',
+    locations: ['Remote', 'Toronto', 'London', 'Global'],
+    roleTypes: ['software', 'data_ai', 'backend'],
+    status: 'verified',
+    healthStatus: 'healthy',
+    attributionRequirement: 'Cohere Official Careers',
+    termsOfUse: 'Permitted public career board feed for candidate discovery',
+    lastVerifiedAt: '2026-10-17',
+    notes: 'Official Ashby board with Software Engineer Intern, Research Internship, and Machine Learning Intern roles.',
+  },
+  {
+    id: 'emp-perplexity',
+    name: 'Perplexity',
+    provider: 'ashby',
+    boardToken: 'perplexity',
+    careersUrl: 'https://www.perplexity.ai/careers',
+    officialDomain: 'perplexity.ai',
+    retrievalMethod: 'Ashby Public Posting API v1',
+    category: 'global_remote',
+    locations: ['San Francisco', 'Remote', 'Global'],
+    roleTypes: ['software', 'data_ai', 'backend'],
+    status: 'verified',
+    healthStatus: 'healthy',
+    attributionRequirement: 'Perplexity AI Official Careers',
+    termsOfUse: 'Permitted public career board feed for candidate discovery',
+    lastVerifiedAt: '2026-10-17',
+    notes: 'Official Ashby board with Search Machine Learning Engineer Intern and Search Backend Infra Intern roles.',
+  },
+  {
+    id: 'emp-modal',
+    name: 'Modal',
+    provider: 'ashby',
+    boardToken: 'modal',
+    careersUrl: 'https://modal.com/careers',
+    officialDomain: 'modal.com',
+    retrievalMethod: 'Ashby Public Posting API v1',
+    category: 'global_remote',
+    locations: ['Remote', 'New York', 'Global'],
+    roleTypes: ['software', 'data_ai', 'backend'],
+    status: 'verified',
+    healthStatus: 'healthy',
+    attributionRequirement: 'Modal Labs Official Careers',
+    termsOfUse: 'Permitted public career board feed for candidate discovery',
+    lastVerifiedAt: '2026-10-17',
+    notes: 'Official Ashby board with ML Research Intern roles.',
+  },
+  {
+    id: 'emp-linear',
+    name: 'Linear',
+    provider: 'ashby',
+    boardToken: 'linear',
+    careersUrl: 'https://linear.app/careers',
+    officialDomain: 'linear.app',
+    retrievalMethod: 'Ashby Public Posting API v1',
+    category: 'global_remote',
+    locations: ['Remote', 'Global'],
+    roleTypes: ['software', 'frontend', 'design'],
+    status: 'verified',
+    healthStatus: 'healthy',
+    attributionRequirement: 'Linear Official Careers',
+    termsOfUse: 'Permitted public career board feed for candidate discovery',
+    lastVerifiedAt: '2026-10-17',
+    notes: 'Official Ashby board for Linear app engineering.',
+  },
+  {
+    id: 'emp-posthog',
+    name: 'PostHog',
+    provider: 'ashby',
+    boardToken: 'posthog',
+    careersUrl: 'https://posthog.com/careers',
+    officialDomain: 'posthog.com',
+    retrievalMethod: 'Ashby Public Posting API v1',
+    category: 'global_remote',
+    locations: ['Remote', 'Global'],
+    roleTypes: ['software', 'fullstack', 'data_ai'],
+    status: 'verified',
+    healthStatus: 'healthy',
+    attributionRequirement: 'PostHog Official Careers',
+    termsOfUse: 'Permitted public career board feed for candidate discovery',
+    lastVerifiedAt: '2026-10-17',
+    notes: 'Official Ashby board for PostHog developer analytics.',
   },
 ]
 

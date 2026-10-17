@@ -16,6 +16,7 @@ import {
 import { useApp } from '@/app/context'
 import { cn } from '@/lib/utils/cn'
 import { InternSyncLogo } from '@/components/brand/InternSyncLogo'
+import { UserAvatar } from '@/components/common/UserAvatar'
 
 interface SidebarProps {
   className?: string
@@ -143,10 +144,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, onCloseMobile = () 
           onClick={onCloseMobile}
           className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 transition-all cursor-pointer min-w-0 flex-1"
         >
-          <img
-            src={profile.avatarUrl}
-            alt={profile.fullName}
-            className="w-7 h-7 rounded-full object-cover border border-slate-200"
+          <UserAvatar
+            name={profile.fullName}
+            avatarUrl={profile.avatarUrl}
+            size="xs"
+            className="w-7 h-7"
           />
           <div className="min-w-0 flex-1">
             <div className="text-xs font-semibold text-slate-900 truncate">{profile.fullName}</div>

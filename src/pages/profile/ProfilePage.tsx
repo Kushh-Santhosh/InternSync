@@ -9,6 +9,14 @@ import {
 } from 'lucide-react'
 import { useApp } from '@/app/context'
 import { Button } from '@/components/ui/Button'
+import { UserAvatar } from '@/components/common/UserAvatar'
+
+const AVATAR_PRESETS = [
+  { label: 'Tech', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=160' },
+  { label: 'Design', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=160' },
+  { label: 'Data AI', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=160' },
+  { label: 'Full Stack', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=160' },
+]
 
 export const ProfilePage: React.FC = () => {
   const { profile, updateProfile, resetToDemo } = useApp()
@@ -17,6 +25,7 @@ export const ProfilePage: React.FC = () => {
   const [formData, setFormData] = useState({
     fullName: profile.fullName,
     email: profile.email,
+    avatarUrl: profile.avatarUrl || '',
     university: profile.university,
     degree: profile.degree,
     branch: profile.branch,
@@ -96,20 +105,42 @@ export const ProfilePage: React.FC = () => {
         onSubmit={handleSave}
         className="p-6 sm:p-8 rounded-3xl border border-slate-200 bg-white shadow-xs space-y-6"
       >
-        <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
-          <img
-            src={profile.avatarUrl}
-            alt={profile.fullName}
-            className="w-16 h-16 rounded-2xl object-cover border border-slate-200 shadow-2xs"
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pb-5 border-b border-slate-100">
+          <UserAvatar
+            fullName={formData.fullName || profile.fullName}
+            avatarUrl={formData.avatarUrl}
+            size="lg"
+            className="rounded-2xl shrink-0"
           />
-          <div>
-            <h3 className="text-base font-bold text-slate-900">{profile.fullName}</h3>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-slate-900">{formData.fullName || profile.fullName}</h3>
             <p className="text-xs text-slate-500">
               {profile.degree} in {profile.branch} (Year {profile.currentYear})
             </p>
-            <div className="mt-1 flex items-center gap-2 text-[11px] text-indigo-600 font-medium">
+            <div className="flex items-center gap-2 text-[11px] text-indigo-600 font-medium">
               <FileText className="w-3.5 h-3.5" />
               <span>{profile.resumeFileName || 'Resume Loaded'}</span>
+            </div>
+            {/* Avatar Presets */}
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              <span className="text-[11px] text-slate-400 font-medium">Choose avatar:</span>
+              {AVATAR_PRESETS.map((preset) => (
+                <button
+                  type="button"
+                  key={preset.label}
+                  onClick={() => setFormData({ ...formData, avatarUrl: preset.url })}
+                  className="px-2 py-0.5 text-[10px] font-semibold rounded-md border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors cursor-pointer"
+                >
+                  {preset.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, avatarUrl: '' })}
+                className="px-2 py-0.5 text-[10px] font-semibold rounded-md border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Use Initials
+              </button>
             </div>
           </div>
         </div>

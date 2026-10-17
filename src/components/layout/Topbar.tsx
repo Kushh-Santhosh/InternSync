@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useApp } from '@/app/context'
 import { Button } from '@/components/ui/Button'
+import { UserAvatar } from '@/components/common/UserAvatar'
 
 interface TopbarProps {
   onOpenMobileMenu: () => void
@@ -97,11 +98,11 @@ export const Topbar: React.FC<TopbarProps> = ({
         </button>
 
         {/* Avatar link */}
-        <Link to="/profile" className="cursor-pointer">
-          <img
-            src={profile.avatarUrl}
-            alt={profile.fullName}
-            className="w-8 h-8 rounded-full object-cover border border-slate-200 hover:ring-2 hover:ring-indigo-500/30 transition-all"
+        <Link to="/profile" className="cursor-pointer hover:ring-2 hover:ring-indigo-500/30 rounded-full transition-all">
+          <UserAvatar
+            name={profile.fullName}
+            avatarUrl={profile.avatarUrl}
+            size="sm"
           />
         </Link>
       </div>

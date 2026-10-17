@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useApp } from '@/app/context'
 import { Button } from '@/components/ui/Button'
+import { UserAvatar } from '@/components/common/UserAvatar'
 import type { AssistantMessage } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
@@ -245,10 +246,11 @@ How can I help you take your next best career step?
                 </div>
 
                 {msg.role === 'user' && (
-                  <img
-                    src={profile.avatarUrl}
-                    alt={profile.fullName}
-                    className="w-8 h-8 rounded-xl object-cover border border-slate-200 shrink-0 mt-0.5"
+                  <UserAvatar
+                    fullName={profile.fullName}
+                    avatarUrl={profile.avatarUrl}
+                    size="sm"
+                    className="rounded-xl mt-0.5 shrink-0"
                   />
                 )}
               </div>

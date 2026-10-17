@@ -110,9 +110,10 @@ export class GreenhouseSourceAdapter {
         return false
       }
 
-      // 1. Role / Title matching
+      // Clean title avoiding false matches on 'internal' or 'international'
+      const cleanTitleForIntern = titleLower.replace(/\b(?:internal|international)\b/gi, '')
       const isInternTitle =
-        titleLower.includes('intern') ||
+        cleanTitleForIntern.includes('intern') ||
         titleLower.includes('trainee') ||
         titleLower.includes('apprentice') ||
         titleLower.includes('co-op') ||
@@ -162,9 +163,33 @@ export class GreenhouseSourceAdapter {
         titleLower.includes('frontend') ||
         titleLower.includes('backend') ||
         titleLower.includes('full stack') ||
-        titleLower.includes('web')
+        titleLower.includes('fullstack') ||
+        titleLower.includes('web') ||
+        titleLower.includes('programmer') ||
+        titleLower.includes('data') ||
+        titleLower.includes('ai') ||
+        titleLower.includes('ml') ||
+        titleLower.includes('devops') ||
+        titleLower.includes('cloud') ||
+        titleLower.includes('intern')
 
-      if (isDevQuery && isDesignJob && !isDevJob) {
+      // Exclude non-tech occupations from tech searches
+      const isNonTech =
+        titleLower.includes('interpreter') ||
+        titleLower.includes('translator') ||
+        titleLower.includes('payroll') ||
+        titleLower.includes('auditor') ||
+        titleLower.includes('audit') ||
+        titleLower.includes('customer account manager') ||
+        titleLower.includes('legal counsel') ||
+        titleLower.includes('recruiter') ||
+        titleLower.includes('account executive')
+
+      if ((isDevQuery || isDesignQuery) && isNonTech) {
+        return false
+      }
+
+      if (isDevQuery && !isDevJob && !isDesignJob) {
         return false
       }
 
@@ -178,11 +203,12 @@ export class GreenhouseSourceAdapter {
       }
 
       // Check if job matches query keywords
+      const cleanTitleForMatch = titleLower.replace(/\b(?:internal|international)\b/gi, '')
       const matchesKeyword =
         !qLower ||
-        titleLower.includes(qLower) ||
-        (roleLower && titleLower.includes(roleLower)) ||
-        qLower.split(' ').some((term) => term.length > 3 && titleLower.includes(term))
+        cleanTitleForMatch.includes(qLower) ||
+        (roleLower && cleanTitleForMatch.includes(roleLower)) ||
+        qLower.split(' ').some((term) => term.length > 3 && cleanTitleForMatch.includes(term))
 
       // If user specifically requested internships, require early career signals or matching entry engineering
       if (isInternTarget && !isInternTitle) {

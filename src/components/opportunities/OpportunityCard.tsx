@@ -15,6 +15,8 @@ import { ScoreRing } from '@/components/ui/ScoreRing'
 import type { MatchResult, Opportunity } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
+import { isSafeApplicationUrl } from '@/features/opportunities/url-verifier/url-verifier'
+
 interface OpportunityCardProps {
   opportunity: Opportunity
   match: MatchResult
@@ -39,6 +41,15 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
 
   // Missing skills list
   const missingSkills = match.missingSkills || []
+
+  // Safe external URL verification
+  const isDirectApplySafe = isSafeApplicationUrl(opportunity.applicationUrl)
+
+  // Deadline validity check
+  const deadlineParsed = opportunity.deadline && !isNaN(Date.parse(opportunity.deadline))
+    ? new Date(opportunity.deadline)
+    : null
+  const isDeadlinePast = deadlineParsed ? deadlineParsed.getTime() < Date.now() : false
 
   return (
     <div
@@ -151,9 +162,11 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           <span className="flex items-center gap-1">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
             <span>
-              {opportunity.deadline && !isNaN(Date.parse(opportunity.deadline))
-                ? `Due ${new Date(opportunity.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                : 'Rolling applications'}
+              {isDeadlinePast
+                ? `Closed (${deadlineParsed?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`
+                : deadlineParsed
+                  ? `Due ${deadlineParsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                  : 'Rolling applications'}
             </span>
           </span>
           {opportunity.freshnessStatus === 'unverified' && (
@@ -194,20 +207,33 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           <ArrowRight className="w-3 h-3 ml-1" />
         </Button>
 
-        <a
-          href={opportunity.applicationUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1"
-        >
-          <Button
-            size="sm"
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold justify-center"
+        {isDirectApplySafe ? (
+          <a
+            href={opportunity.applicationUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1"
           >
-            <span>Apply</span>
-            <ExternalLink className="w-3 h-3 ml-1" />
-          </Button>
-        </a>
+            <Button
+              size="sm"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold justify-center"
+            >
+              <span>Apply</span>
+              <ExternalLink className="w-3 h-3 ml-1" />
+            </Button>
+          </a>
+        ) : (
+          <div className="flex-1" title="Direct application portal link is unverified from official employer sources">
+            <Button
+              size="sm"
+              disabled
+              variant="outline"
+              className="w-full text-slate-400 text-xs font-semibold justify-center cursor-not-allowed opacity-60 bg-slate-50"
+            >
+              <span>Link Unverified</span>
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

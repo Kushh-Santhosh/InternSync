@@ -1,13 +1,27 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Lock, Mail, User, Eye, EyeOff, Sparkles, AlertCircle } from 'lucide-react'
+import {
+  ArrowRight,
+  Lock,
+  Mail,
+  User,
+  Eye,
+  EyeOff,
+  Sparkles,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  RotateCw,
+  ArrowLeft,
+  Info,
+} from 'lucide-react'
 import { useApp } from '@/app/context'
 import { Button } from '@/components/ui/Button'
 import { InternSyncLogo } from '@/components/brand/InternSyncLogo'
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate()
-  const { signup, enterDemoMode, isSupabaseConfigured } = useApp()
+  const { signup, resendVerificationEmail, enterDemoMode, isSupabaseConfigured } = useApp()
 
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -16,6 +30,21 @@ export const SignupPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [verificationSent, setVerificationSent] = useState(false)
+
+  // Resend state & cooldown timer
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [isResending, setIsResending] = useState(false)
+  const [resendMessage, setResendMessage] = useState('')
+  const [resendError, setResendError] = useState('')
+
+  // Handle countdown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [resendCooldown])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,8 +64,9 @@ export const SignupPage: React.FC = () => {
       const res = await signup(fullName.trim(), email.trim(), password)
       if (res.requiresVerification) {
         setVerificationSent(true)
+        setResendCooldown(60) // Start 60s cooldown for resending
       } else {
-        // Redirect to onboarding wizard
+        // Immediate session without confirmation required
         navigate('/onboarding')
       }
     } catch (err: unknown) {
@@ -46,11 +76,32 @@ export const SignupPage: React.FC = () => {
     }
   }
 
+  const handleResend = async () => {
+    if (resendCooldown > 0 || isResending || !email.trim()) return
+
+    setIsResending(true)
+    setResendError('')
+    setResendMessage('')
+
+    try {
+      const result = await resendVerificationEmail(email.trim())
+      setResendMessage(result.message)
+      setResendCooldown(60)
+    } catch (err: unknown) {
+      setResendError(
+        err instanceof Error ? err.message : 'Failed to resend verification email. Please try again later.'
+      )
+    } finally {
+      setIsResending(false)
+    }
+  }
+
   const handleEnterDemo = () => {
     enterDemoMode()
     navigate('/dashboard')
   }
 
+  // --- VERIFICATION PENDING SCREEN ---
   if (verificationSent) {
     return (
       <div className="min-h-screen bg-[#fafbfc] flex flex-col justify-center py-12 sm:px-6 lg:px-8 selection:bg-indigo-100 selection:text-indigo-900">
@@ -61,27 +112,98 @@ export const SignupPage: React.FC = () => {
         </div>
 
         <div className="mt-4 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
-          <div className="bg-white py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/50 rounded-3xl border border-slate-200/80 text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-2xs">
-              <Mail className="w-7 h-7" />
+          <div className="bg-white py-8 px-6 sm:px-8 shadow-xl shadow-slate-200/50 rounded-3xl border border-slate-200/80 space-y-6">
+            <div className="text-center space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-2xs">
+                <Mail className="w-7 h-7" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">Check your inbox</h2>
+              <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+                We sent a secure verification link to <strong className="text-slate-900 font-semibold">{email}</strong>.
+              </p>
             </div>
-            <h2 className="text-xl font-bold text-slate-900">Verify your email</h2>
-            <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
-              We sent a verification link to <strong className="text-slate-900 font-semibold">{email}</strong>. Please check your inbox and verify your email before signing in.
-            </p>
-            <div className="pt-3">
+
+            {/* Step-by-Step Instructions */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-3 text-xs">
+              <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Next steps to activate your account:</span>
+              </div>
+              <ul className="space-y-2 text-slate-600 pl-4 list-decimal marker:text-indigo-600 marker:font-semibold">
+                <li>Open the confirmation email sent to <span className="font-medium text-slate-800">{email}</span>.</li>
+                <li>Check your <strong>Spam</strong> or <strong>Promotions</strong> folder if it doesn’t arrive within 2 minutes.</li>
+                <li>Click the <strong>Confirm Email</strong> link to activate your student account.</li>
+                <li>Return here to sign in and immediately access your Career DNA and opportunity dashboard.</li>
+              </ul>
+            </div>
+
+            {/* Resend Status / Alerts */}
+            {resendMessage && (
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-medium text-emerald-800 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>{resendMessage}</span>
+              </div>
+            )}
+
+            {resendError && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-700 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{resendError}</span>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="space-y-3 pt-1">
               <Button
                 onClick={() => navigate('/login')}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2.5 rounded-xl font-semibold shadow-xs"
               >
                 Proceed to Log In
               </Button>
+
+              <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setVerificationSent(false)}
+                  className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Edit details / wrong email</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={resendCooldown > 0 || isResending}
+                  onClick={handleResend}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                  {isResending ? (
+                    <>
+                      <RotateCw className="w-3 h-3 animate-spin" />
+                      <span>Sending...</span>
+                    </>
+                  ) : resendCooldown > 0 ? (
+                    <>
+                      <Clock className="w-3 h-3" />
+                      <span>Resend in {resendCooldown}s</span>
+                    </>
+                  ) : (
+                    <>
+                      <RotateCw className="w-3 h-3" />
+                      <span>Resend verification email</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
     )
   }
+
+  const isDuplicateError = error.toLowerCase().includes('already exists') || error.toLowerCase().includes('already registered')
+  const isRateLimitError = error.toLowerCase().includes('rate limit')
 
   return (
     <div className="min-h-screen bg-[#fafbfc] flex flex-col justify-center py-12 sm:px-6 lg:px-8 selection:bg-indigo-100 selection:text-indigo-900">
@@ -114,8 +236,31 @@ export const SignupPage: React.FC = () => {
           )}
 
           {error && (
-            <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-700">
-              {error}
+            <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-700 space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{error}</span>
+              </div>
+
+              {isDuplicateError && (
+                <div className="pt-1 border-t border-rose-200/60">
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center gap-1 font-semibold text-indigo-700 hover:text-indigo-900 text-xs underline"
+                  >
+                    <span>Click here to sign in to your existing account</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              )}
+
+              {isRateLimitError && (
+                <div className="pt-1 border-t border-rose-200/60 text-[11px] text-rose-800 leading-normal">
+                  <span>
+                    The authentication server limits verification email dispatch to protect user security. You can wait 2–3 minutes and retry, or explore the full platform immediately via Demo Mode below.
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

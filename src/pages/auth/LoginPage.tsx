@@ -1,6 +1,18 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Lock, Mail, Eye, EyeOff, Sparkles, AlertCircle } from 'lucide-react'
+import {
+  Lock,
+  Mail,
+  Eye,
+  EyeOff,
+  Sparkles,
+  AlertCircle,
+  CheckCircle2,
+  RotateCw,
+  Clock,
+  ArrowRight,
+  Info,
+} from 'lucide-react'
 import { useApp } from '@/app/context'
 import { Button } from '@/components/ui/Button'
 import { InternSyncLogo } from '@/components/brand/InternSyncLogo'
@@ -8,16 +20,53 @@ import { InternSyncLogo } from '@/components/brand/InternSyncLogo'
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { login, enterDemoMode, isSupabaseConfigured } = useApp()
+  const { login, resendVerificationEmail, enterDemoMode, isSupabaseConfigured } = useApp()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+
+  // Resend verification state
+  const [showResend, setShowResend] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [isResending, setIsResending] = useState(false)
+  const [resendStatus, setResendStatus] = useState('')
 
   // Determine redirect destination after login
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard'
+
+  // Handle countdown timer for resend
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [resendCooldown])
+
+  // Parse hash and search parameters for expired or confirmed tokens
+  useEffect(() => {
+    const hash = window.location.hash || ''
+    const search = window.location.search || ''
+
+    if (hash.includes('error_code=otp_expired') || hash.includes('otp_expired') || search.includes('otp_expired')) {
+      setError('Your verification link has expired or is invalid. Please request a new verification link below.')
+      setShowResend(true)
+    } else if (hash.includes('error_description')) {
+      const match = hash.match(/error_description=([^&]+)/)
+      const desc = match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : 'Authentication link is invalid or expired.'
+      setError(desc)
+      setShowResend(true)
+    } else if (hash.includes('access_token') && (hash.includes('type=signup') || hash.includes('type=invite') || hash.includes('type=recovery'))) {
+      setSuccessMessage('Email verified successfully! You are now logged in.')
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true })
+      }, 1500)
+    }
+  }, [navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,9 +85,33 @@ export const LoginPage: React.FC = () => {
       await login(email.trim(), password)
       navigate(from, { replace: true })
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to sign in. Please verify your credentials.')
+      const msg = err instanceof Error ? err.message : 'Failed to sign in. Please verify your credentials.'
+      setError(msg)
+      // If error might be due to unconfirmed email, allow quick resend
+      if (msg.toLowerCase().includes('not confirmed') || msg.toLowerCase().includes('credentials')) {
+        setShowResend(true)
+      }
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleResend = async () => {
+    if (resendCooldown > 0 || isResending || !email.trim()) return
+
+    setIsResending(true)
+    setResendStatus('')
+
+    try {
+      const result = await resendVerificationEmail(email.trim())
+      setResendStatus(result.message)
+      setResendCooldown(60)
+    } catch (err: unknown) {
+      setResendStatus(
+        err instanceof Error ? err.message : 'Could not send verification email. Please try again later.'
+      )
+    } finally {
+      setIsResending(false)
     }
   }
 
@@ -77,9 +150,54 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
 
+          {successMessage && (
+            <div className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-medium text-emerald-800 flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+
           {error && (
-            <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-700">
-              {error}
+            <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-700 space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{error}</span>
+              </div>
+              {showResend && email.trim() && (
+                <div className="pt-2 border-t border-rose-200/60 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-rose-800 font-normal">Need a fresh confirmation link?</span>
+                  <button
+                    type="button"
+                    disabled={resendCooldown > 0 || isResending}
+                    onClick={handleResend}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 disabled:text-slate-400 cursor-pointer"
+                  >
+                    {isResending ? (
+                      <>
+                        <RotateCw className="w-3 h-3 animate-spin" />
+                        <span>Sending...</span>
+                      </>
+                    ) : resendCooldown > 0 ? (
+                      <>
+                        <Clock className="w-3 h-3" />
+                        <span>Resend in {resendCooldown}s</span>
+                      </>
+                    ) : (
+                      <>
+                        <RotateCw className="w-3 h-3" />
+                        <span>Resend link</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {resendStatus && (
+            <div className="mb-5 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-start gap-2">
+              <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <span>{resendStatus}</span>
             </div>
           )}
 
@@ -156,14 +274,14 @@ export const LoginPage: React.FC = () => {
           <div className="mt-7 text-center text-xs text-slate-500">
             Don't have an account?{' '}
             <Link to="/signup" className="font-semibold text-indigo-600 hover:text-indigo-700">
-              Create an account
+              Sign up
             </Link>
           </div>
         </div>
 
         {/* Minimal Footer */}
         <p className="mt-8 text-center text-[11px] text-slate-400">
-          Protected by enterprise security. All uploads are processed confidentially.
+          By signing in, you agree to InternSync's terms and privacy standards.
         </p>
       </div>
     </div>

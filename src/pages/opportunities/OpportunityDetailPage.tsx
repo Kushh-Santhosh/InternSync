@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useApp } from '@/app/context'
 import { generateSkillGapRoadmap } from '@/lib/matching/roadmap'
+import { isSafeApplicationUrl } from '@/features/opportunities/url-verifier/url-verifier'
 import { Button } from '@/components/ui/Button'
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge'
 import { ScoreRing } from '@/components/ui/ScoreRing'
@@ -46,9 +47,12 @@ export const OpportunityDetailPage: React.FC = () => {
   // Synthesize 14-day roadmap for missing skills
   const roadmap = generateSkillGapRoadmap(opportunity, match.missingSkills)
 
+  // Safe external URL verification
+  const isDirectApplySafe = isSafeApplicationUrl(opportunity.applicationUrl)
+
   const handleApplyPortal = () => {
-    if (opportunity.applicationUrl && opportunity.applicationUrl !== '#') {
-      window.open(opportunity.applicationUrl, '_blank')
+    if (isDirectApplySafe && opportunity.applicationUrl) {
+      window.open(opportunity.applicationUrl, '_blank', 'noopener,noreferrer')
     }
   }
 
@@ -175,10 +179,16 @@ export const OpportunityDetailPage: React.FC = () => {
             <Button
               size="md"
               onClick={handleApplyPortal}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+              disabled={!isDirectApplySafe}
+              className={cn(
+                'font-semibold',
+                isDirectApplySafe
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer'
+                  : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+              )}
             >
-              <span>Open Application Portal</span>
-              <ArrowUpRight className="w-4 h-4 ml-1.5" />
+              <span>{isDirectApplySafe ? 'Open Application Portal' : 'Application Link Unverified'}</span>
+              {isDirectApplySafe && <ArrowUpRight className="w-4 h-4 ml-1.5" />}
             </Button>
             <Button variant="outline" size="md" onClick={handleMarkAsApplied}>
               <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" />

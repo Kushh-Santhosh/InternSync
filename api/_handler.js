@@ -69298,15 +69298,20 @@ var GreenhouseSourceAdapter = class {
       if (isInternTarget && isSeniorOrManager && !titleLower.includes("intern")) {
         return false;
       }
-      const isInternTitle = titleLower.includes("intern") || titleLower.includes("trainee") || titleLower.includes("apprentice") || titleLower.includes("co-op") || titleLower.includes("graduate") || titleLower.includes("fellow") || titleLower.includes("campus") || titleLower.includes("early career") || titleLower.includes("junior") || titleLower.includes("associate");
+      const cleanTitleForIntern = titleLower.replace(/\b(?:internal|international)\b/gi, "");
+      const isInternTitle = cleanTitleForIntern.includes("intern") || titleLower.includes("trainee") || titleLower.includes("apprentice") || titleLower.includes("co-op") || titleLower.includes("graduate") || titleLower.includes("fellow") || titleLower.includes("campus") || titleLower.includes("early career") || titleLower.includes("junior") || titleLower.includes("associate");
       const isDesignQuery = qLower.includes("design") || roleLower.includes("design") || qLower.includes("ui") || roleLower.includes("ui") || qLower.includes("ux") || roleLower.includes("ux");
       const isDesignJob = titleLower.includes("design") || titleLower.includes("ui") || titleLower.includes("ux") || titleLower.includes("creative") || titleLower.includes("product designer");
       if (isDesignQuery && !isDesignJob) {
         return false;
       }
       const isDevQuery = qLower.includes("software") || roleLower.includes("software") || qLower.includes("developer") || roleLower.includes("developer") || qLower.includes("frontend") || roleLower.includes("frontend") || qLower.includes("backend") || roleLower.includes("backend") || qLower.includes("full stack") || roleLower.includes("full stack");
-      const isDevJob = titleLower.includes("engineer") || titleLower.includes("developer") || titleLower.includes("software") || titleLower.includes("frontend") || titleLower.includes("backend") || titleLower.includes("full stack") || titleLower.includes("web");
-      if (isDevQuery && isDesignJob && !isDevJob) {
+      const isDevJob = titleLower.includes("engineer") || titleLower.includes("developer") || titleLower.includes("software") || titleLower.includes("frontend") || titleLower.includes("backend") || titleLower.includes("full stack") || titleLower.includes("fullstack") || titleLower.includes("web") || titleLower.includes("programmer") || titleLower.includes("data") || titleLower.includes("ai") || titleLower.includes("ml") || titleLower.includes("devops") || titleLower.includes("cloud") || titleLower.includes("intern");
+      const isNonTech = titleLower.includes("interpreter") || titleLower.includes("translator") || titleLower.includes("payroll") || titleLower.includes("auditor") || titleLower.includes("audit") || titleLower.includes("customer account manager") || titleLower.includes("legal counsel") || titleLower.includes("recruiter") || titleLower.includes("account executive");
+      if ((isDevQuery || isDesignQuery) && isNonTech) {
+        return false;
+      }
+      if (isDevQuery && !isDevJob && !isDesignJob) {
         return false;
       }
       const stopWords = /* @__PURE__ */ new Set(["intern", "internship", "student", "summer", "winter", "2025", "2026", "india", "remote", "the", "and", "for", "with", "in", "at"]);
@@ -69316,7 +69321,8 @@ var GreenhouseSourceAdapter = class {
         const matchesSpecific = specificTerms.some((t2) => titleLower.includes(t2));
         if (!matchesSpecific) return false;
       }
-      const matchesKeyword = !qLower || titleLower.includes(qLower) || roleLower && titleLower.includes(roleLower) || qLower.split(" ").some((term) => term.length > 3 && titleLower.includes(term));
+      const cleanTitleForMatch = titleLower.replace(/\b(?:internal|international)\b/gi, "");
+      const matchesKeyword = !qLower || cleanTitleForMatch.includes(qLower) || roleLower && cleanTitleForMatch.includes(roleLower) || qLower.split(" ").some((term) => term.length > 3 && cleanTitleForMatch.includes(term));
       if (isInternTarget && !isInternTitle) {
         if (!isDevJob && !isDesignJob) {
           return false;
@@ -69511,7 +69517,8 @@ var PublicFeedsAdapter = class {
       const titleLower = (job.jobTitle || "").toLowerCase();
       const levelLower = (job.jobLevel || "").toLowerCase();
       const geoLower = (job.jobGeo || "").toLowerCase();
-      const isEarlyCareer = titleLower.includes("intern") || titleLower.includes("trainee") || titleLower.includes("apprentice") || titleLower.includes("graduate") || titleLower.includes("junior") || titleLower.includes("associate") || levelLower.includes("entry") || levelLower.includes("junior") || levelLower.includes("intern");
+      const cleanTitleForIntern = titleLower.replace(/\b(?:internal|international)\b/gi, "");
+      const isEarlyCareer = cleanTitleForIntern.includes("intern") || titleLower.includes("trainee") || titleLower.includes("apprentice") || titleLower.includes("graduate") || titleLower.includes("junior") || titleLower.includes("associate") || levelLower.includes("entry") || levelLower.includes("junior") || levelLower.includes("intern");
       const isSeniorOrManager = titleLower.includes("manager") || titleLower.includes("director") || titleLower.includes("vice president") || titleLower.includes("head of") || titleLower.includes("lead ") || titleLower.includes("principal") || titleLower.includes("staff ") || titleLower.includes("sr.") || titleLower.includes("senior");
       if (isInternTarget && isSeniorOrManager && !titleLower.includes("intern")) {
         return false;
@@ -69522,8 +69529,12 @@ var PublicFeedsAdapter = class {
         return false;
       }
       const isDevQuery = qLower.includes("software") || roleLower.includes("software") || qLower.includes("developer") || roleLower.includes("developer") || qLower.includes("frontend") || roleLower.includes("frontend") || qLower.includes("backend") || roleLower.includes("backend") || qLower.includes("full stack") || roleLower.includes("full stack");
-      const isDevJob = titleLower.includes("engineer") || titleLower.includes("developer") || titleLower.includes("software") || titleLower.includes("frontend") || titleLower.includes("backend") || titleLower.includes("full stack") || titleLower.includes("web");
-      if (isDevQuery && isDesignJob && !isDevJob) {
+      const isDevJob = titleLower.includes("engineer") || titleLower.includes("developer") || titleLower.includes("software") || titleLower.includes("frontend") || titleLower.includes("backend") || titleLower.includes("full stack") || titleLower.includes("fullstack") || titleLower.includes("web") || titleLower.includes("programmer") || titleLower.includes("data") || titleLower.includes("ai") || titleLower.includes("ml") || titleLower.includes("devops") || titleLower.includes("cloud") || titleLower.includes("intern");
+      const isNonTech = titleLower.includes("interpreter") || titleLower.includes("translator") || titleLower.includes("nurse") || titleLower.includes("driver") || titleLower.includes("payroll") || titleLower.includes("customer account manager") || titleLower.includes("legal counsel") || titleLower.includes("recruiter") || titleLower.includes("account executive");
+      if ((isDevQuery || isDesignQuery) && isNonTech) {
+        return false;
+      }
+      if (isDevQuery && !isDevJob && !isDesignJob) {
         return false;
       }
       const stopWords = /* @__PURE__ */ new Set(["intern", "internship", "student", "summer", "winter", "2025", "2026", "india", "remote", "the", "and", "for", "with", "in", "at"]);

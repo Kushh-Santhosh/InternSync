@@ -27,6 +27,59 @@ const DIRECT_ATS_DOMAINS = [
 ]
 
 /**
+ * Placeholder and fictional domains that must NEVER be treated as valid application destinations
+ */
+export const REJECTED_APPLICATION_DOMAINS = [
+  'example.com',
+  'example.org',
+  'example.net',
+  'example.edu',
+  'demolabs.example.com',
+  'nexasphere.example.com',
+  'novastack.example.com',
+  'pixelworks.example.com',
+  'localhost',
+  '127.0.0.1',
+  '0.0.0.0',
+  'test.com',
+  'sample.com',
+]
+
+/**
+ * Validates whether a URL is a genuine, safe external application destination.
+ * Returns false for empty, non-http(s), placeholder, or rejected domains.
+ */
+export function isSafeApplicationUrl(rawUrl?: string | null): boolean {
+  if (!rawUrl || typeof rawUrl !== 'string') return false
+  const trimmed = rawUrl.trim()
+  if (trimmed === '' || trimmed === '#' || trimmed.startsWith('javascript:') || trimmed.startsWith('data:')) {
+    return false
+  }
+
+  try {
+    const parsed = new URL(trimmed)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false
+    }
+
+    const domain = parsed.hostname.toLowerCase()
+    if (!domain.includes('.')) {
+      return false
+    }
+
+    for (const rejected of REJECTED_APPLICATION_DOMAINS) {
+      if (domain === rejected || domain.endsWith(`.${rejected}`)) {
+        return false
+      }
+    }
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Validates and classifies application URL safety and reachability
  */
 export async function verifyOpportunityUrl(
@@ -36,10 +89,7 @@ export async function verifyOpportunityUrl(
   const checkedAt = new Date().toISOString()
 
   // 1. Sanitize & protocol validation
-  let parsedUrl: URL
-  try {
-    parsedUrl = new URL(rawUrl)
-  } catch {
+  if (!isSafeApplicationUrl(rawUrl)) {
     return {
       url: rawUrl,
       status: 'BROKEN',
@@ -52,14 +102,16 @@ export async function verifyOpportunityUrl(
     }
   }
 
-  // Reject dangerous protocols
-  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+  let parsedUrl: URL
+  try {
+    parsedUrl = new URL(rawUrl)
+  } catch {
     return {
       url: rawUrl,
       status: 'BROKEN',
       directApplyAvailable: false,
       buttonLabel: 'Expired',
-      domain: parsedUrl.hostname,
+      domain: '',
       isHttps: false,
       isOfficialCareersPage: false,
       checkedAt,

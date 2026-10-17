@@ -580,16 +580,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const activeSkills = isDemoMode ? DEMO_STUDENT_SKILLS : userSkills
   const activeProjects = isDemoMode ? DEMO_STUDENT_PROJECTS : userProjects
 
-  // Active opportunities based strictly on mode (real live opportunities prioritized)
+  // Active opportunities based strictly on mode (real live opportunities only in non-demo mode)
   const activeOpportunities = useMemo(() => {
     if (isDemoMode) {
       return SEED_OPPORTUNITIES
     }
-    if (liveOpportunities.length > 0) {
-      return liveOpportunities
-    }
-    return SEED_OPPORTUNITIES
+    return liveOpportunities
   }, [isDemoMode, liveOpportunities])
+
+  // Auto-discover live opportunities on initial load when in real connected mode
+  useEffect(() => {
+    if (!isDemoMode && liveOpportunities.length === 0 && searchProgress.stage === 'idle') {
+      searchLiveOpportunities()
+    }
+  }, [isDemoMode, liveOpportunities.length, searchProgress.stage])
 
   // Recalculate matches deterministically whenever active data changes
   const matches = useMemo(() => {

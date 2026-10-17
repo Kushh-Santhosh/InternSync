@@ -89,8 +89,9 @@ export class PublicFeedsAdapter {
       const levelLower = (job.jobLevel || '').toLowerCase()
       const geoLower = (job.jobGeo || '').toLowerCase()
 
+      const cleanTitleForIntern = titleLower.replace(/\b(?:internal|international)\b/gi, '')
       const isEarlyCareer =
-        titleLower.includes('intern') ||
+        cleanTitleForIntern.includes('intern') ||
         titleLower.includes('trainee') ||
         titleLower.includes('apprentice') ||
         titleLower.includes('graduate') ||
@@ -155,9 +156,33 @@ export class PublicFeedsAdapter {
         titleLower.includes('frontend') ||
         titleLower.includes('backend') ||
         titleLower.includes('full stack') ||
-        titleLower.includes('web')
+        titleLower.includes('fullstack') ||
+        titleLower.includes('web') ||
+        titleLower.includes('programmer') ||
+        titleLower.includes('data') ||
+        titleLower.includes('ai') ||
+        titleLower.includes('ml') ||
+        titleLower.includes('devops') ||
+        titleLower.includes('cloud') ||
+        titleLower.includes('intern')
 
-      if (isDevQuery && isDesignJob && !isDevJob) {
+      // Exclude non-tech occupations from tech searches
+      const isNonTech =
+        titleLower.includes('interpreter') ||
+        titleLower.includes('translator') ||
+        titleLower.includes('nurse') ||
+        titleLower.includes('driver') ||
+        titleLower.includes('payroll') ||
+        titleLower.includes('customer account manager') ||
+        titleLower.includes('legal counsel') ||
+        titleLower.includes('recruiter') ||
+        titleLower.includes('account executive')
+
+      if ((isDevQuery || isDesignQuery) && isNonTech) {
+        return false
+      }
+
+      if (isDevQuery && !isDevJob && !isDesignJob) {
         return false
       }
 

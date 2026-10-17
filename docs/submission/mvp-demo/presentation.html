@@ -1267,13 +1267,13 @@
         <div class="brand-logo-icon">IS</div>
         <div class="brand-text">Intern<span>Sync</span></div>
       </div>
-      <span class="tag-category">Live Job Engine</span>
+      <span class="tag-category">Live Multi-Source Engine</span>
     </div>
 
     <div class="section-eyebrow">Real-Time Internship Feed</div>
-    <h2 class="slide-title">Live opportunity discovery: <span class="highlight">243+ verified listings.</span></h2>
+    <h2 class="slide-title">Live opportunity discovery: <span class="highlight">300+ verified listings across ATS feeds.</span></h2>
     <p class="slide-subtitle">
-      InternSync ingests genuine opportunities from 33 top tech companies and public job boards, extracting requirements and mapping them instantly against the student's profile.
+      InternSync ingests genuine opportunities from Greenhouse, Lever, Ashby (Notion, Ramp, Cohere, Linear, PostHog), and verified employer feeds with custom Research Preferences and a 6-stage progressive stepper.
     </p>
 
     <div class="grid-left-wide">
@@ -1281,40 +1281,40 @@
         <div class="browser-bar">
           <div class="browser-dots"><div class="browser-dot red"></div><div class="browser-dot yellow"></div><div class="browser-dot green"></div></div>
           <div class="browser-url">https://intern-sync-one.vercel.app/opportunities</div>
-          <span class="badge-verified">243 Verified Listings</span>
+          <span class="badge-verified">307 Verified Listings</span>
         </div>
         <img class="screenshot-img" src="screenshots/09_live_opportunities_feed.png" alt="InternSync Production Live Opportunities Feed">
         <div class="screenshot-caption">
-          <span><strong>Production Opportunities Feed:</strong> 243 real postings with search filters, ATS source badges (Greenhouse, Lever, Jobicy), and real-time fit scores.</span>
+          <span><strong>Production Opportunities Feed:</strong> 307 real postings with research preferences modal, ATS source badges (Greenhouse, Lever, Ashby), and deterministic fit scores.</span>
         </div>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 16px;">
         <div class="card">
-          <h3 style="font-size: 16px; font-weight: 800; color: #1E1B4B; margin-bottom: 8px;">Multi-Source Ingestion Engine</h3>
+          <h3 style="font-size: 16px; font-weight: 800; color: #1E1B4B; margin-bottom: 8px;">Multi-Source Ingestion Architecture</h3>
           <p style="font-size: 12px; color: #64748B; line-height: 1.5; margin-bottom: 12px;">
-            Jobs are pulled dynamically without relying on brittle scrapers or fake mock data:
+            Jobs are pulled dynamically without relying on brittle scrapers or synthetic records:
           </p>
           <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
             <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 12px;">
-              <strong>Direct ATS Ingestion:</strong> Affirm, Figma, Stripe, GitHub, Datadog via Greenhouse & Lever public APIs.
+              <strong>Direct ATS Ingestion:</strong> Greenhouse, Lever, and Ashby (Notion, Ramp, Cohere, Modal) via official public JSON API feeds.
             </div>
             <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 12px;">
-              <strong>Jobicy Remote Tech Feed:</strong> Real-time remote and hybrid internships across developer and design disciplines.
+              <strong>Research Preferences Modal:</strong> Students customize target roles, preferred regions, work modes, and graduation years.
             </div>
             <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 12px;">
-              <strong>Deterministic Seed Baseline:</strong> High-fidelity verified opportunities covering Indian & global tech ecosystems.
+              <strong>6-Stage Progressive Stepper:</strong> Transparently communicates profile analysis, query planning, source querying, URL verification, and scoring.
             </div>
           </div>
         </div>
 
         <div class="card">
-          <h3 style="font-size: 16px; font-weight: 800; color: #1E1B4B; margin-bottom: 8px;">Honest Empty Search Handling</h3>
+          <h3 style="font-size: 16px; font-weight: 800; color: #1E1B4B; margin-bottom: 8px;">Research Preferences & Controls</h3>
           <p style="font-size: 12px; color: #64748B; line-height: 1.5; margin-bottom: 10px;">
-            When students search for non-existent roles (e.g., "Underwater Basket Weaving"), InternSync does not fake listings. It displays an honest empty state with suggestions.
+            Students tune target role families, locations (Bengaluru, Remote, Global), and durations before initiating deep search:
           </p>
           <div style="border-radius: 8px; overflow: hidden; border: 1px solid #E2E8F0; height: 120px;">
-            <img style="width: 100%; height: 100%; object-fit: cover;" src="screenshots/17_honest_empty_search.png" alt="Honest Empty Search UI">
+            <img style="width: 100%; height: 100%; object-fit: cover;" src="screenshots/16_research_preferences.png" alt="Research Preferences Modal">
           </div>
         </div>
       </div>
@@ -1331,7 +1331,7 @@
 
 
   <!-- ==========================================
-       PAGE 10: OPPORTUNITY DETAILS AND ELIGIBILITY
+       PAGE 10: RESUME INTELLIGENCE & OPPORTUNITY WORKSPACE
        ========================================== -->
   <section class="slide" id="page-10">
     <div class="slide-header">
@@ -1339,57 +1339,57 @@
         <div class="brand-logo-icon">IS</div>
         <div class="brand-text">Intern<span>Sync</span></div>
       </div>
-      <span class="tag-category">Eligibility Breakdown</span>
+      <span class="tag-category">Resume Intelligence Workspace</span>
     </div>
 
-    <div class="section-eyebrow">Transparent Match Evaluation</div>
-    <h2 class="slide-title">Opportunity details and <span class="highlight">eligibility breakdown.</span></h2>
+    <div class="section-eyebrow">Zero-Fabrication Career Preparation</div>
+    <h2 class="slide-title">Resume-to-internship intelligence: <span class="highlight">truthful role-specific tuning.</span></h2>
     <p class="slide-subtitle">
-      Clicking any opportunity opens an in-depth breakdown showing exact match percentages, satisfied requirements, missing skills, and the direct link to the employer's official ATS.
+      InternSync doesn't just find vacancies—it equips students to become stronger applicants through an interactive workspace providing evidence-backed gap analysis and truthful bullet refinements without altering their master resume.
     </p>
 
     <div class="grid-left-wide">
       <div class="screenshot-frame">
         <div class="browser-bar">
           <div class="browser-dots"><div class="browser-dot red"></div><div class="browser-dot yellow"></div><div class="browser-dot green"></div></div>
-          <div class="browser-url">https://intern-sync-one.vercel.app/opportunities (Detail Modal)</div>
-          <span class="badge-verified">Production Detail View</span>
+          <div class="browser-url">https://intern-sync-one.vercel.app/opportunities/:id#resume (Resume Intelligence)</div>
+          <span class="badge-verified">Production Workspace</span>
         </div>
-        <img class="screenshot-img" src="screenshots/10_opportunity_detail_breakdown.png" alt="InternSync Production Opportunity Detail View">
+        <img class="screenshot-img" src="screenshots/22_resume_intelligence_workspace.png" alt="InternSync Production Resume Intelligence Workspace">
         <div class="screenshot-caption">
-          <span><strong>Production Modal:</strong> Live opportunity detail showing 72% Fit, Prepare First recommendation, factor breakdowns (Skills 80%, Eligibility 100%), and direct ATS application button.</span>
+          <span><strong>Resume Intelligence Workspace:</strong> Zero Fabrication Policy, What Already Matches, Addressable Skill Gaps, and Role-Tailored Bullet Refinements with interactive Copy and Accept controls.</span>
         </div>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 16px;">
         <div class="card card-primary">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <span class="decision-badge decision-prepare">PREPARE FIRST &bull; 72% FIT</span>
-            <span style="font-size: 11px; font-weight: 700; color: #B45309;">Addressable Gap</span>
+            <span class="decision-badge" style="background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE;">ZERO FABRICATION POLICY</span>
+            <span style="font-size: 11px; font-weight: 700; color: #059669;">100% Truthful</span>
           </div>
-          <h4 style="font-size: 15px; font-weight: 800; color: #1E1B4B; margin-bottom: 6px;">Multi-Factor Breakdown (Priya Nair)</h4>
+          <h4 style="font-size: 15px; font-weight: 800; color: #1E1B4B; margin-bottom: 6px;">Evidence-Grounded Refinements</h4>
           <ul style="font-size: 12px; color: #334155; line-height: 1.5; padding-left: 18px; display: flex; flex-direction: column; gap: 4px;">
-            <li><strong>Eligibility (100%):</strong> Degree, batch graduation window, and work mode fully satisfied.</li>
-            <li><strong>Education (95%):</strong> Engineering coursework aligns with technical requirements.</li>
-            <li><strong>Skills Fit (80%):</strong> Satisfies programming prerequisites; flags specific domain skills.</li>
+            <li><strong>Zero Hallucinations:</strong> Never invents work history, fake metrics, or unevidenced technologies.</li>
+            <li><strong>Evidence Framing:</strong> Emphasizes genuine project stack overlaps (e.g. React, Node, PostgreSQL).</li>
+            <li><strong>Interactive Review:</strong> Students compare Before & After versions and selectively accept tailored bullets.</li>
           </ul>
         </div>
 
         <div class="card">
-          <h4 style="font-size: 15px; font-weight: 800; color: #1E1B4B; margin-bottom: 6px;">Transparent Missing Requirements</h4>
+          <h4 style="font-size: 15px; font-weight: 800; color: #1E1B4B; margin-bottom: 6px;">Addressable Skill Gap Roadmap</h4>
           <p style="font-size: 12px; color: #64748B; margin-bottom: 8px;">
-            The platform flags missing domain-specific competencies directly from the parsed job description:
+            Instead of claiming unearned skills on a resume, missing requirements are isolated into a 14-day study sprint:
           </p>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <span style="background: #FEF3C7; color: #B45309; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; border: 1px solid #FDE68A;">Domain Localization (High Priority)</span>
-            <span style="background: #FEF3C7; color: #B45309; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; border: 1px solid #FDE68A;">Lao Translation (Required)</span>
+            <span style="background: #FEF3C7; color: #B45309; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; border: 1px solid #FDE68A;">Docker & Containerization</span>
+            <span style="background: #FEF3C7; color: #B45309; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; border: 1px solid #FDE68A;">Distributed Caching</span>
           </div>
         </div>
 
         <div class="card" style="background: #F8FAFC; border: 1px solid #CBD5E1; margin-top: auto;">
-          <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Direct ATS Link Verification</div>
+          <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Direct ATS Destination Link</div>
           <div style="font-size: 12px; color: #64748B; margin-top: 4px; line-height: 1.45;">
-            InternSync does not trap applications in an unmonitored silo. Clicking "Apply on Company Site" routes the student straight to the employer's official job portal.
+            Verified direct application links route students directly into Greenhouse (job-boards.greenhouse.io), Lever (jobs.lever.co), or Ashby (jobs.ashbyhq.com) portals.
           </div>
         </div>
       </div>
@@ -1398,7 +1398,7 @@
     <div class="slide-footer">
       <div class="footer-left">
         <span class="footer-tag">InternSync</span>
-        <span>Opportunity Detail & Transparent Fit Breakdown</span>
+        <span>Resume-to-Internship Intelligence & Tuning Workspace</span>
       </div>
       <div class="slide-number">10 / 20</div>
     </div>

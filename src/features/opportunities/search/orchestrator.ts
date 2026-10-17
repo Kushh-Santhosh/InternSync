@@ -168,6 +168,14 @@ export class OpportunitySearchOrchestrator {
       maxQueries: this.maxQueries,
     })
 
+    if (queries.length === 0) {
+      queries.push({
+        text: 'Software Engineering Intern India 2026',
+        role: 'Software Engineer Intern',
+        location: student.location || 'India',
+      })
+    }
+
     // If Demo Mode, use DemoProvider
     if (isDemoMode) {
       const demoTaskResults = await runWithConcurrency(

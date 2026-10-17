@@ -28,6 +28,10 @@ export function generateSearchQueries(
     }
   }
 
+  if (roleCandidates.length === 0) {
+    roleCandidates.push('Software Engineering Intern')
+  }
+
   // Common role expansions
   const expandedRoles = new Set<string>()
   for (const role of roleCandidates) {

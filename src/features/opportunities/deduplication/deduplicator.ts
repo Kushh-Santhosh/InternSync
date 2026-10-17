@@ -41,9 +41,13 @@ export function deduplicateOpportunities(opportunities: Opportunity[]): Opportun
       const bestAppUrl = isOppAts && !isExistingAts ? opp.applicationUrl : existing.applicationUrl
       const bestSource = isOppAts && !isExistingAts ? opp.source : existing.source
 
-      // Combine skills
-      const combinedSkills = Array.from(new Set([...existing.requiredSkills, ...opp.requiredSkills]))
-      const combinedPrefSkills = Array.from(new Set([...existing.preferredSkills, ...opp.preferredSkills]))
+      // Combine skills defensively
+      const existingReq = Array.isArray(existing.requiredSkills) ? existing.requiredSkills : []
+      const oppReq = Array.isArray(opp.requiredSkills) ? opp.requiredSkills : []
+      const existingPref = Array.isArray(existing.preferredSkills) ? existing.preferredSkills : []
+      const oppPref = Array.isArray(opp.preferredSkills) ? opp.preferredSkills : []
+      const combinedSkills = Array.from(new Set([...existingReq, ...oppReq]))
+      const combinedPrefSkills = Array.from(new Set([...existingPref, ...oppPref]))
 
       mergedMap.set(dedupeKey, {
         ...existing,

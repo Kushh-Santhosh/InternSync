@@ -68807,7 +68807,782 @@ CRITICAL RULES:
   }
 };
 
+// src/features/opportunities/sources/registry.ts
+var VERIFIED_EMPLOYER_REGISTRY = [
+  // India & Bengaluru Technology Hubs / Startups
+  {
+    id: "emp-hackerrank",
+    name: "HackerRank",
+    provider: "greenhouse",
+    boardToken: "hackerrank",
+    careersUrl: "https://www.hackerrank.com/careers",
+    category: "india_hub",
+    locations: ["Bengaluru", "Bangalore", "Remote", "India"],
+    roleTypes: ["software", "fullstack", "frontend", "backend"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with verified Bangalore engineering intern postings."
+  },
+  {
+    id: "emp-fampay",
+    name: "FamPay",
+    provider: "lever",
+    boardToken: "fampay",
+    careersUrl: "https://fampay.in/careers",
+    category: "india_hub",
+    locations: ["Bengaluru", "Bangalore", "India"],
+    roleTypes: ["software", "security", "fullstack", "design"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Lever postings API for FamPay India."
+  },
+  {
+    id: "emp-rubrik",
+    name: "Rubrik",
+    provider: "greenhouse",
+    boardToken: "rubrik",
+    careersUrl: "https://www.rubrik.com/company/careers",
+    category: "india_hub",
+    locations: ["Bengaluru", "Bangalore", "India", "Remote"],
+    roleTypes: ["software", "backend", "devops", "product"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with Bangalore industrial trainees and engineering intern postings."
+  },
+  {
+    id: "emp-groww",
+    name: "Groww",
+    provider: "greenhouse",
+    boardToken: "groww",
+    careersUrl: "https://groww.in/careers",
+    category: "india_hub",
+    locations: ["Bengaluru", "Bangalore", "India"],
+    roleTypes: ["software", "frontend", "backend", "design", "data_ai"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board for Groww India headquarters."
+  },
+  {
+    id: "emp-inmobi",
+    name: "InMobi",
+    provider: "greenhouse",
+    boardToken: "inmobi",
+    careersUrl: "https://www.inmobi.com/company/careers",
+    category: "india_hub",
+    locations: ["Bengaluru", "Bangalore", "India"],
+    roleTypes: ["software", "data_ai", "product", "design"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with Bengaluru technology and people team intern roles."
+  },
+  {
+    id: "emp-meesho",
+    name: "Meesho",
+    provider: "lever",
+    boardToken: "meesho",
+    careersUrl: "https://www.meesho.io/jobs",
+    category: "india_hub",
+    locations: ["Bengaluru", "Bangalore", "India"],
+    roleTypes: ["software", "frontend", "backend", "data_ai", "product"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Lever postings API for Meesho Bengaluru."
+  },
+  {
+    id: "emp-cred",
+    name: "CRED",
+    provider: "lever",
+    boardToken: "cred",
+    careersUrl: "https://cred.club/careers",
+    category: "india_hub",
+    locations: ["Bengaluru", "Bangalore", "India"],
+    roleTypes: ["software", "frontend", "backend", "design"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Lever board for CRED Bengaluru."
+  },
+  {
+    id: "emp-zeta",
+    name: "Zeta",
+    provider: "lever",
+    boardToken: "zeta",
+    careersUrl: "https://www.zeta.tech/careers",
+    category: "india_hub",
+    locations: ["Bengaluru", "Bangalore", "India"],
+    roleTypes: ["software", "backend", "fullstack"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Lever postings API for Zeta Banking Tech."
+  },
+  {
+    id: "emp-pocketfm",
+    name: "Pocket FM",
+    provider: "lever",
+    boardToken: "pocketfm",
+    careersUrl: "https://pocketfm.com/careers",
+    category: "india_hub",
+    locations: ["Bengaluru", "Bangalore", "India"],
+    roleTypes: ["software", "data_ai", "fullstack", "design"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Lever postings API for Pocket FM."
+  },
+  {
+    id: "emp-paytm",
+    name: "Paytm",
+    provider: "lever",
+    boardToken: "paytm",
+    careersUrl: "https://paytm.com/careers",
+    category: "india_hub",
+    locations: ["Noida", "Bengaluru", "Bangalore", "India"],
+    roleTypes: ["software", "backend", "frontend", "data_ai", "product"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Lever postings API for Paytm."
+  },
+  {
+    id: "emp-slice",
+    name: "Slice",
+    provider: "greenhouse",
+    boardToken: "slice",
+    careersUrl: "https://sliceit.com/careers",
+    category: "india_hub",
+    locations: ["Bengaluru", "Bangalore", "India"],
+    roleTypes: ["software", "backend", "frontend", "data_ai"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board for Slice India."
+  },
+  {
+    id: "emp-devrev",
+    name: "DevRev",
+    provider: "greenhouse",
+    boardToken: "devrev",
+    careersUrl: "https://devrev.ai/careers",
+    category: "india_hub",
+    locations: ["Bengaluru", "Bangalore", "India", "Remote"],
+    roleTypes: ["software", "data_ai", "fullstack", "devops"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board for DevRev AI."
+  },
+  {
+    id: "emp-observeai",
+    name: "Observe.AI",
+    provider: "greenhouse",
+    boardToken: "observeai",
+    careersUrl: "https://www.observe.ai/careers",
+    category: "india_hub",
+    locations: ["Bengaluru", "Bangalore", "India", "Remote"],
+    roleTypes: ["software", "data_ai", "backend"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board for Observe.AI speech technologies."
+  },
+  {
+    id: "emp-databricks",
+    name: "Databricks",
+    provider: "greenhouse",
+    boardToken: "databricks",
+    careersUrl: "https://www.databricks.com/company/careers",
+    category: "enterprise_tech",
+    locations: ["Bengaluru", "Bangalore", "India", "Remote"],
+    roleTypes: ["software", "data_ai", "backend"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with Bengaluru operations and GenAI research internships."
+  },
+  // Global & Remote Technology Leaders (Permitting Indian & Remote Applicants)
+  {
+    id: "emp-stripe",
+    name: "Stripe",
+    provider: "greenhouse",
+    boardToken: "stripe",
+    careersUrl: "https://stripe.com/jobs",
+    category: "global_remote",
+    locations: ["Remote", "India", "Singapore", "Global"],
+    roleTypes: ["software", "data_ai", "fullstack", "backend"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with Data Analyst and Financial Data Intern roles."
+  },
+  {
+    id: "emp-figma",
+    name: "Figma",
+    provider: "greenhouse",
+    boardToken: "figma",
+    careersUrl: "https://www.figma.com/careers",
+    category: "global_remote",
+    locations: ["Remote", "Global"],
+    roleTypes: ["software", "data_ai", "design", "product", "frontend"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with Data Engineer, Data Science, and APM early career roles."
+  },
+  {
+    id: "emp-cloudflare",
+    name: "Cloudflare",
+    provider: "greenhouse",
+    boardToken: "cloudflare",
+    careersUrl: "https://www.cloudflare.com/careers",
+    category: "global_remote",
+    locations: ["Remote", "In-Office", "Global"],
+    roleTypes: ["software", "security", "devops", "backend"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with Software Engineer Intern 2026/2027 listings."
+  },
+  {
+    id: "emp-gitlab",
+    name: "GitLab",
+    provider: "greenhouse",
+    boardToken: "gitlab",
+    careersUrl: "https://about.gitlab.com/jobs",
+    category: "global_remote",
+    locations: ["Remote", "Worldwide", "India"],
+    roleTypes: ["software", "devops", "fullstack", "backend"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official all-remote Greenhouse board."
+  },
+  {
+    id: "emp-canonical",
+    name: "Canonical",
+    provider: "greenhouse",
+    boardToken: "canonical",
+    careersUrl: "https://canonical.com/careers",
+    category: "global_remote",
+    locations: ["Home based - Worldwide", "Remote", "India"],
+    roleTypes: ["software", "devops", "backend"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with Worldwide Home-based graduate and early career roles."
+  },
+  {
+    id: "emp-airbnb",
+    name: "Airbnb",
+    provider: "greenhouse",
+    boardToken: "airbnb",
+    careersUrl: "https://careers.airbnb.com",
+    category: "global_remote",
+    locations: ["Remote", "Singapore", "India", "Global"],
+    roleTypes: ["software", "design", "data_ai", "product"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with NextStay Fellow and tech programs."
+  },
+  {
+    id: "emp-coinbase",
+    name: "Coinbase",
+    provider: "greenhouse",
+    boardToken: "coinbase",
+    careersUrl: "https://www.coinbase.com/careers",
+    category: "global_remote",
+    locations: ["Remote", "India", "Global"],
+    roleTypes: ["software", "data_ai", "security", "backend"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with Analytics Engineer and acceleration interns."
+  },
+  {
+    id: "emp-reddit",
+    name: "Reddit",
+    provider: "greenhouse",
+    boardToken: "reddit",
+    careersUrl: "https://www.redditinc.com/careers",
+    category: "global_remote",
+    locations: ["Remote", "Global"],
+    roleTypes: ["software", "fullstack", "backend", "data_ai"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with remote full stack and platform engineering."
+  },
+  {
+    id: "emp-datadog",
+    name: "Datadog",
+    provider: "greenhouse",
+    boardToken: "datadog",
+    careersUrl: "https://www.datadoghq.com/careers",
+    category: "enterprise_tech",
+    locations: ["Remote", "Paris", "Global"],
+    roleTypes: ["software", "data_ai", "devops", "backend"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with Applied Science and tech support intern roles."
+  },
+  {
+    id: "emp-mongodb",
+    name: "MongoDB",
+    provider: "greenhouse",
+    boardToken: "mongodb",
+    careersUrl: "https://www.mongodb.com/careers",
+    category: "enterprise_tech",
+    locations: ["Gurugram", "Dublin", "Remote", "India"],
+    roleTypes: ["software", "backend", "data_ai"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with Gurugram operations and software engineering internships."
+  },
+  {
+    id: "emp-elastic",
+    name: "Elastic",
+    provider: "greenhouse",
+    boardToken: "elastic",
+    careersUrl: "https://www.elastic.co/about/careers",
+    category: "enterprise_tech",
+    locations: ["India", "Remote", "Global"],
+    roleTypes: ["software", "backend", "data_ai", "devops"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with distributed database and query engine roles."
+  },
+  {
+    id: "emp-twilio",
+    name: "Twilio",
+    provider: "greenhouse",
+    boardToken: "twilio",
+    careersUrl: "https://www.twilio.com/company/jobs",
+    category: "enterprise_tech",
+    locations: ["Bengaluru", "Remote", "India"],
+    roleTypes: ["software", "backend", "fullstack"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with Bengaluru engineering operations."
+  },
+  {
+    id: "emp-okta",
+    name: "Okta",
+    provider: "greenhouse",
+    boardToken: "okta",
+    careersUrl: "https://www.okta.com/company/careers",
+    category: "enterprise_tech",
+    locations: ["Bengaluru", "Remote", "India"],
+    roleTypes: ["software", "security", "backend", "cloud"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with Bengaluru identity and security roles."
+  },
+  {
+    id: "emp-duolingo",
+    name: "Duolingo",
+    provider: "greenhouse",
+    boardToken: "duolingo",
+    careersUrl: "https://careers.duolingo.com",
+    category: "global_remote",
+    locations: ["Remote", "Global"],
+    roleTypes: ["software", "data_ai", "design", "frontend"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with software engineering and AI roles."
+  },
+  {
+    id: "emp-asana",
+    name: "Asana",
+    provider: "greenhouse",
+    boardToken: "asana",
+    careersUrl: "https://asana.com/jobs",
+    category: "global_remote",
+    locations: ["Remote", "Global"],
+    roleTypes: ["software", "frontend", "backend", "product"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with web and product engineering."
+  },
+  {
+    id: "emp-pinterest",
+    name: "Pinterest",
+    provider: "greenhouse",
+    boardToken: "pinterest",
+    careersUrl: "https://www.pinterestcareers.com",
+    category: "global_remote",
+    locations: ["Remote", "Global"],
+    roleTypes: ["software", "frontend", "data_ai", "design"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with full stack and mobile engineering."
+  },
+  {
+    id: "emp-robinhood",
+    name: "Robinhood",
+    provider: "greenhouse",
+    boardToken: "robinhood",
+    careersUrl: "https://robinhood.com/us/en/careers",
+    category: "global_remote",
+    locations: ["Remote", "Global"],
+    roleTypes: ["software", "backend", "frontend", "security"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with financial engineering."
+  },
+  {
+    id: "emp-coursera",
+    name: "Coursera",
+    provider: "greenhouse",
+    boardToken: "coursera",
+    careersUrl: "https://about.coursera.org/careers",
+    category: "global_remote",
+    locations: ["Remote", "Global"],
+    roleTypes: ["software", "data_ai", "frontend", "backend"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with EdTech engineering."
+  },
+  {
+    id: "emp-lyft",
+    name: "Lyft",
+    provider: "greenhouse",
+    boardToken: "lyft",
+    careersUrl: "https://www.lyft.com/careers",
+    category: "global_remote",
+    locations: ["Remote", "Global"],
+    roleTypes: ["software", "backend", "data_ai", "fullstack"],
+    status: "verified",
+    lastVerifiedAt: "2026-10-17",
+    notes: "Official Greenhouse board with mobility systems."
+  }
+];
+function getVerifiedEmployerSources() {
+  return VERIFIED_EMPLOYER_REGISTRY.filter((s2) => s2.status === "verified");
+}
+
+// src/features/opportunities/sources/GreenhouseSourceAdapter.ts
+var boardCache = /* @__PURE__ */ new Map();
+var BOARD_CACHE_TTL = 45 * 60 * 1e3;
+var GreenhouseSourceAdapter = class {
+  /**
+   * Fetches all current published jobs for a verified Greenhouse board token.
+   * Utilizes server-side caching to prevent repeated network round-trips.
+   */
+  async fetchBoardJobs(source) {
+    const cached = boardCache.get(source.boardToken);
+    if (cached && Date.now() - cached.timestamp < BOARD_CACHE_TTL) {
+      return cached.jobs;
+    }
+    const url = `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(source.boardToken)}/jobs?content=true`;
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "InternSync-ReadinessPlatform/1.0 (Opportunity Discovery Engine)"
+        },
+        signal: AbortSignal.timeout(6e3)
+      });
+      if (!response.ok) {
+        return [];
+      }
+      const data = await response.json();
+      const jobs = Array.isArray(data?.jobs) ? data.jobs : [];
+      boardCache.set(source.boardToken, {
+        timestamp: Date.now(),
+        jobs
+      });
+      return jobs;
+    } catch {
+      return [];
+    }
+  }
+  /**
+   * Searches a specific employer board for positions matching query parameters.
+   */
+  async searchEmployer(source, queryText, targetRole, locationFilter) {
+    const jobs = await this.fetchBoardJobs(source);
+    if (jobs.length === 0) return [];
+    const qLower = (queryText || "").toLowerCase().trim();
+    const roleLower = (targetRole || "").toLowerCase().trim();
+    const locLower = (locationFilter || "").toLowerCase().trim();
+    const isInternTarget = qLower.includes("intern") || roleLower.includes("intern") || qLower.includes("student") || qLower.includes("trainee") || qLower.includes("graduate") || qLower.includes("early");
+    const matchedJobs = jobs.filter((job) => {
+      const titleLower = (job.title || "").toLowerCase();
+      const jobLoc = (job.location?.name || "").toLowerCase();
+      const isInternTitle = titleLower.includes("intern") || titleLower.includes("trainee") || titleLower.includes("apprentice") || titleLower.includes("co-op") || titleLower.includes("graduate") || titleLower.includes("fellow") || titleLower.includes("campus") || titleLower.includes("early career") || titleLower.includes("junior") || titleLower.includes("associate");
+      const matchesKeyword = !qLower || titleLower.includes(qLower) || roleLower && titleLower.includes(roleLower) || qLower.split(" ").some((term) => term.length > 3 && titleLower.includes(term));
+      if (isInternTarget && !isInternTitle) {
+        if (!titleLower.includes("engineer") && !titleLower.includes("developer") && !titleLower.includes("analyst")) {
+          return false;
+        }
+      }
+      if (!matchesKeyword && !isInternTitle) {
+        return false;
+      }
+      if (locLower && locLower !== "any" && locLower !== "all") {
+        const isRemoteJob = jobLoc.includes("remote") || jobLoc.includes("home based") || jobLoc.includes("worldwide") || jobLoc.includes("anywhere");
+        const matchesLoc = isRemoteJob || jobLoc.includes(locLower) || locLower === "india" && (jobLoc.includes("bangalore") || jobLoc.includes("bengaluru") || jobLoc.includes("noida") || jobLoc.includes("gurgaon") || jobLoc.includes("hyderabad") || jobLoc.includes("pune") || jobLoc.includes("mumbai") || jobLoc.includes("chennai"));
+        if (!matchesLoc) {
+          if (locLower === "india" || locLower === "bengaluru" || locLower === "bangalore") {
+            return false;
+          }
+        }
+      }
+      return true;
+    });
+    return matchedJobs.map((job) => {
+      const cleanSnippet = (job.content || "").replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "").replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 350);
+      const locName = job.location?.name || "Remote / Multiple Locations";
+      return {
+        title: `${job.title} @ ${source.name}`,
+        company: source.name,
+        url: job.absolute_url,
+        domain: "boards.greenhouse.io",
+        snippet: cleanSnippet ? `${source.name} is hiring for ${job.title} in ${locName}. ${cleanSnippet}` : `${source.name} official career listing for ${job.title} (${locName}).`,
+        source: `Greenhouse (${source.name})`,
+        discoveredAt: job.updated_at || (/* @__PURE__ */ new Date()).toISOString()
+      };
+    });
+  }
+};
+
+// src/features/opportunities/sources/LeverSourceAdapter.ts
+var leverCache = /* @__PURE__ */ new Map();
+var LEVER_CACHE_TTL = 45 * 60 * 1e3;
+var LeverSourceAdapter = class {
+  /**
+   * Fetches all current published postings for a verified Lever company token.
+   * Utilizes server-side caching to prevent repeated network round-trips.
+   */
+  async fetchPostings(source) {
+    const cached = leverCache.get(source.boardToken);
+    if (cached && Date.now() - cached.timestamp < LEVER_CACHE_TTL) {
+      return cached.postings;
+    }
+    const url = `https://api.lever.co/v0/postings/${encodeURIComponent(source.boardToken)}?mode=json`;
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "InternSync-ReadinessPlatform/1.0 (Opportunity Discovery Engine)"
+        },
+        signal: AbortSignal.timeout(6e3)
+      });
+      if (!response.ok) {
+        return [];
+      }
+      const data = await response.json();
+      const postings = Array.isArray(data) ? data : [];
+      leverCache.set(source.boardToken, {
+        timestamp: Date.now(),
+        postings
+      });
+      return postings;
+    } catch {
+      return [];
+    }
+  }
+  /**
+   * Searches a specific Lever employer board for postings matching query parameters.
+   */
+  async searchEmployer(source, queryText, targetRole, locationFilter) {
+    const postings = await this.fetchPostings(source);
+    if (postings.length === 0) return [];
+    const qLower = (queryText || "").toLowerCase().trim();
+    const roleLower = (targetRole || "").toLowerCase().trim();
+    const locLower = (locationFilter || "").toLowerCase().trim();
+    const isInternTarget = qLower.includes("intern") || roleLower.includes("intern") || qLower.includes("student") || qLower.includes("trainee") || qLower.includes("graduate") || qLower.includes("early");
+    const matchedPostings = postings.filter((posting) => {
+      const titleLower = (posting.text || "").toLowerCase();
+      const commitment = (posting.categories?.commitment || "").toLowerCase();
+      const jobLoc = (posting.categories?.location || "").toLowerCase();
+      const allLocs = (posting.categories?.allLocations || []).map((l) => l.toLowerCase()).join(" ");
+      const combinedLoc = `${jobLoc} ${allLocs} ${posting.workplaceType || ""}`.toLowerCase();
+      const isInternTitle = titleLower.includes("intern") || titleLower.includes("trainee") || titleLower.includes("apprentice") || titleLower.includes("co-op") || titleLower.includes("graduate") || titleLower.includes("junior") || titleLower.includes("associate") || commitment.includes("intern");
+      const matchesKeyword = !qLower || titleLower.includes(qLower) || roleLower && titleLower.includes(roleLower) || qLower.split(" ").some((term) => term.length > 3 && titleLower.includes(term));
+      if (isInternTarget && !isInternTitle) {
+        if (!titleLower.includes("engineer") && !titleLower.includes("developer") && !titleLower.includes("analyst")) {
+          return false;
+        }
+      }
+      if (!matchesKeyword && !isInternTitle) {
+        return false;
+      }
+      if (locLower && locLower !== "any" && locLower !== "all") {
+        const isRemoteJob = combinedLoc.includes("remote") || posting.workplaceType === "remote" || combinedLoc.includes("worldwide");
+        const matchesLoc = isRemoteJob || combinedLoc.includes(locLower) || locLower === "india" && (combinedLoc.includes("bangalore") || combinedLoc.includes("bengaluru") || combinedLoc.includes("noida") || combinedLoc.includes("gurgaon") || combinedLoc.includes("hyderabad") || combinedLoc.includes("pune") || combinedLoc.includes("mumbai") || combinedLoc.includes("delhi"));
+        if (!matchesLoc) {
+          if (locLower === "india" || locLower === "bengaluru" || locLower === "bangalore") {
+            return false;
+          }
+        }
+      }
+      return true;
+    });
+    return matchedPostings.map((posting) => {
+      const plainDesc = posting.descriptionPlain || (posting.description || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      const snippet = plainDesc.slice(0, 350);
+      const locName = posting.categories?.location || "Remote / Multiple Locations";
+      return {
+        title: `${posting.text} @ ${source.name}`,
+        company: source.name,
+        url: posting.applyUrl || posting.hostedUrl,
+        domain: "jobs.lever.co",
+        snippet: snippet ? `${source.name} is hiring for ${posting.text} in ${locName}. ${snippet}` : `${source.name} official career posting for ${posting.text} (${locName}).`,
+        source: `Lever (${source.name})`,
+        discoveredAt: posting.createdAt ? new Date(posting.createdAt).toISOString() : (/* @__PURE__ */ new Date()).toISOString()
+      };
+    });
+  }
+};
+
+// src/features/opportunities/sources/PublicFeedsAdapter.ts
+var feedCache = null;
+var FEED_CACHE_TTL = 45 * 60 * 1e3;
+var PublicFeedsAdapter = class {
+  /**
+   * Fetches permitted public job listings from Jobicy API.
+   * Cached for 45 minutes to adhere to fair usage policies.
+   */
+  async fetchFeedJobs() {
+    if (feedCache && Date.now() - feedCache.timestamp < FEED_CACHE_TTL) {
+      return feedCache.jobs;
+    }
+    try {
+      const response = await fetch("https://jobicy.com/api/v2/remote-jobs?count=50", {
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "InternSync-ReadinessPlatform/1.0 (Opportunity Discovery Engine)"
+        },
+        signal: AbortSignal.timeout(6e3)
+      });
+      if (!response.ok) {
+        return feedCache ? feedCache.jobs : [];
+      }
+      const data = await response.json();
+      const jobs = Array.isArray(data?.jobs) ? data.jobs : [];
+      feedCache = {
+        timestamp: Date.now(),
+        jobs
+      };
+      return jobs;
+    } catch {
+      return feedCache ? feedCache.jobs : [];
+    }
+  }
+  /**
+   * Searches the public feed for matching tech internships and junior positions.
+   */
+  async searchFeed(queryText, targetRole, locationFilter) {
+    const jobs = await this.fetchFeedJobs();
+    if (jobs.length === 0) return [];
+    const qLower = (queryText || "").toLowerCase().trim();
+    const roleLower = (targetRole || "").toLowerCase().trim();
+    const locLower = (locationFilter || "").toLowerCase().trim();
+    const isInternTarget = qLower.includes("intern") || roleLower.includes("intern") || qLower.includes("student") || qLower.includes("trainee") || qLower.includes("graduate") || qLower.includes("early");
+    const matchedJobs = jobs.filter((job) => {
+      const titleLower = (job.jobTitle || "").toLowerCase();
+      const levelLower = (job.jobLevel || "").toLowerCase();
+      const geoLower = (job.jobGeo || "").toLowerCase();
+      const isEarlyCareer = titleLower.includes("intern") || titleLower.includes("trainee") || titleLower.includes("apprentice") || titleLower.includes("graduate") || titleLower.includes("junior") || titleLower.includes("associate") || levelLower.includes("entry") || levelLower.includes("junior") || levelLower.includes("intern");
+      const matchesKeyword = !qLower || titleLower.includes(qLower) || roleLower && titleLower.includes(roleLower) || qLower.split(" ").some((term) => term.length > 3 && titleLower.includes(term));
+      if (isInternTarget && !isEarlyCareer) {
+        if (!titleLower.includes("engineer") && !titleLower.includes("developer") && !titleLower.includes("analyst")) {
+          return false;
+        }
+      }
+      if (!matchesKeyword && !isEarlyCareer) {
+        return false;
+      }
+      if (locLower && locLower !== "any" && locLower !== "all") {
+        const isWorldwide = geoLower.includes("anywhere") || geoLower.includes("worldwide") || geoLower.includes("remote") || geoLower.includes("global") || geoLower.includes("apac");
+        const matchesLoc = isWorldwide || geoLower.includes(locLower);
+        if (!matchesLoc && (locLower === "india" || locLower === "bengaluru" || locLower === "bangalore")) {
+          if (!isWorldwide) return false;
+        }
+      }
+      return true;
+    });
+    return matchedJobs.map((job) => {
+      const cleanSnippet = (job.jobExcerpt || job.jobDescription || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 350);
+      return {
+        title: `${job.jobTitle} @ ${job.companyName}`,
+        company: job.companyName,
+        url: job.url,
+        domain: "jobicy.com",
+        snippet: cleanSnippet ? `${job.companyName} is hiring: ${cleanSnippet}` : `${job.companyName} remote opportunity: ${job.jobTitle} (${job.jobGeo || "Remote"}).`,
+        source: `Jobicy (${job.companyName})`,
+        discoveredAt: job.pubDate || (/* @__PURE__ */ new Date()).toISOString()
+      };
+    });
+  }
+};
+
+// src/features/opportunities/sources/MultiSourceOpportunityEngine.ts
+async function runWithConcurrency(items, limit, fn) {
+  if (items.length === 0) return [];
+  const results = new Array(items.length);
+  let currentIndex = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (currentIndex < items.length) {
+      const idx = currentIndex++;
+      results[idx] = await fn(items[idx]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+var MultiSourceOpportunityEngine = class {
+  greenhouseAdapter = new GreenhouseSourceAdapter();
+  leverAdapter = new LeverSourceAdapter();
+  publicFeedsAdapter = new PublicFeedsAdapter();
+  /**
+   * Discovers genuine opportunity listings across verified employer boards and public feeds.
+   * Completely independent of paid AI search engines.
+   */
+  async search(query) {
+    const t0 = Date.now();
+    const queryText = query.text || "";
+    const targetRole = query.role || "";
+    const location2 = query.location || "India";
+    const verifiedSources = getVerifiedEmployerSources();
+    const sourcesQueried = [];
+    const boardResults = await runWithConcurrency(
+      verifiedSources,
+      6,
+      async (source) => {
+        sourcesQueried.push(`${source.provider.toUpperCase()} (${source.name})`);
+        try {
+          if (source.provider === "greenhouse") {
+            return await this.greenhouseAdapter.searchEmployer(source, queryText, targetRole, location2);
+          } else {
+            return await this.leverAdapter.searchEmployer(source, queryText, targetRole, location2);
+          }
+        } catch {
+          return [];
+        }
+      }
+    );
+    sourcesQueried.push("Jobicy Remote Tech Feed");
+    const feedResults = await this.publicFeedsAdapter.searchFeed(queryText, targetRole, location2).catch(() => []);
+    const allRaw = [...boardResults.flat(), ...feedResults];
+    const seenUrls = /* @__PURE__ */ new Set();
+    const seenIdentities = /* @__PURE__ */ new Set();
+    const uniqueResults = [];
+    for (const item of allRaw) {
+      const cleanUrl = item.url ? item.url.split("?")[0].toLowerCase().trim() : "";
+      const cleanIdentity = item.title.toLowerCase().trim();
+      if (cleanUrl && seenUrls.has(cleanUrl)) continue;
+      if (seenIdentities.has(cleanIdentity)) continue;
+      if (cleanUrl) seenUrls.add(cleanUrl);
+      seenIdentities.add(cleanIdentity);
+      uniqueResults.push(item);
+    }
+    uniqueResults.sort((a, b) => {
+      const timeA = Date.parse(a.discoveredAt) || 0;
+      const timeB = Date.parse(b.discoveredAt) || 0;
+      return timeB - timeA;
+    });
+    const durationMs = Date.now() - t0;
+    return {
+      results: uniqueResults,
+      totalDiscovered: allRaw.length,
+      uniqueCount: uniqueResults.length,
+      sourcesQueried,
+      durationMs
+    };
+  }
+};
+
 // src/server/api-handler.ts
+var multiSourceEngine = new MultiSourceOpportunityEngine();
+var openRouterCircuitBrokenUntil = 0;
+var geminiCircuitBrokenUntil = 0;
 var defaultConfig = {
   openrouterApiKey: "",
   openrouterModel: "meta-llama/llama-3.3-70b-instruct",
@@ -68962,6 +69737,14 @@ async function handleSettingsHealth(_req, res) {
   const config = getServerConfig();
   const openrouterConfigured = Boolean(config.openrouterApiKey);
   const payload = {
+    publicSources: {
+      provider: "Verified Employer Job Boards & Public Feeds (Greenhouse & Lever)",
+      status: "ACTIVE",
+      verifiedEmployers: 33,
+      sources: ["Greenhouse", "Lever", "Jobicy"],
+      message: "Active baseline engine: 33 verified employer career boards dynamically queried across Bengaluru, India, and remote tech hubs.",
+      lastChecked: (/* @__PURE__ */ new Date()).toISOString()
+    },
     openrouter: {
       provider: "OpenRouter Web Search & AI Router",
       status: openrouterConfigured ? "ACTIVE" : "NOT_CONFIGURED",
@@ -69217,15 +70000,23 @@ async function handleSearchLive(req, res) {
     }
     const hasOpenRouter = Boolean(config.openrouterApiKey);
     const hasGemini = Boolean(config.geminiApiKey && config.geminiSearchEnabled);
-    if (!hasOpenRouter && !hasGemini) {
+    const targetProvider = (body.provider || "auto").toLowerCase();
+    if (targetProvider === "openrouter" && !hasOpenRouter) {
       sendJson(res, 503, {
-        error: "Live web search is not configured on the server (OPENROUTER_API_KEY is not set in Vercel environment variables).",
+        error: "OpenRouter search is not configured on the server (OPENROUTER_API_KEY missing).",
         code: "SEARCH_NOT_CONFIGURED",
         results: []
       });
       return;
     }
-    const targetProvider = body.provider || "auto";
+    if (targetProvider === "gemini" && !hasGemini) {
+      sendJson(res, 503, {
+        error: "Gemini search grounding is not configured on the server (GEMINI_API_KEY missing).",
+        code: "SEARCH_NOT_CONFIGURED",
+        results: []
+      });
+      return;
+    }
     const cacheKey = `${cleanText.toLowerCase()}__${cleanRole.toLowerCase()}__${cleanLocation.toLowerCase()}__${targetProvider}`;
     const cachedEntry = serverSearchCache.get(cacheKey);
     if (cachedEntry && Date.now() - cachedEntry.timestamp < SERVER_SEARCH_CACHE_TTL) {
@@ -69237,9 +70028,10 @@ async function handleSearchLive(req, res) {
     }
     const results = [];
     const modelsUsed = [];
+    const sourcesQueried = [];
     const providerErrors = [];
     const searchOpenRouter = async () => {
-      if (!hasOpenRouter) return { success: false, results: [] };
+      if (!hasOpenRouter || Date.now() < openRouterCircuitBrokenUntil) return { success: false, results: [] };
       const router = getModelRouter();
       const candidateModels = router.getCandidateModels();
       const searchCandidates = [
@@ -69372,6 +70164,7 @@ CRITICAL RULES:
           } catch {
           }
           if (res2.status === 402) {
+            openRouterCircuitBrokenUntil = Date.now() + 15 * 60 * 1e3;
             providerErrors.push({
               provider: "OpenRouter",
               code: "PROVIDER_CREDITS_EXHAUSTED",
@@ -69381,6 +70174,7 @@ CRITICAL RULES:
             break;
           }
           if (res2.status === 401) {
+            openRouterCircuitBrokenUntil = Date.now() + 15 * 60 * 1e3;
             providerErrors.push({
               provider: "OpenRouter",
               code: "PROVIDER_AUTH_FAILED",
@@ -69409,7 +70203,7 @@ CRITICAL RULES:
       return { success: false, results: [] };
     };
     const searchGemini = async () => {
-      if (!hasGemini) return { success: false, results: [] };
+      if (!hasGemini || Date.now() < geminiCircuitBrokenUntil) return { success: false, results: [] };
       try {
         const gemini = getGeminiProvider();
         const geminiResults = await gemini.searchOpportunitiesWithGrounding({
@@ -69424,6 +70218,7 @@ CRITICAL RULES:
       } catch (err) {
         const msg = err?.message || String(err);
         if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota")) {
+          geminiCircuitBrokenUntil = Date.now() + 15 * 60 * 1e3;
           providerErrors.push({
             provider: "Gemini",
             code: "GEMINI_QUOTA_EXHAUSTED",
@@ -69442,6 +70237,24 @@ CRITICAL RULES:
       }
     };
     let searchSucceeded = false;
+    if (targetProvider === "auto" || targetProvider === "public") {
+      try {
+        const publicEngineResult = await multiSourceEngine.search({
+          text: cleanText,
+          role: cleanRole,
+          location: cleanLocation,
+          skills: body.query?.skills || body.skills,
+          targetYear: body.query?.targetYear || body.targetYear
+        });
+        if (publicEngineResult && publicEngineResult.results.length > 0) {
+          searchSucceeded = true;
+          results.push(...publicEngineResult.results);
+          sourcesQueried.push(...publicEngineResult.sourcesQueried);
+          modelsUsed.push(`PublicSources:Greenhouse+Lever(${publicEngineResult.uniqueCount})`);
+        }
+      } catch {
+      }
+    }
     if (targetProvider === "openrouter") {
       const orOutcome = await searchOpenRouter();
       if (orOutcome.success) {
@@ -69456,17 +70269,19 @@ CRITICAL RULES:
       }
     } else {
       const tasks = [];
-      if (hasOpenRouter) tasks.push(searchOpenRouter());
-      if (hasGemini) tasks.push(searchGemini());
-      const settled = await Promise.allSettled(tasks);
-      for (const s2 of settled) {
-        if (s2.status === "fulfilled" && s2.value.success) {
-          searchSucceeded = true;
-          results.push(...s2.value.results);
+      if (hasOpenRouter && Date.now() >= openRouterCircuitBrokenUntil) tasks.push(searchOpenRouter());
+      if (hasGemini && Date.now() >= geminiCircuitBrokenUntil) tasks.push(searchGemini());
+      if (tasks.length > 0) {
+        const settled = await Promise.allSettled(tasks);
+        for (const s2 of settled) {
+          if (s2.status === "fulfilled" && s2.value.success) {
+            searchSucceeded = true;
+            results.push(...s2.value.results);
+          }
         }
       }
     }
-    if (!searchSucceeded && results.length === 0 && providerErrors.length > 0) {
+    if (!searchSucceeded && results.length === 0 && (targetProvider === "openrouter" || targetProvider === "gemini")) {
       const creditErr = providerErrors.find((e2) => e2.code === "PROVIDER_CREDITS_EXHAUSTED");
       if (creditErr) {
         sendJson(res, 402, {
@@ -69497,7 +70312,8 @@ CRITICAL RULES:
     const dedupedResults = [];
     for (const item of results) {
       const normalizedUrl = item.url ? item.url.toLowerCase().trim() : "";
-      const titleKey = `${item.title.toLowerCase()}___${item.company.toLowerCase()}`;
+      const companyStr = (item.company || item.source || "").toLowerCase().trim();
+      const titleKey = `${(item.title || "").toLowerCase().trim()}___${companyStr}`;
       if (normalizedUrl && !seenUrls.has(normalizedUrl) && !seenUrls.has(titleKey)) {
         seenUrls.add(normalizedUrl);
         seenUrls.add(titleKey);
@@ -69512,8 +70328,10 @@ CRITICAL RULES:
       results: dedupedResults,
       modelsUsed: modelsUsed.join(", "),
       totalDiscovered: dedupedResults.length,
+      sources: sourcesQueried,
       cached: false,
-      status: dedupedResults.length === 0 ? "ZERO_RESULTS" : "DISCOVERED"
+      status: dedupedResults.length === 0 ? "ZERO_RESULTS" : "DISCOVERED",
+      message: dedupedResults.length === 0 ? "No active public listings matched this specific query. Consider widening your search or adjusting location/role filters." : void 0
     };
     if (dedupedResults.length > 0) {
       serverSearchCache.set(cacheKey, { timestamp: Date.now(), payload });

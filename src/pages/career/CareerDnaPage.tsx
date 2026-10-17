@@ -97,7 +97,7 @@ export const CareerDnaPage: React.FC = () => {
       </div>
 
       {/* ACADEMIC METRIC & STANDING VERIFICATION */}
-      {(!profile.isAcademicMetricConfirmed || !profile.isCurrentYearConfirmed) && (
+      {((profile.academicMetric && !profile.isAcademicMetricConfirmed) || (!profile.isCurrentYearConfirmed && profile.currentYear > 0)) && (
         <div className="p-5 rounded-2xl border border-amber-200 bg-amber-50/80 text-amber-950 shadow-xs space-y-4">
           <div className="flex items-start gap-3">
             <div className="p-2 bg-amber-100 rounded-xl text-amber-700 shrink-0 mt-0.5">
@@ -109,112 +109,94 @@ export const CareerDnaPage: React.FC = () => {
                   Academic Credentials Verification Needed
                 </h4>
                 <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-200/70 text-amber-900">
-                  Ambiguity Flagged
+                  Verification Required
                 </span>
               </div>
               <p className="text-xs text-amber-800 max-w-3xl leading-relaxed">
-                Your resume reported <strong className="font-semibold text-amber-950">Current CGPA: 81.08</strong> and enrollment from 2024. Standard university CGPA scales operate on 10.0 or 4.0. InternSync will not guess or automatically convert your grade. Please confirm your grading standard and academic standing:
+                Your profile indicates {profile.academicMetric ? `score/grade metric: ${profile.academicMetric}` : 'academic information'} ({profile.degree || 'Degree'}{profile.graduationYear ? `, Class of ${profile.graduationYear}` : ''}). Please confirm your grading standard and academic standing to ensure accurate matching against internship eligibility rules:
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-amber-200/60">
             {/* Metric Confirmation */}
-            <div className="p-3.5 rounded-xl bg-white/80 border border-amber-200/80 space-y-2">
-              <span className="text-xs font-bold text-slate-800 block">
-                1. Academic Grade Metric ({profile.academicMetric || '81.08'})
-              </span>
-              <p className="text-[11px] text-slate-600 leading-normal">
-                How should recruiters and matching algorithms evaluate this score?
-              </p>
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <Button
-                  size="sm"
-                  onClick={async () => {
-                    await updateProfile({
-                      academicMetric: '81.08',
-                      academicMetricType: 'percentage',
-                      isAcademicMetricConfirmed: true,
-                      bio: (profile.bio ? profile.bio + ' | ' : '') + 'Academic Metric: Confirmed 81.08% aggregate percentage (no 10-point conversion applied without university formula)',
-                    })
-                  }}
-                  className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs"
-                >
-                  Confirm as 81.08% Percentage
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    const customCgpa = window.prompt('Enter your confirmed CGPA on 10.0 scale according to your university conversion formula:', '8.11')
-                    if (customCgpa) {
+            {profile.academicMetric && !profile.isAcademicMetricConfirmed && (
+              <div className="p-3.5 rounded-xl bg-white/80 border border-amber-200/80 space-y-2">
+                <span className="text-xs font-bold text-slate-800 block">
+                  1. Academic Grade Metric ({profile.academicMetric})
+                </span>
+                <p className="text-[11px] text-slate-600 leading-normal">
+                  How should recruiters and matching algorithms evaluate this score?
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      const metricVal = profile.academicMetric || ''
                       await updateProfile({
-                        academicMetric: customCgpa,
-                        academicMetricType: 'cgpa_10',
+                        academicMetric: metricVal,
+                        academicMetricType: 'percentage',
                         isAcademicMetricConfirmed: true,
-                        academicMetricScale: '10.0',
-                        conversionRule: 'Student confirmed university 10-point scale conversion',
-                        bio: (profile.bio ? profile.bio + ' | ' : '') + `Academic Metric: Confirmed ${customCgpa} CGPA (10.0 scale, university rule)`,
+                        bio: (profile.bio ? profile.bio + ' | ' : '') + `Academic Metric: Confirmed ${metricVal}% aggregate percentage`,
                       })
-                    }
-                  }}
-                  className="border-amber-300 text-amber-900 hover:bg-amber-100 text-xs font-semibold"
-                >
-                  Specify CGPA on 10.0 Scale
-                </Button>
+                    }}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs"
+                  >
+                    Confirm as Percentage
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      const customCgpa = window.prompt('Enter your confirmed CGPA on 10.0 scale according to your university conversion formula:', profile.academicMetric || '8.5')
+                      if (customCgpa) {
+                        await updateProfile({
+                          academicMetric: customCgpa,
+                          academicMetricType: 'cgpa_10',
+                          isAcademicMetricConfirmed: true,
+                          academicMetricScale: '10.0',
+                          conversionRule: 'Student confirmed university 10-point scale conversion',
+                          bio: (profile.bio ? profile.bio + ' | ' : '') + `Academic Metric: Confirmed ${customCgpa} CGPA (10.0 scale, university rule)`,
+                        })
+                      }
+                    }}
+                    className="border-amber-300 text-amber-900 hover:bg-amber-100 text-xs font-semibold"
+                  >
+                    Specify CGPA on 10.0 Scale
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Academic Standing Confirmation */}
-            <div className="p-3.5 rounded-xl bg-white/80 border border-amber-200/80 space-y-2">
-              <span className="text-xs font-bold text-slate-800 block">
-                2. Academic Year Standing
-              </span>
-              <p className="text-[11px] text-slate-600 leading-normal">
-                Your resume lists 2024–2028 (Pursuing). Please confirm your current enrolled year:
-              </p>
-              <div className="flex items-center gap-2 pt-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    await updateProfile({ currentYear: 1, isCurrentYearConfirmed: true })
-                  }}
-                  className={cn(
-                    'text-xs font-semibold',
-                    profile.currentYear === 1 ? 'bg-amber-600 text-white border-amber-600' : 'border-amber-300 text-amber-900 hover:bg-amber-100'
-                  )}
-                >
-                  Year 1
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    await updateProfile({ currentYear: 2, isCurrentYearConfirmed: true })
-                  }}
-                  className={cn(
-                    'text-xs font-semibold',
-                    profile.currentYear === 2 ? 'bg-amber-600 text-white border-amber-600' : 'border-amber-300 text-amber-900 hover:bg-amber-100'
-                  )}
-                >
-                  Year 2
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    await updateProfile({ currentYear: 3, isCurrentYearConfirmed: true })
-                  }}
-                  className={cn(
-                    'text-xs font-semibold',
-                    profile.currentYear === 3 ? 'bg-amber-600 text-white border-amber-600' : 'border-amber-300 text-amber-900 hover:bg-amber-100'
-                  )}
-                >
-                  Year 3
-                </Button>
+            {!profile.isCurrentYearConfirmed && (
+              <div className="p-3.5 rounded-xl bg-white/80 border border-amber-200/80 space-y-2">
+                <span className="text-xs font-bold text-slate-800 block">
+                  2. Academic Year Standing
+                </span>
+                <p className="text-[11px] text-slate-600 leading-normal">
+                  Confirm your currently enrolled year for internship eligibility checks:
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {[1, 2, 3, 4].map((yr) => (
+                    <Button
+                      key={yr}
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        await updateProfile({ currentYear: yr, isCurrentYearConfirmed: true })
+                      }}
+                      className={cn(
+                        'text-xs font-semibold',
+                        profile.currentYear === yr ? 'bg-amber-600 text-white border-amber-600' : 'border-amber-300 text-amber-900 hover:bg-amber-100'
+                      )}
+                    >
+                      Year {yr}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -247,13 +229,16 @@ export const CareerDnaPage: React.FC = () => {
           <div>
             <span className="text-slate-400 font-medium block">Graduation Batch:</span>
             <span className="text-sm font-bold text-slate-900 mt-0.5 block text-indigo-700 font-extrabold">
-              Class of {profile.graduationYear || '2028'}
+              Class of {profile.graduationYear || 'Unspecified'}
             </span>
           </div>
           <div>
             <span className="text-slate-400 font-medium block">Academic Metric:</span>
             {(() => {
-              const cleanScore = (profile.academicMetric || '81.08')
+              if (!profile.academicMetric) {
+                return <span className="text-sm font-bold mt-0.5 block text-slate-400">Not specified</span>
+              }
+              const cleanScore = profile.academicMetric
                 .replace(/^(?:Current\s+)?(?:CGPA|GPA|Percentage)[\s:]*/i, '')
                 .replace(/%$/, '')
                 .trim()

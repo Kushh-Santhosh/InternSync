@@ -119,12 +119,18 @@ export function calculateMatch(context: MatchingContext): MatchResult {
   const oppYears = Array.isArray(opportunity.eligibleYears) ? opportunity.eligibleYears : []
   const oppDegrees = Array.isArray(opportunity.eligibleDegrees) ? opportunity.eligibleDegrees : []
 
-  // Match both by academic standing (Year 1, 2, 3) and graduation batch (Class of 2028)
+  // Match both by academic standing (Year 1, 2, 3, 4) and graduation batch (Class of 2025, 2026, 2027, 2028)
+  const currentCalendarYear = new Date().getFullYear()
+  const derivedStanding = student.graduationYear
+    ? Math.max(1, Math.min(4, 4 - (student.graduationYear - currentCalendarYear)))
+    : student.currentYear
+
   const yearEligible =
     oppYears.length === 0 ||
-    (isYearSpecified && oppYears.includes(student.currentYear)) ||
-    (Boolean(student.graduationYear) && oppYears.includes(student.graduationYear)) ||
-    (student.graduationYear === 2028 && oppYears.some((y) => y === 2028 || y === 1 || y === 2))
+    (isYearSpecified
+      ? oppYears.includes(student.currentYear)
+      : Boolean(student.graduationYear) && oppYears.includes(derivedStanding)) ||
+    (Boolean(student.graduationYear) && oppYears.includes(student.graduationYear))
 
   const degreeEligible = isDegreeSpecified
     ? (oppDegrees.length === 0 ||
@@ -155,7 +161,7 @@ export function calculateMatch(context: MatchingContext): MatchResult {
       })`
     )
   } else if (!degreeEligible) {
-    eligibilityScore = 60
+    eligibilityScore = 35
     eligibilityNotes.push(`This opportunity specifically targets ${opportunity.eligibleDegrees.join(', ')} degrees`)
   } else {
     whyMatched.push(
@@ -256,7 +262,7 @@ export function calculateMatch(context: MatchingContext): MatchResult {
 
   // Hard eligibility gate: if year is not eligible, or eligibility is unconfirmed/mismatched
   const isAcademicUnconfirmed = !isYearSpecified || !isDegreeSpecified
-  const hasHardEligibilityMismatch = !yearEligible || eligibilityScore < 50
+  const hasHardEligibilityMismatch = !yearEligible || !degreeEligible || eligibilityScore < 50
 
   if (hasHardEligibilityMismatch || overallMatchScore < 55) {
     recommendation = 'SKIP'

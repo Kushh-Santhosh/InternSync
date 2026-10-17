@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { generateSearchQueries } from '@/features/opportunities/search/query-generator'
 import { verifyOpportunityUrl } from '@/features/opportunities/url-verifier/url-verifier'
 import {
@@ -278,4 +278,71 @@ describe('Opportunity Freshness, Evidence, and Stale Listing Rules', () => {
     expect(opp.deadline).toBe('2026-11-30')
   })
 })
+
+describe('Live Search Provider Honest State Propagation', () => {
+  it('throws truthful SEARCH_NOT_CONFIGURED error when backend returns 503', async () => {
+    const { OpenRouterWebProvider } = await import('@/features/opportunities/providers/OpenRouterWebProvider')
+    const provider = new OpenRouterWebProvider()
+
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      json: async () => ({
+        error: 'Live web search is not configured on the server (OPENROUTER_API_KEY is not set in Vercel environment variables).',
+        code: 'SEARCH_NOT_CONFIGURED',
+        results: [],
+      }),
+    })
+    globalThis.fetch = fetchMock
+
+    await expect(provider.search({ text: 'Software Intern' })).rejects.toThrow('SEARCH_NOT_CONFIGURED')
+  })
+
+  it('throws truthful PROVIDER_CREDITS_EXHAUSTED error when backend returns 402', async () => {
+    const { OpenRouterWebProvider } = await import('@/features/opportunities/providers/OpenRouterWebProvider')
+    const provider = new OpenRouterWebProvider()
+
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 402,
+      json: async () => ({
+        error: 'OpenRouter account has insufficient credits.',
+        code: 'PROVIDER_CREDITS_EXHAUSTED',
+        results: [],
+      }),
+    })
+    globalThis.fetch = fetchMock
+
+    await expect(provider.search({ text: 'Software Intern' })).rejects.toThrow('PROVIDER_CREDITS_EXHAUSTED')
+  })
+
+  it('does NOT inject fake demo opportunities during connected mode when provider fails', async () => {
+    const { OpportunitySearchOrchestrator } = await import('@/features/opportunities/search/orchestrator')
+    const orchestrator = new OpportunitySearchOrchestrator()
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({
+        error: 'Live web search is not configured on the server',
+        code: 'SEARCH_NOT_CONFIGURED',
+        results: [],
+      }),
+    })
+    globalThis.fetch = fetchMock
+
+    // In connected mode (isDemoMode = false), it must throw rather than quietly returning 34 demo opportunities
+    await expect(
+      orchestrator.runDiscovery(
+        testCandidate,
+        [{ skillName: 'Python', category: 'languages', confidence: 90, evidenceSources: ['resume'], projectCount: 1 }],
+        [],
+        false, // Connected mode!
+        undefined,
+        true // forceRefresh
+      )
+    ).rejects.toThrow('SEARCH_NOT_CONFIGURED')
+  })
+})
+
 

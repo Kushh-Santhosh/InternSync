@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
+  AlertTriangle,
   CheckCircle2,
   RefreshCw,
   Search,
@@ -28,6 +29,7 @@ export const DashboardPage: React.FC = () => {
     matches,
     searchLiveOpportunities,
     searchProgress,
+    clearSearchProgress,
   } = useApp()
 
   const [isSearching, setIsSearching] = useState(false)
@@ -103,14 +105,49 @@ export const DashboardPage: React.FC = () => {
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-16">
       {/* Live Search Progress Callout if active */}
-      {searchProgress.stage !== 'idle' && (
+      {searchProgress.stage === 'error' && (
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-2 animate-fadeIn">
+          <div className="flex items-center justify-between font-bold">
+            <span className="flex items-center gap-2 text-amber-900">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+              <span>Live Search Notice</span>
+            </span>
+            <button
+              onClick={clearSearchProgress}
+              className="text-amber-700 hover:text-amber-900 font-semibold cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+          <p className="text-amber-800 leading-relaxed font-medium">{searchProgress.message}</p>
+        </div>
+      )}
+
+      {searchProgress.stage !== 'idle' && searchProgress.stage !== 'error' && (
         <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 space-y-2 animate-fadeIn">
           <div className="flex items-center justify-between font-bold">
             <span className="flex items-center gap-2">
-              <RefreshCw className="w-3.5 h-3.5 text-indigo-600 animate-spin" />
-              <span>Live Opportunity Discovery in Progress</span>
+              {searchProgress.stage === 'completed' ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5 text-indigo-600 animate-spin" />
+              )}
+              <span>
+                {searchProgress.stage === 'completed'
+                  ? 'Discovery Run Completed'
+                  : 'Live Opportunity Discovery in Progress'}
+              </span>
             </span>
-            <span className="text-indigo-600 font-mono text-[11px]">{searchProgress.stage}</span>
+            {searchProgress.stage === 'completed' ? (
+              <button
+                onClick={clearSearchProgress}
+                className="text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+              >
+                Dismiss
+              </button>
+            ) : (
+              <span className="text-indigo-600 font-mono text-[11px]">{searchProgress.stage}</span>
+            )}
           </div>
           <p className="text-indigo-700">{searchProgress.message}</p>
         </div>

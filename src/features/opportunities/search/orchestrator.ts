@@ -251,6 +251,7 @@ export class OpportunitySearchOrchestrator {
       }
     }
 
+    const providerErrors: Error[] = []
     const taskResults = await runWithConcurrency(
       queryTasks,
       2,
@@ -260,13 +261,19 @@ export class OpportunitySearchOrchestrator {
             setTimeout(() => reject(new Error('Search provider timeout')), 14000)
           )
           return await Promise.race([provider.search(query), timeoutPromise])
-        } catch {
+        } catch (err: unknown) {
+          providerErrors.push(err instanceof Error ? err : new Error(String(err)))
           return []
         }
       }
     )
 
     const rawDiscovered: RawSearchResult[] = taskResults.flat()
+
+    // If zero raw listings were discovered and providers failed/unconfigured, throw actionable error
+    if (rawDiscovered.length === 0 && providerErrors.length > 0) {
+      throw providerErrors[0]
+    }
 
     // 4. Stage: Deduplicating and parallel extraction
     onProgress?.({
@@ -300,17 +307,8 @@ export class OpportunitySearchOrchestrator {
       (opp) => opp.freshnessStatus !== 'expired' && opp.freshnessStatus !== 'closed'
     )
 
-    let deduped = deduplicateOpportunities(freshOpps)
-    if (deduped.length === 0) {
-      const fallbackRaw = await this.demoProvider.search(queries[0] || { text: 'Intern' })
-      const chosenRaw = fallbackRaw.length > 0 ? fallbackRaw : await this.demoProvider.search({ text: '' })
-      const fallbackExtracted = chosenRaw.map((raw) => {
-        const ext = extractRequirementsDeterministically(raw)
-        const oppId = generateOpportunityId(raw.url || ext.application_url, ext.company, ext.title)
-        return buildOpportunityFromExtraction(oppId, raw, ext, 'VERIFIED')
-      })
-      deduped = deduplicateOpportunities(fallbackExtracted)
-    }
+    // Truthful connected mode: never inject fake demo listings if search returns zero results
+    const deduped = deduplicateOpportunities(freshOpps)
 
     // 5. Stage: Matching
     onProgress?.({

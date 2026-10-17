@@ -93,6 +93,7 @@ interface AppContextType {
   updateApplicationNotes: (applicationId: string, notes: string) => void
   toggleComparison: (opportunityId: string) => void
   clearComparison: () => void
+  clearSearchProgress: () => void
   resetToDemo: () => void
 }
 
@@ -729,6 +730,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }
 
+  const clearSearchProgress = () => {
+    setSearchProgress({
+      stage: 'idle',
+      message: '',
+      totalFound: 0,
+      relevantFound: 0,
+      applyNowCount: 0,
+      prepareFirstCount: 0,
+      skipCount: 0,
+    })
+  }
+
   const recordAssessmentResult = (skillName: string, score: number) => {
     const updater = (prev: SkillEvidenceItem[]) => {
       const existing = prev.find(
@@ -910,6 +923,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateApplicationNotes,
         toggleComparison,
         clearComparison,
+        clearSearchProgress,
         resetToDemo,
       }}
     >

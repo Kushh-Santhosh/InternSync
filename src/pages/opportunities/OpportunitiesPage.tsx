@@ -1,7 +1,10 @@
 import React, { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
+  AlertCircle,
+  AlertTriangle,
   Briefcase,
+  CheckCircle2,
   Columns3,
   Globe,
   RefreshCw,
@@ -27,6 +30,7 @@ export const OpportunitiesPage: React.FC = () => {
     comparisonIds,
     toggleComparison,
     clearComparison,
+    clearSearchProgress,
     searchLiveOpportunities,
     searchProgress,
   } = useApp()
@@ -183,13 +187,49 @@ export const OpportunitiesPage: React.FC = () => {
       </div>
 
       {/* Live Search Progress Stage Interface */}
-      {searchProgress.stage !== 'idle' && (
+      {searchProgress.stage === 'error' && (
+        <div className="p-5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-950 space-y-3 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-sm flex items-center gap-2 text-amber-900">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              <span>Live Search Notice</span>
+            </span>
+            <button
+              onClick={clearSearchProgress}
+              className="text-xs font-semibold text-amber-700 hover:text-amber-900 cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+          <p className="text-xs text-amber-800 leading-relaxed font-medium">
+            {searchProgress.message}
+          </p>
+        </div>
+      )}
+
+      {searchProgress.stage !== 'idle' && searchProgress.stage !== 'error' && (
         <div className="p-5 rounded-2xl bg-indigo-50/80 border border-indigo-200/90 text-indigo-950 space-y-3 animate-fadeIn">
           <div className="flex items-center justify-between">
             <span className="font-bold text-sm flex items-center gap-2">
-              <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin" />
-              <span>Finding internships for you...</span>
+              {searchProgress.stage === 'completed' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              ) : (
+                <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin" />
+              )}
+              <span>
+                {searchProgress.stage === 'completed'
+                  ? 'Discovery Run Completed'
+                  : 'Finding internships for you...'}
+              </span>
             </span>
+            {searchProgress.stage === 'completed' && (
+              <button
+                onClick={clearSearchProgress}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+              >
+                Dismiss
+              </button>
+            )}
           </div>
           <p className="text-xs text-indigo-700 font-medium">{searchProgress.message}</p>
         </div>

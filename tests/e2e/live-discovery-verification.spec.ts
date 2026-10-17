@@ -70,15 +70,13 @@ test.describe('Live Opportunity Search & Service State Inspection', () => {
     page.on('response', async (res) => {
       if (res.url().includes('/api/search/live')) {
         try {
+          const body = await res.json().catch(() => null)
           capturedSearchResponse = {
             status: res.status(),
-            body: await res.json(),
+            body,
           }
         } catch {
-          capturedSearchResponse = {
-            status: res.status(),
-            body: await res.text(),
-          }
+          // Response body stream closed
         }
       }
     })

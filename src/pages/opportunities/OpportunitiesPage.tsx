@@ -9,12 +9,15 @@ import {
   Globe,
   RefreshCw,
   Search,
+  Sliders,
   Sparkles,
   X,
 } from 'lucide-react'
 import { useApp } from '@/app/context'
 import { EmptyState } from '@/components/common/EmptyState'
 import { OpportunityCard } from '@/components/opportunities/OpportunityCard'
+import { ResearchPreferencesModal } from '@/components/opportunities/ResearchPreferencesModal'
+import { SearchProgressStepper } from '@/components/opportunities/SearchProgressStepper'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge'
@@ -33,14 +36,24 @@ export const OpportunitiesPage: React.FC = () => {
     clearSearchProgress,
     searchLiveOpportunities,
     searchProgress,
+    profile,
+    updateProfile,
   } = useApp()
 
   const [isSearching, setIsSearching] = useState(false)
+  const [isPreferencesOpen, setIsPreferencesOpen] = useState(false)
+  const [selectedSourceType, setSelectedSourceType] = useState<'all' | 'direct_ats' | 'public_feed'>('all')
 
   const handleSearch = async () => {
     setIsSearching(true)
     await searchLiveOpportunities(true)
     setIsSearching(false)
+  }
+
+  const handleSavePreferences = async (updates: any) => {
+    await updateProfile(updates)
+    await handleSearch()
+    return true
   }
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -89,6 +102,17 @@ export const OpportunitiesPage: React.FC = () => {
           return false
         }
 
+        // Source type filter: Direct ATS vs Third-Party / Aggregator
+        if (selectedSourceType === 'direct_ats') {
+          const isDirect = /greenhouse|lever|ashby|workday|smartrecruiters/i.test(opp.source || '') ||
+            /greenhouse\.io|lever\.co|ashbyhq\.com/i.test(opp.applicationUrl || '')
+          if (!isDirect) return false
+        } else if (selectedSourceType === 'public_feed') {
+          const isDirect = /greenhouse|lever|ashby|workday|smartrecruiters/i.test(opp.source || '') ||
+            /greenhouse\.io|lever\.co|ashbyhq\.com/i.test(opp.applicationUrl || '')
+          if (isDirect) return false
+        }
+
         // Recommendation filter
         if (selectedRecommendation !== 'all') {
           if (selectedRecommendation === 'apply' && match.recommendation !== 'APPLY NOW') {
@@ -125,6 +149,7 @@ export const OpportunitiesPage: React.FC = () => {
     selectedCategory,
     selectedWorkMode,
     selectedRecommendation,
+    selectedSourceType,
     sortBy,
   ])
 
@@ -171,6 +196,16 @@ export const OpportunitiesPage: React.FC = () => {
             )}
           </Button>
 
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsPreferencesOpen(true)}
+            className="text-slate-700 border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold"
+          >
+            <Sliders className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+            <span>Preferences</span>
+          </Button>
+
           {/* Comparison button */}
           {comparisonIds.length > 0 && (
             <Button
@@ -186,54 +221,8 @@ export const OpportunitiesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Live Search Progress Stage Interface */}
-      {searchProgress.stage === 'error' && (
-        <div className="p-5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-950 space-y-3 animate-fadeIn">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-sm flex items-center gap-2 text-amber-900">
-              <AlertTriangle className="w-4 h-4 text-amber-600" />
-              <span>Live Search Notice</span>
-            </span>
-            <button
-              onClick={clearSearchProgress}
-              className="text-xs font-semibold text-amber-700 hover:text-amber-900 cursor-pointer"
-            >
-              Dismiss
-            </button>
-          </div>
-          <p className="text-xs text-amber-800 leading-relaxed font-medium">
-            {searchProgress.message}
-          </p>
-        </div>
-      )}
-
-      {searchProgress.stage !== 'idle' && searchProgress.stage !== 'error' && (
-        <div className="p-5 rounded-2xl bg-indigo-50/80 border border-indigo-200/90 text-indigo-950 space-y-3 animate-fadeIn">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-sm flex items-center gap-2">
-              {searchProgress.stage === 'completed' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              ) : (
-                <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin" />
-              )}
-              <span>
-                {searchProgress.stage === 'completed'
-                  ? 'Discovery Run Completed'
-                  : 'Finding internships for you...'}
-              </span>
-            </span>
-            {searchProgress.stage === 'completed' && (
-              <button
-                onClick={clearSearchProgress}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
-              >
-                Dismiss
-              </button>
-            )}
-          </div>
-          <p className="text-xs text-indigo-700 font-medium">{searchProgress.message}</p>
-        </div>
-      )}
+      {/* 6-Stage Live Search Progress Stepper */}
+      <SearchProgressStepper progress={searchProgress} onDismiss={clearSearchProgress} />
 
       {/* Search and Facet Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
@@ -256,6 +245,20 @@ export const OpportunitiesPage: React.FC = () => {
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
+          </div>
+
+          {/* Source Type Filter */}
+          <div className="flex items-center gap-2 self-end md:self-auto w-full md:w-auto">
+            <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Source:</span>
+            <select
+              value={selectedSourceType}
+              onChange={(e) => setSelectedSourceType(e.target.value as any)}
+              className="text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-indigo-500 cursor-pointer w-full md:w-auto font-medium"
+            >
+              <option value="all">All Sources</option>
+              <option value="direct_ats">Direct ATS (Greenhouse/Lever/Ashby)</option>
+              <option value="public_feed">Aggregators & Feeds</option>
+            </select>
           </div>
 
           {/* Work Mode Dropdown */}
@@ -480,6 +483,14 @@ export const OpportunitiesPage: React.FC = () => {
           )}
         </div>
       </Modal>
+
+      {/* Research Preferences Modal */}
+      <ResearchPreferencesModal
+        isOpen={isPreferencesOpen}
+        onClose={() => setIsPreferencesOpen(false)}
+        profile={profile}
+        onSave={handleSavePreferences}
+      />
     </div>
   )
 }

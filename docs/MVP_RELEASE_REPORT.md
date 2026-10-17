@@ -2,39 +2,29 @@
 
 **Repository:** [https://github.com/Kushh-Santhosh/InternSync](https://github.com/Kushh-Santhosh/InternSync)  
 **Production Live URL:** [https://intern-sync-one.vercel.app](https://intern-sync-one.vercel.app)  
-**Verified GitHub Commit:** `7e3dd7b`  
-**Verified Deployed Vercel Commit:** `7e3dd7b` (Confirmed via GitHub Commit Status API `state: "success"`)  
-**Execution Date:** 2026-10-16  
-**Quality Status:** Production Acceptance 100% Passed (TypeScript 0 errors, Oxlint 0 errors, Vitest 71/71 Unit Tests Passing across 9 Suites, Playwright Live Production Acceptance 100% Passing on both Desktop Chromium & Mobile Chromium Viewports in Visible Headed Chrome, 0 Secret Leakage)
+**Verified GitHub Commit:** `e5421f1`  
+**Verified Deployed Vercel Commit:** `e5421f1` (Confirmed via GitHub Commit Status API `state: "success"`, context: `"Vercel"`, target: `https://vercel.com/kushalyforus-projects/intern-sync/7fRnQ3UMgrXfPLiGSSXDNLTzi4fo`)  
+**Execution Date:** 2026-10-17  
+**Quality Status:** Production Acceptance Suite Passed (TypeScript 0 errors, Oxlint 0 errors, Vitest 74/74 Unit Tests Passing across 9 Suites, Playwright Live Acceptance Passed, 0 Secret Leakage). Live opportunity discovery handler hardened with truthful state reporting.
 
 ---
 
 ## 1. Executive Summary & Production Readiness Verification
 
-InternSync has been finalized and rigorously verified as a live, evidence-based internship opportunity-readiness platform deployed to Vercel production. All requirements from the strict production acceptance specification were tested against the live deployment URL (`https://intern-sync-one.vercel.app`) using visible headed Chrome and verified via direct Supabase cloud database queries.
+InternSync is deployed on Vercel as an opportunity-readiness platform connected to Supabase Cloud and configured with resilient serverless handlers. 
 
-### Key Milestones Delivered & Strictly Proven:
-1. **Serverless Lambda Runtime Fix on Vercel:**
-   - Root cause identified: Vercel serverless functions in `/var/task/api/*.js` experienced `FUNCTION_INVOCATION_FAILED` due to relative runtime imports (`../../src/server/api-handler.ts`) not retained in lambda execution containers, and CJS packages in Node ESM missing `createRequire`.
-   - Resolution: Added `"build:server": "esbuild src/server/api-handler.ts --bundle --platform=node --format=esm --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --outfile=api/_handler.js"`.
-   - All serverless endpoints (`api/settings/health.ts`, `api/verify-url.ts`, `api/search/live.ts`, `api/search/adzuna.ts`, `api/ai/chat.ts`, `api/ai/extract-resume.ts`, `api/n8n/opportunity-discovery.ts`, `api/ping.ts`) now import cleanly from `_handler.js`.
-   - Live verified: `/api/settings/health` returns HTTP 200 with Supabase status `ACTIVE`, `/api/verify-url` returns HTTP 200 with `status: "VERIFIED"`, and `/api/search/live` returns truthful status.
-2. **Strict Production Acceptance Test Suite (`tests/e2e/production-live-acceptance.spec.ts`):**
-   - Eliminated conditional checks, dummy prints, and mock data.
-   - Asserted real database rows exist in Supabase `public.applications` table (`expect(dbApps.length).toBeGreaterThanOrEqual(1)`).
-   - Asserted storage objects exist in private bucket `documents` and document metadata exists in `public.documents`.
-   - Tested 3 distinct deterministic matching scenarios (`APPLY NOW`, `PREPARE FIRST`, `SKIP`).
-   - Verified strict cross-account privacy and data isolation using a secondary dedicated test user.
-   - Tested clean teardown via official Supabase Admin API (`auth.admin.deleteUser`) for both test accounts.
-3. **Genuine Personal Resume Processing (`fixtures/KUSHAL_SANTHOSH_P_RESUME.pdf.pdf`):**
-   - Actual candidate: **KUSHAL SANTHOSH P**, **CMR University**, **Class of 2028**.
-   - Strict academic ambiguity detection: Flags `Current CGPA: 81.08` with `Academic Credentials Verification Needed`.
-   - Interactive confirmation: Candidate explicitly confirms `81.08% Percentage` and selects `Year 2`.
-   - Persistent across page refresh and complete logout/re-login.
-4. **Visible Headed Chrome Verification:**
-   - Test suite launched with headed mode: `npx playwright test tests/e2e/production-live-acceptance.spec.ts --project=desktop-chromium --headed` and `--project=mobile-chromium`.
-   - Genuine screenshots captured and stored locally in `test-evidence/live-vercel-acceptance/`.
-   - All 4 tests passed 100% on both viewports.
+Following a deep diagnostic of production configuration and runtime behavior, the contradiction from the previous release report has been resolved:
+- **Root Cause of `SEARCH_NOT_CONFIGURED`:** In Vercel's production environment settings, `OPENROUTER_API_KEY` and `GEMINI_API_KEY` have not been set. Serverless functions on Vercel run in isolated lambda containers that do not have access to uncommitted local `.env` files.
+- **Provider Quota & Account Diagnostics:**
+  - **OpenRouter:** Tested via live API probe against `https://openrouter.ai/api/v1/chat/completions`. Returned HTTP 402: `"Insufficient credits. This account never purchased credits. Make sure your key is on the correct account or org, and if so, purchase more at https://openrouter.ai/settings/credits"`.
+  - **Google Gemini:** Tested via live API probe against Google Generative Language API. Legacy models (`gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-1.5-flash`) returned HTTP 404 (sunset by Google). Modern model `gemini-3.8-flash` succeeded with HTTP 200 (`PONG`). However, Gemini Search Grounding (`tools: [{ googleSearch: {} }]`) returned HTTP 429: `"You exceeded your current quota... RESOURCE_EXHAUSTED"`.
+- **Search Handler Hardening:**
+  - Flexible query schema validation on `/api/search/live` supporting `{ query: { text } }`, `{ query: string }`, and top-level `{ text }`.
+  - Removed obsolete and conflicting variable names (`OPENROUTER_MODEL`, `GEMINI_MODEL`), standardizing strictly on `OPENROUTER_PRIMARY_MODEL`, `OPENROUTER_FALLBACK_MODELS`, `OPENROUTER_API_KEY`, `GEMINI_PRIMARY_MODEL`, `GEMINI_FALLBACK_MODELS`, `GEMINI_API_KEY`, and `GEMINI_SEARCH_ENABLED`.
+  - Upgraded default model definitions to `gemini-3.8-flash` and `meta-llama/llama-3.3-70b-instruct`.
+  - Eliminated silent injection of fake demo listings during connected mode.
+  - Implemented truthful separation of `SEARCH_NOT_CONFIGURED` (503), `PROVIDER_CREDITS_EXHAUSTED` (402), and `PROVIDER_ERROR` (502) from genuine zero-result searches (200 with `status: 'ZERO_RESULTS'`).
+  - Added honest UI notice banner in `OpportunitiesPage` and `DashboardPage` that cleanly displays the service notice with a dismiss button instead of hanging on an endless spinner.
 
 ---
 
@@ -43,132 +33,120 @@ InternSync has been finalized and rigorously verified as a live, evidence-based 
 | Test Phase | Tool / Command | Scope / Viewport | Result | Notes |
 |---|---|---|---|---|
 | **Typecheck** | `npm run typecheck` | Whole project (`tsc -b`) | **0 Errors** | Strict TypeScript compliance |
-| **Lint** | `npm run lint` | 109 files (`oxlint`) | **0 Errors** (314 warnings) | Zero lint errors |
-| **Unit Tests** | `npm run test` | 9 test suites (`vitest`) | **71/71 Passed** (100%) | Matching, extraction, persistence, routers |
-| **Build & Bundle** | `npm run build` | esbuild + vite | **Passed (421ms)** | Client dist + serverless bundle generated |
-| **Visible Desktop E2E** | `playwright test --project=desktop-chromium --headed` | 1450x760 headed Chrome on macOS | **4/4 Passed** (1.8m) | Live Vercel production verified |
-| **Mobile E2E** | `playwright test --project=mobile-chromium` | Pixel 5 (393x851) viewport | **4/4 Passed** (1.6m) | Mobile navigation, responsive layout |
-| **Real API Probe** | `curl` against `/api/settings/health` | Live Vercel serverless | **HTTP 200 OK** | Supabase active, schema verified |
-| **Real URL Probe** | `curl` against `/api/verify-url` | Live Vercel serverless | **HTTP 200 OK** | `{"status":"VERIFIED"}` |
+| **Lint** | `npm run lint` | 109 files (`oxlint`) | **0 Errors** (316 warnings) | Clean linting pass |
+| **Automated Unit Tests** | `npm run test` | 9 test suites (`vitest`) | **74/74 Passed** (100%) | Added regression tests for live search error propagation & query fallback |
+| **Production Build** | `npm run build` | esbuild server bundle + vite client | **Passed (274ms)** | Standalone ESM server bundle generated in `api/_handler.js` |
+| **Live Desktop E2E** | `playwright test production-live-acceptance.spec.ts` | 1450x760 Chromium on macOS | **4/4 Passed** (1.9m) | Live Vercel production verified |
+| **Live Search Network E2E** | `playwright test live-discovery-verification.spec.ts` | Desktop Chromium | **1/1 Passed** (19.8s) | Verified live POST `/api/search/live` and honest UI alert banner |
+| **Health API Endpoint** | `curl` against `/api/settings/health` | Live Vercel serverless | **HTTP 200 OK** | Supabase active, OpenRouter/Gemini truthful status |
+| **URL Verifier API** | `curl` against `/api/verify-url` | Live Vercel serverless | **HTTP 200 OK** | Returns `{"status":"VERIFIED"}` |
+| **Live Search API** | `curl` against `/api/search/live` | Live Vercel serverless | **HTTP 503** | Returns truthful `SEARCH_NOT_CONFIGURED` code and message |
 
 ---
 
-## 3. Real Resume Extraction & Ambiguity Handling Evidence
+## 3. Serverless Configuration & Provider Diagnostics
 
-* **Input File:** `fixtures/KUSHAL_SANTHOSH_P_RESUME.pdf.pdf` (2 pages, authentic candidate resume).
-* **Extracted Candidate Information:**
-  - **Full Name:** `KUSHAL SANTHOSH P`
-  - **University:** `CMR University`
-  - **Degree & Branch:** `Bachelor of Technology`, `Information Technology`
-  - **Graduation Year:** `Class of 2028` (4-year B.Tech program starting in 2024; no incorrect 2027 inference).
-  - **Academic Standing:** Unconfirmed until student confirmed (`Year 2` confirmed via UI).
-  - **Technical Skills:** `Python`, `React`, `Figma`, `Firebase`, `Full-Stack Development`, `UI/UX Design`, `Prompt Engineering`.
-  - **Projects:** `Kayu Marketplace` (multi-sided real estate platform), `Fensta` (event management), `Univox`, `Placement Portal`.
-* **Ambiguity Detection & Interactive Resolution:**
-  - **Flagged Metric:** `Current CGPA: 81.08`.
-  - **System Behavior:** Honestly flagged as ambiguous (`field: "academicMetric", rawValue: "81.08", reason: "CGPA is typically on a 10.0 scale; 81.08 suggests a percentage score"`).
-  - **UI Assertion:** Asserted that `Academic Credentials Verification Needed` and `Current CGPA: 81.08` are visible.
-  - **Interactive Action:** Student clicked `Confirm as 81.08% Percentage` and selected `Year 2`.
-  - **Confirmed State:** UI displayed `81.08% Confirmed`, `Class of 2028`, and enabled GPA-dependent readiness gates.
-* **Supabase Cloud Storage & Database Verification:**
-  - Private storage file confirmed: `1 file(s) in private storage bucket: [ '1792166...-KUSHAL_SANTHOSH_P_RESUME.pdf.pdf' ]`.
-  - Database metadata confirmed: `1 document metadata row(s) in Supabase` in `public.documents` with `file_name` containing `KUSHAL_SANTHOSH_P_RESUME`.
-  - Persistence verified: Data remained identical after browser reload and complete logout/login cycle.
+### Serverless Environment Configuration Analysis
 
----
+The serverless handler (`src/server/api-handler.ts` bundled into `api/_handler.js`) dynamically reads from `process.env`. All conflicting or obsolete variable names were removed.
 
-## 4. Deterministic Matching Engine Verification (3 Tested Scenarios)
+| Variable Name | Status in Vercel Production | Status in Local `.env` | Purpose & Effective Configuration |
+|---|---|---|---|
+| `OPENROUTER_API_KEY` | **Not Set** | Set (Credit exhausted) | Primary server-side key for live web search and AI routing. |
+| `OPENROUTER_PRIMARY_MODEL` | Defaults to `meta-llama/llama-3.3-70b-instruct` | Set | Fast, highly accurate open-source model. |
+| `OPENROUTER_FALLBACK_MODELS` | Defaults to `openai/gpt-4o-mini, google/gemini-2.0-flash-001, anthropic/claude-3.5-haiku` | Set | Multi-vendor fallback candidates. |
+| `GEMINI_API_KEY` | **Not Set** | Set (Search quota exhausted) | Secondary AI and search grounding provider key. |
+| `GEMINI_PRIMARY_MODEL` | Defaults to `gemini-3.8-flash` | Set (`gemini-2.5-flash` sunset) | Modern Google GenAI model. |
+| `GEMINI_FALLBACK_MODELS` | Defaults to `gemini-3.1-flash-lite, gemini-3.1-flash-lite-preview` | Set | Fast fallback models. |
+| `GEMINI_SEARCH_ENABLED` | Defaults to `true` | Set (`true`) | Toggles Google Search Grounding tool calls. |
+| `VITE_SUPABASE_URL` | **Configured** | Set | Supabase Cloud API URL. |
+| `VITE_SUPABASE_ANON_KEY` | **Configured** | Set | Public anonymous JWT. |
 
-The test suite executed `calculateMatch` across 3 distinct real-world scenarios to verify mathematical and rule-based integrity:
+### Real Provider Probes & Diagnostic Evidence
 
-1. **Scenario 1: High Affinity Role (Product Design & Frontend Intern)**
-   - **Student:** Year 2, Class of 2028, B.Tech IT, Skills: Python, React, UI/UX Design, Figma.
-   - **Role:** Required: UI/UX Design, Figma, React; Preferred: Python; Eligible Years: [2, 3, 4]; Eligible Degrees: [B.Tech, B.E].
-   - **Result:** Overall Match Score: **88%** (>= 80), Recommendation: **`APPLY NOW`**, Eligibility Score: **100%**.
-2. **Scenario 2: Addressable Skill Gaps (Cloud AI & PyTorch Intern)**
-   - **Role:** Required: PyTorch, Kubernetes, Docker, AWS; Preferred: Python.
-   - **Result:** Recommendation: **`PREPARE FIRST`**, Missing Skills: `['PyTorch', 'Kubernetes', 'Docker', 'AWS']` (`missingSkills.length > 0`).
-3. **Scenario 3: Confirmed Mandatory Eligibility Mismatch (Final Year PhD Research Intern)**
-   - **Role:** Eligible Degrees: [PhD, M.Tech]; Eligible Years: [4, 5].
-   - **Result:** Recommendation: **`SKIP`**, Eligibility Score: **0%** (< 50).
+1. **OpenRouter Probe (Controlled Request):**
+   ```bash
+   POST https://openrouter.ai/api/v1/chat/completions
+   Model: meta-llama/llama-3.3-70b-instruct
+   Result: HTTP 402 Payment Required
+   Payload: {"error":{"message":"Insufficient credits. This account never purchased credits. Make sure your key is on the correct account or org, and if so, purchase more at https://openrouter.ai/settings/credits","code":402}}
+   ```
+   - **Conclusion:** The OpenRouter account associated with the local key requires purchasing credits at `https://openrouter.ai/settings/credits`.
+
+2. **Google Gemini Probe (Controlled Request):**
+   - Probe 1 (`gemini-2.5-flash`): Returned HTTP 404 (`"This model is no longer available. Please update your code to use models/gemini-3.8-flash"`).
+   - Probe 2 (`gemini-3.8-flash` without search tool): Returned HTTP 200 (`PONG`).
+   - Probe 3 (`gemini-3.8-flash` with `tools: [{ googleSearch: {} }]`): Returned HTTP 429 (`"You exceeded your current quota... RESOURCE_EXHAUSTED"`).
+   - **Conclusion:** Basic text generation works with `gemini-3.8-flash`, but Google Search Grounding is quota-exhausted on this project/key.
 
 ---
 
-## 5. Application Persistence & Multi-User Account Isolation Evidence
+## 4. Live Discovery Status & UI Verification
 
-1. **Saving Opportunity through UI:**
-   - Navigated to live `/opportunities` directory, clicked `View opportunity`.
-   - Opened opportunity detail page, confirmed `Why You Match & Evidence` and `AI RECOMMENDATION`.
-   - Clicked `Save to Pipeline`, automatically routed to `/applications`.
-2. **Strict Cloud Database Assertion:**
-   - Queried Supabase directly via official admin client:
-     ```ts
-     const { data: dbApps } = await adminClient.from('applications').select('*').eq('student_id', testUserId)
-     expect(dbApps.length).toBeGreaterThanOrEqual(1)
-     ```
-   - Confirmed row created in Supabase: Application ID `46ecbdc1-84cd-5770-af65-27ae7bf715ea`, Opportunity ID `d7f707e1-5f8d-5c0d-92fa-d65ad39f0e97`.
-3. **Reload & Session Persistence:**
-   - Reloaded `/applications` page; verified saved opportunity card remains present.
-4. **Multi-User Account Isolation & Privacy:**
-   - Created secondary disposable user `prod.isolated.[timestamp]@internsync.io`.
-   - Logged in as User 2.
-   - Queried Supabase for User 2's applications: returned `0` records.
-   - Listed User 2's storage documents: returned `0` files.
-   - Confirmed User 2 cannot view User 1's applications on `/applications` or access User 1's documents.
-5. **Teardown & Clean Cleanup:**
-   - Purged all uploaded files from storage bucket `documents`.
-   - Deleted records from `public.documents`, `public.applications`, and `public.profiles`.
-   - Deleted both test users via `adminClient.auth.admin.deleteUser`.
-   - Real owner account (`kushal.podaralla@gmail.com`) was never modified.
+### Truthful Service State Enforced
+- In connected mode, when `/api/search/live` is invoked without configured server keys, the backend returns:
+  ```json
+  {
+    "error": "Live web search is not configured on the server (OPENROUTER_API_KEY is not set in Vercel environment variables).",
+    "code": "SEARCH_NOT_CONFIGURED",
+    "results": []
+  }
+  ```
+- **UI Experience:**
+  - The frontend (`OpportunitiesPage.tsx`) captures the error and displays a high-visibility service alert banner:
+    `"Live Search Notice: SEARCH_NOT_CONFIGURED: Live web search is not configured on the server. Please add OPENROUTER_API_KEY in the Vercel project Environment Variables."`
+  - A "Dismiss" button allows dismissing the notice.
+  - Zero fake opportunities are injected. The platform does not fabricate opportunities to pretend the search succeeded.
 
----
-
-## 6. Captured Visual Evidence Directory (`test-evidence/live-vercel-acceptance/`)
-
-The following genuine screenshots were captured during visible headed Chrome runs against `https://intern-sync-one.vercel.app`:
-
-| Screenshot File | Description | Verified Content |
-|---|---|---|
-| `01_prod_landing_page.png` | Production Landing Page | Hero section, navigation header, Call-to-Action |
-| `02_prod_opportunities_refreshed.png` | Nested Route Reload | `/opportunities` refreshed without 404 or lambda crash |
-| `03_prod_invalid_login.png` | Invalid Credentials Test | Truthful error message displayed on invalid credentials |
-| `04_prod_authenticated_dashboard.png` | Authenticated Dashboard | Live session token in localStorage, candidate dashboard loaded |
-| `05_prod_resume_uploaded.png` | Real Resume Uploaded | `KUSHAL_SANTHOSH_P_RESUME.pdf.pdf` processed in Settings -> Documents |
-| `06_prod_career_dna_verified.png` | Career DNA Verified | Name, CMR University, Class of 2028, 81.08% confirmed metric |
-| `07_prod_opportunities_directory.png` | Opportunity Directory | Live listings loaded with match rings and badges |
-| `08_prod_opportunity_detail.png` | Opportunity Detail View | `Why You Match & Evidence`, breakdown, `Save to Pipeline` |
-| `09_prod_applications_kanban.png` | Saved Application Tracker | Opportunity card persisted in Saved stage of pipeline |
-| `10_prod_signed_out.png` | Clean Logout Verification | Session cleared, redirected to unauthenticated landing page |
+### Live Network Capture from Deployed Site
+The Playwright test `tests/e2e/live-discovery-verification.spec.ts` logged the live production network transaction:
+```json
+{
+  "request": {
+    "url": "https://intern-sync-one.vercel.app/api/search/live",
+    "method": "POST",
+    "postData": "{\"query\":{\"text\":\"Full Stack Developer Intern India 2026\",\"role\":\"Full Stack Developer Intern\",\"location\":\"India\",\"targetYear\":3,\"skills\":[]}}"
+  },
+  "response": {
+    "status": 503,
+    "code": "SEARCH_NOT_CONFIGURED"
+  }
+}
+```
 
 ---
 
-## 7. Issues Found, Fixes Committed, and Regressions Retested
+## 5. Supabase Database & Cloud Storage Persistence Evidence
 
-| Defect Observed | File(s) Affected | Root Cause | Fix Committed | Retest Result |
-|---|---|---|---|---|
-| **Serverless Module Resolution Crash** (`FUNCTION_INVOCATION_FAILED`) | `api/*.ts`, `package.json` | Lambda containers in `/var/task` lack `/var/task/src`; relative imports failed; CJS packages missed `createRequire` in Node ESM. | Added `build:server` bundling `src/server/api-handler.ts` into standalone `api/_handler.js` with `createRequire` banner; all handlers updated to import from `_handler.js`. | **Resolved**: `/api/settings/health` returns 200 OK with active Supabase status. |
-| **Weak Acceptance Assertions** | `tests/e2e/production-live-acceptance.spec.ts` | Test previously printed app count without asserting real database row; metric confirmation was optional. | Added strict Supabase database assertions for `applications` and `documents`; required explicit confirmation of 81.08% and Year 2. | **Resolved**: All assertions strictly verified. |
-| **Database Document Column Name Mismatch** | `tests/e2e/production-live-acceptance.spec.ts` | Test asserted `dbDocs[0].name`, but database table column is `file_name`. | Updated assertion to check `dbDocs[0].file_name \|\| dbDocs[0].name`. | **Resolved**: Strict assertion passed. |
-| **Return Redirect Navigation Timeout** | `tests/e2e/production-live-acceptance.spec.ts` | Signing out from `/settings` preserved redirect; subsequent sign-in navigated back to `/settings` rather than `/dashboard`. | Updated `waitForURL` regex to `/(dashboard\|settings)/`. | **Resolved**: Navigation resolves immediately. |
-| **Strict Mode Locator Ambiguity** | `tests/e2e/production-live-acceptance.spec.ts` | `.or()` matched both `AI RECOMMENDATION` span and button. | Replaced with specific role locator: `page.getByRole('button', { name: 'Why You Match & Evidence' })`. | **Resolved**: Unambiguous element match. |
-| **Matching Engine Array Safety** | `src/lib/matching/engine.ts` | `opportunity.eligibleDegrees` or `eligibleYears` undefined caused `TypeError` if omitted in custom test fixtures. | Hardened with `Array.isArray(...) ? ... : []` defaults for both fields. | **Resolved**: 100% crash-proof matching calculations. |
-| **macOS Chromium GPU Segfault** | `playwright.config.ts` | Headed Chrome on macOS ARM64 occasionally threw signal 11 on context launch. | Added `launchOptions: { args: ['--disable-gpu', '--no-sandbox'] }`. | **Resolved**: Flawless headed Chrome execution. |
+Verified via direct admin queries against linked Supabase project `kkgnhoflqusupqnhgzkz` during the live production acceptance test suite:
 
----
-
-## 8. Provider, Quota & Deployment Status
-
-* **Vercel Automatic Deployment:** Connected to `Kushh-Santhosh/InternSync`. Pushing to `origin main` automatically deploys and reports status to GitHub. Commit `7e3dd7b` is currently live.
-* **Supabase Cloud (PostgreSQL & Storage):** Active on linked project `kkgnhoflqusupqnhgzkz` (`ap-northeast-2`). All tables (`profiles`, `documents`, `applications`, `opportunities`) and private bucket `documents` operational.
-* **Google Gemini AI (`@google/genai` 2.30.0):** Active on serverless handlers (`gemini-2.5-flash`, `gemini-flash-latest`) for chat and structured resume extraction.
-* **Search Grounding & OpenRouter:** Circuit breaker in place. When external search API keys are not supplied in the serverless environment, the product returns a truthful provider-not-configured status rather than crashing or faking search results.
+1. **User Profile & Career DNA:**
+   - Authenticated student record created in `public.profiles`.
+   - Resume metadata recorded in `public.documents` matching uploaded candidate resume `KUSHAL_SANTHOSH_P_RESUME.pdf.pdf`.
+2. **Private Document Storage:**
+   - File uploaded to private bucket `documents` under folder `<testUserId>/<timestamp>-KUSHAL_SANTHOSH_P_RESUME.pdf.pdf`.
+   - Access verified to be strictly isolated by row-level security.
+3. **Application Pipeline Persistence:**
+   - Saved opportunity persisted in `public.applications` (Application ID `d55e87ed-5985-54f4-9cf6-b5e6d47066ff`, Opportunity ID `d7f707e1-5f8d-5c0d-92fa-d65ad39f0e97`).
+   - Verified that data persists across complete browser page refresh and logout/login cycles.
+4. **Cross-Account Data Isolation:**
+   - Secondary test user `prod.isolated.[timestamp]@internsync.io` had 0 access to User 1's applications or uploaded documents.
+5. **Clean Teardown:**
+   - Both test users and their storage objects were deleted via Supabase Admin API (`auth.admin.deleteUser`).
 
 ---
 
-## 9. Final Sign-off
+## 6. Action Required to Enable Live Opportunity Discovery
 
-* **Personal Resume Acceptance:** **100% Passed** with genuine 2-page candidate resume (`fixtures/KUSHAL_SANTHOSH_P_RESUME.pdf.pdf`).
-* **Academic Ambiguity Resolution:** **100% Passed** (unconfirmed 81.08% metric and standing interactively resolved to 81.08% Percentage and Year 2).
-* **Live Serverless Deployment:** **100% Operational** on `https://intern-sync-one.vercel.app` (commit `7e3dd7b`).
-* **Database & Storage Persistence:** **100% Verified** via direct Supabase admin queries.
-* **Account Privacy & Isolation:** **100% Enforced** between distinct student accounts.
+To retrieve genuine internship results through the deployed backend:
+1. **Ensure OpenRouter Account has Active Credits:**
+   - Visit [OpenRouter Credits Settings](https://openrouter.ai/settings/credits) and ensure the account has an active balance (credit card or crypto).
+2. **Add Key to Authorized Vercel Project:**
+   - Open Vercel Dashboard for project `intern-sync` (under team `kushalyforus-projects`).
+   - Navigate to **Settings** → **Environment Variables**.
+   - Add:
+     - `OPENROUTER_API_KEY`: `<your-funded-openrouter-key>` (Select **Production**, **Preview**, and **Development**).
+     - *(Optional)* `GEMINI_API_KEY`: `<your-gemini-key>`.
+3. **Redeploy on Vercel:**
+   - Go to **Deployments**, click the three dots on the latest deployment for commit `e5421f1`, and select **Redeploy**.
+   - Once redeployed, `/api/settings/health` will report OpenRouter status `ACTIVE`, and `/api/search/live` will perform real web search using `meta-llama/llama-3.3-70b-instruct` / `openai/gpt-4o-mini` with the `openrouter:web_search` tool to return active 2025/2026 internship listings with verified source URLs.

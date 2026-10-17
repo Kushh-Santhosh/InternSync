@@ -52,6 +52,7 @@ interface AppContextType {
   currentUser: AuthUser | null
   login: (email: string, password?: string) => Promise<boolean>
   signup: (fullName: string, email: string, password?: string) => Promise<SignupResult>
+  resendVerificationEmail: (email: string) => Promise<{ success: boolean; message: string }>
   logout: () => Promise<void>
   enterDemoMode: () => void
   profile: StudentProfile
@@ -453,7 +454,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         },
       })
       if (error) {
-        throw new Error(error.message)
+        const msg = error.message || ''
+        if (msg.includes('rate limit') || error.code === 'over_email_send_rate_limit' || (error as any).status === 429) {
+          throw new Error('Email verification rate limit reached. The authentication mail server has temporarily restricted sending verification emails. Please wait a few minutes before trying again.')
+        }
+        if (msg.toLowerCase().includes('already registered')) {
+          throw new Error('An account with this email address already exists. Please sign in instead.')
+        }
+        throw new Error(msg)
+      }
+
+      // Check for Supabase silent duplicate (identities array is empty)
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        throw new Error('An account with this email address already exists. Please sign in instead.')
       }
 
       // If email confirmation is required by Supabase, session is null
@@ -495,6 +508,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     throw new Error(
       'Account creation is unavailable. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable accounts, or switch to Demo Mode to explore.'
     )
+  }
+
+  // Resend verification email handler
+  const resendVerificationEmail = async (
+    email: string
+  ): Promise<{ success: boolean; message: string }> => {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      })
+      if (error) {
+        const msg = error.message || ''
+        if (msg.includes('rate limit') || error.code === 'over_email_send_rate_limit' || (error as any).status === 429) {
+          throw new Error('Email verification rate limit reached. The authentication mail server has temporarily restricted sending verification emails. Please wait a few minutes before requesting another link.')
+        }
+        throw new Error(msg)
+      }
+      return {
+        success: true,
+        message: 'A fresh verification link has been sent to your email address. Please check your inbox and spam folder.',
+      }
+    }
+    throw new Error('Authentication service is unavailable.')
   }
 
   // Logout handler
@@ -896,6 +933,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         login,
         signup,
+        resendVerificationEmail,
         logout,
         enterDemoMode,
         profile: activeProfile,

@@ -52,68 +52,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, onCloseMobile = () 
   return (
     <aside
       className={cn(
-        'w-64 h-screen bg-white border-r border-slate-200/80 flex flex-col justify-between select-none z-30',
+        'w-64 h-screen max-h-screen bg-white border-r border-slate-200/80 flex flex-col justify-between select-none z-30',
         className
       )}
     >
-      {/* Top Header & Branding */}
-      <div>
-        <div className="h-16 flex items-center px-5 border-b border-slate-100">
+      {/* Top Header & Navigation Container */}
+      <div className="flex-1 min-h-0 flex flex-col">
+        <div className="h-16 shrink-0 flex items-center px-5 border-b border-slate-100">
           <InternSyncLogo variant="full" size="sm" to="/dashboard" />
         </div>
 
-
-        {/* Main Navigation List */}
-        <nav className="p-3 space-y-1">
-          <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-            Workspace
-          </div>
-          {navItems.map((item) => {
-            const Icon = item.icon
-            const isActive = location.pathname === item.path
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={onCloseMobile}
-                className={cn(
-                  'flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer',
-                  isActive
-                    ? 'bg-slate-900 text-white font-semibold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
-                )}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Icon
-                    className={cn(
-                      'w-4 h-4 transition-colors',
-                      isActive ? 'text-white' : 'text-slate-500'
-                    )}
-                  />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge !== undefined && (
-                  <span
-                    className={cn(
-                      'text-[10px] font-bold px-1.5 py-0.2 rounded-full',
-                      isActive ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'
-                    )}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
-        </nav>
-
-        {/* Secondary Navigation */}
-        <div className="px-3 pt-2">
-          <div className="border-t border-slate-100 pt-2 space-y-1">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {/* Main Navigation List */}
+          <nav className="p-3 space-y-1">
             <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Account
+              Workspace
             </div>
-            {secondaryItems.map((item) => {
+            {navItems.map((item) => {
               const Icon = item.icon
               const isActive = location.pathname === item.path
               return (
@@ -122,23 +77,69 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, onCloseMobile = () 
                   to={item.path}
                   onClick={onCloseMobile}
                   className={cn(
-                    'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer',
+                    'flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer',
                     isActive
-                      ? 'bg-slate-900 text-white font-semibold'
+                      ? 'bg-slate-900 text-white font-semibold shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                   )}
                 >
-                  <Icon className="w-4 h-4 text-slate-400" />
-                  <span>{item.label}</span>
+                  <div className="flex items-center gap-2.5">
+                    <Icon
+                      className={cn(
+                        'w-4 h-4 transition-colors',
+                        isActive ? 'text-white' : 'text-slate-500'
+                      )}
+                    />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge !== undefined && (
+                    <span
+                      className={cn(
+                        'text-[10px] font-bold px-1.5 py-0.2 rounded-full',
+                        isActive ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'
+                      )}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               )
             })}
+          </nav>
+
+          {/* Secondary Navigation */}
+          <div className="px-3 pt-2 pb-4">
+            <div className="border-t border-slate-100 pt-2 space-y-1">
+              <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Account
+              </div>
+              {secondaryItems.map((item) => {
+                const Icon = item.icon
+                const isActive = location.pathname === item.path
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={onCloseMobile}
+                    className={cn(
+                      'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer',
+                      isActive
+                        ? 'bg-slate-900 text-white font-semibold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                    )}
+                  >
+                    <Icon className="w-4 h-4 text-slate-400" />
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>
 
       {/* User Footer Profile */}
-      <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+      <div className="shrink-0 p-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
         <Link
           to="/profile"
           onClick={onCloseMobile}
@@ -151,7 +152,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, onCloseMobile = () 
             className="w-7 h-7"
           />
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold text-slate-900 truncate">{profile.fullName}</div>
+            <div className="text-xs font-semibold text-slate-900 flex items-center gap-1">
+              <span className="truncate">{profile.fullName}</span>
+              {profile.username && (
+                <span className="text-[10px] text-indigo-600 font-mono font-normal shrink-0">@{profile.username}</span>
+              )}
+            </div>
             <div className="text-[10px] text-slate-500 truncate">
               {profile.degree} · Year {profile.currentYear}
             </div>

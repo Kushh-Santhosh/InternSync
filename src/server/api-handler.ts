@@ -24,6 +24,7 @@ export interface ServerConfig {
   adzunaCountry: string
   supabaseUrl: string
   supabaseAnonKey: string
+  supabaseServiceRoleKey?: string
 }
 
 const defaultConfig: ServerConfig = {
@@ -120,6 +121,7 @@ export function getServerConfig(): ServerConfig {
     adzunaCountry: process.env.ADZUNA_COUNTRY || defaultConfig.adzunaCountry || 'in',
     supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || defaultConfig.supabaseUrl || '',
     supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || defaultConfig.supabaseAnonKey || '',
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '',
   }
 }
 
@@ -483,6 +485,19 @@ CRITICAL RULES:
 
     // Deterministic validation: 4-year B.Tech starting in 2024 MUST graduate in 2028
     if (parsedData) {
+      if (!parsedData.fullName) {
+        const lines = safeText.split('\n').map((l: string) => l.trim()).filter(Boolean)
+        const firstLine = lines[0] || ''
+        if (firstLine && /^[A-Z][a-zA-Z\s\.]{2,45}$/.test(firstLine) && !/resume|curriculum|cv|summary|profile|about/i.test(firstLine)) {
+          parsedData.fullName = firstLine
+        }
+      }
+      if (!parsedData.university) {
+        const uniMatch = safeText.match(/([A-Z][a-zA-Z\s\.]+(?:University|Institute of Technology|College of Engineering))/i)
+        if (uniMatch && uniMatch[1]) {
+          parsedData.university = uniMatch[1].trim()
+        }
+      }
       const isTechDegree = Boolean(
         (parsedData.degree && /b\.?tech|b\.?e|bachelor of technology|engineering/i.test(parsedData.degree)) ||
         /bachelor of technology|b\.tech/i.test(safeText)
@@ -501,6 +516,12 @@ CRITICAL RULES:
             reason: 'Academic standing is not explicitly stated in words (Year 1 vs Year 2).',
             actionNeeded: 'Confirm your current academic standing.',
           })
+        }
+      }
+      if (!parsedData.academicMetric) {
+        const metricMatch = safeText.match(/(?:Current\s+)?(?:CGPA|GPA|Score|Percentage)[\s:]*([0-9]+(?:\.[0-9]+)?)/i)
+        if (metricMatch && metricMatch[1]) {
+          parsedData.academicMetric = metricMatch[1]
         }
       }
     }
@@ -1093,6 +1114,234 @@ export async function handleN8nOpportunityDiscovery(req: any, res: any): Promise
   }
 }
 
+// Rate limiter for account provisioning abuse prevention
+const registrationAttempts = new Map<string, { count: number; resetAt: number }>()
+
+function checkRegistrationRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const windowMs = 15 * 60 * 1000 // 15 minutes
+  const maxAttempts = 15
+
+  const record = registrationAttempts.get(ip)
+  if (!record || now > record.resetAt) {
+    registrationAttempts.set(ip, { count: 1, resetAt: now + windowMs })
+    return true
+  }
+
+  if (record.count >= maxAttempts) {
+    return false
+  }
+
+  record.count++
+  return true
+}
+
+const RESERVED_USERNAMES = new Set([
+  'admin',
+  'administrator',
+  'internsync',
+  'system',
+  'support',
+  'help',
+  'root',
+  'api',
+  'auth',
+  'test',
+  'guest',
+  'demo',
+])
+
+// 8. POST /api/auth/register-username
+export async function handleAuthRegisterUsername(req: any, res: any): Promise<void> {
+  const clientIp =
+    (req.headers && (req.headers['x-forwarded-for'] || req.headers['x-real-ip'])) ||
+    req.socket?.remoteAddress ||
+    '127.0.0.1'
+
+  const normalizedIp = String(clientIp).split(',')[0].trim()
+  if (!checkRegistrationRateLimit(normalizedIp)) {
+    sendJson(res, 429, {
+      success: false,
+      error: 'Too many account registration requests from your network. Please wait a few minutes before trying again.',
+      code: 'RATE_LIMIT_EXCEEDED',
+    })
+    return
+  }
+
+  try {
+    const body = await parseJsonBody<{
+      fullName?: string
+      username?: string
+      password?: string
+    }>(req)
+
+    const rawFullName = (body.fullName || '').trim()
+    const rawUsername = (body.username || '').trim().toLowerCase()
+    const rawPassword = body.password || ''
+
+    if (!rawFullName || rawFullName.length < 2) {
+      sendJson(res, 400, {
+        success: false,
+        error: 'Please enter a valid full name (at least 2 characters).',
+      })
+      return
+    }
+
+    if (!rawUsername || rawUsername.length < 3 || rawUsername.length > 30) {
+      sendJson(res, 400, {
+        success: false,
+        error: 'Username must be between 3 and 30 characters.',
+      })
+      return
+    }
+
+    if (!/^[a-z0-9_]+$/.test(rawUsername)) {
+      sendJson(res, 400, {
+        success: false,
+        error: 'Username may only contain letters, numbers, and underscores.',
+      })
+      return
+    }
+
+    if (RESERVED_USERNAMES.has(rawUsername)) {
+      sendJson(res, 400, {
+        success: false,
+        error: `Username "${rawUsername}" is reserved. Please choose another username.`,
+      })
+      return
+    }
+
+    if (rawPassword.length < 6) {
+      sendJson(res, 400, {
+        success: false,
+        error: 'Password must be at least 6 characters.',
+      })
+      return
+    }
+
+    const syntheticEmail = `${rawUsername}@demo.internsync.invalid`
+    const config = getServerConfig()
+    const serviceKey = config.supabaseServiceRoleKey
+
+    // Attempt 1: Provision via Supabase Admin API if service role key is configured on server
+    if (serviceKey && config.supabaseUrl) {
+      try {
+        const adminClient = createClient(config.supabaseUrl, serviceKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        })
+
+        const { data: createData, error: createError } = await adminClient.auth.admin.createUser({
+          email: syntheticEmail,
+          password: rawPassword,
+          email_confirm: true,
+          user_metadata: {
+            full_name: rawFullName,
+            username: rawUsername,
+            account_type: 'username_temporary',
+          },
+        })
+
+        if (createError) {
+          const msg = createError.message || ''
+          if (
+            msg.toLowerCase().includes('already registered') ||
+            msg.toLowerCase().includes('already exists') ||
+            createError.status === 422
+          ) {
+            sendJson(res, 409, {
+              success: false,
+              error: `Username "${rawUsername}" is already taken. Please choose another username.`,
+              code: 'USERNAME_TAKEN',
+            })
+            return
+          }
+          throw createError
+        }
+
+        if (createData.user) {
+          // Initialize baseline profile in public.profiles
+          await adminClient.from('profiles').upsert(
+            {
+              id: createData.user.id,
+              full_name: rawFullName,
+              username: rawUsername,
+              university: 'Student University',
+              degree: 'B.Tech / B.E.',
+              branch: 'Computer Science & Engineering',
+              current_year: 3,
+              graduation_year: 2026,
+              location: 'Bengaluru, India',
+              target_role: 'Software Development Intern',
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          )
+
+          sendJson(res, 200, {
+            success: true,
+            username: rawUsername,
+            email: syntheticEmail,
+            userId: createData.user.id,
+            provisioner: 'supabase_admin',
+          })
+          return
+        }
+      } catch (adminErr: unknown) {
+        console.warn('[handleAuthRegisterUsername] Admin API error, evaluating RPC fallback:', adminErr)
+      }
+    }
+
+    // Attempt 2: Fallback via verified PostgreSQL RPC function provision_username_student
+    const anonClient = createClient(config.supabaseUrl, config.supabaseAnonKey)
+    const { data: rpcData, error: rpcErr } = await anonClient.rpc('provision_username_student', {
+      p_username: rawUsername,
+      p_password: rawPassword,
+      p_full_name: rawFullName,
+    })
+
+    if (rpcErr) {
+      sendJson(res, 500, {
+        success: false,
+        error: rpcErr.message || 'Database provisioning failed.',
+      })
+      return
+    }
+
+    if (rpcData && typeof rpcData === 'object') {
+      const result = rpcData as any
+      if (result.success) {
+        sendJson(res, 200, {
+          success: true,
+          username: result.username || rawUsername,
+          email: result.email || syntheticEmail,
+          userId: result.userId,
+          provisioner: 'database_rpc',
+        })
+        return
+      } else {
+        const errorMsg = result.error || 'Failed to provision account.'
+        const isConflict = errorMsg.toLowerCase().includes('already taken')
+        sendJson(res, isConflict ? 409 : 400, {
+          success: false,
+          error: errorMsg,
+          code: isConflict ? 'USERNAME_TAKEN' : 'VALIDATION_ERROR',
+        })
+        return
+      }
+    }
+
+    sendJson(res, 500, {
+      success: false,
+      error: 'Unexpected response from account provisioning service.',
+    })
+  } catch (err: unknown) {
+    sendJson(res, 500, {
+      success: false,
+      error: err instanceof Error ? err.message : 'Server error during account registration.',
+    })
+  }
+}
+
 /**
  * Node.js HTTP request handler for InternSync server API endpoints
  */
@@ -1146,6 +1395,12 @@ export async function handleApiRequest(
   // 7. POST /api/n8n/opportunity-discovery
   if (req.method === 'POST' && pathname === '/api/n8n/opportunity-discovery') {
     await handleN8nOpportunityDiscovery(req, res)
+    return true
+  }
+
+  // 8. POST /api/auth/register-username
+  if (req.method === 'POST' && pathname === '/api/auth/register-username') {
+    await handleAuthRegisterUsername(req, res)
     return true
   }
 

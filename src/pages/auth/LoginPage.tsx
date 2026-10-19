@@ -3,6 +3,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   Lock,
   Mail,
+  User,
+  AtSign,
   Eye,
   EyeOff,
   Sparkles,
@@ -12,6 +14,7 @@ import {
   Clock,
   ArrowRight,
   Info,
+  HelpCircle,
 } from 'lucide-react'
 import { useApp } from '@/app/context'
 import { Button } from '@/components/ui/Button'
@@ -22,14 +25,17 @@ export const LoginPage: React.FC = () => {
   const location = useLocation()
   const { login, resendVerificationEmail, enterDemoMode, isSupabaseConfigured } = useApp()
 
-  const [email, setEmail] = useState(() => (location.state as any)?.prefillEmail || '')
+  const [identifier, setIdentifier] = useState(
+    () => (location.state as any)?.prefillIdentifier || (location.state as any)?.prefillEmail || ''
+  )
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [showForgotNotice, setShowForgotNotice] = useState(false)
 
-  // Resend verification state
+  // Resend verification state (email accounts only)
   const [showResend, setShowResend] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const [isResending, setIsResending] = useState(false)
@@ -70,8 +76,8 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) {
-      setError('Please enter your email address.')
+    if (!identifier.trim()) {
+      setError('Please enter your username or email address.')
       return
     }
     if (!password) {
@@ -81,15 +87,26 @@ export const LoginPage: React.FC = () => {
     setError('')
     setIsLoading(true)
 
+    const isEmail = identifier.includes('@')
+
     try {
-      await login(email.trim(), password)
+      await login(identifier.trim(), password)
       navigate(from, { replace: true })
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to sign in. Please verify your credentials.'
-      setError(msg)
-      // If error might be due to unconfirmed email, allow quick resend
-      if (msg.toLowerCase().includes('not confirmed') || msg.toLowerCase().includes('credentials')) {
+      const rawMsg = err instanceof Error ? err.message : 'Failed to sign in.'
+      let friendlyMsg = rawMsg
+      if (rawMsg.toLowerCase().includes('invalid login credentials') || rawMsg.toLowerCase().includes('credentials')) {
+        friendlyMsg = isEmail
+          ? 'Invalid email or password. Please verify your credentials.'
+          : 'Invalid username or password. Please verify your credentials or create a new account.'
+      }
+      setError(friendlyMsg)
+
+      // Only show email resend for genuine email addresses
+      if (isEmail && (rawMsg.toLowerCase().includes('not confirmed') || rawMsg.toLowerCase().includes('credentials'))) {
         setShowResend(true)
+      } else {
+        setShowResend(false)
       }
     } finally {
       setIsLoading(false)
@@ -97,13 +114,13 @@ export const LoginPage: React.FC = () => {
   }
 
   const handleResend = async () => {
-    if (resendCooldown > 0 || isResending || !email.trim()) return
+    if (resendCooldown > 0 || isResending || !identifier.trim() || !identifier.includes('@')) return
 
     setIsResending(true)
     setResendStatus('')
 
     try {
-      const result = await resendVerificationEmail(email.trim())
+      const result = await resendVerificationEmail(identifier.trim())
       setResendStatus(result.message)
       setResendCooldown(60)
     } catch (err: unknown) {
@@ -130,8 +147,8 @@ export const LoginPage: React.FC = () => {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
           Sign in to InternSync
         </h1>
-        <p className="mt-2 text-sm text-slate-500">
-          Access your evidence-based Career DNA and live opportunity fit.
+        <p className="mt-2 text-xs sm:text-sm text-slate-500">
+          Access your evidence-based Career DNA, uploaded documents, and saved opportunities.
         </p>
       </div>
 
@@ -145,7 +162,7 @@ export const LoginPage: React.FC = () => {
                 <span>Supabase Auth Not Configured</span>
               </div>
               <p className="text-[11px] text-amber-800 leading-relaxed">
-                To create real accounts, provide <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code> and <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">VITE_SUPABASE_ANON_KEY</code> in your environment. You can explore the full application using Demo Mode.
+                To create real accounts, provide <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code> and <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">VITE_SUPABASE_ANON_KEY</code>. You can explore the full application using Demo Mode.
               </p>
             </div>
           )}
@@ -163,7 +180,7 @@ export const LoginPage: React.FC = () => {
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                 <span className="leading-relaxed">{error}</span>
               </div>
-              {showResend && email.trim() && (
+              {showResend && identifier.includes('@') && (
                 <div className="pt-2 border-t border-rose-200/60 flex items-center justify-between gap-2">
                   <span className="text-[11px] text-rose-800 font-normal">Need a fresh confirmation link?</span>
                   <button
@@ -201,20 +218,35 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
 
+          {/* Form */}
           <form noValidate onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Email address
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Username or Email
+                </label>
+                <span className="text-[10px] text-slate-400">
+                  Username or registered email
+                </span>
+              </div>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                {identifier.includes('@') ? (
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                ) : (
+                  <AtSign className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                )}
                 <input
-                  type="email"
+                  type="text"
                   required
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck="false"
+                  id="identifier"
+                  data-testid="identifier-input"
                   placeholder="name@university.edu"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-sans"
                 />
               </div>
             </div>
@@ -222,6 +254,13 @@ export const LoginPage: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-semibold text-slate-700">Password</label>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotNotice(!showForgotNotice)}
+                  className="text-[11px] font-medium text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                >
+                  Forgot password?
+                </button>
               </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -243,6 +282,19 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Honest Password Reset Guidance Notice */}
+            {showForgotNotice && (
+              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs text-amber-900 space-y-1 leading-relaxed">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <HelpCircle className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Password Guidance</span>
+                </div>
+                <p className="text-[11px] text-amber-800">
+                  Temporary hackathon accounts (username-based) do not have an associated inbox for password resets. If you cannot recall your password, you can instantly register a new username account or use standard email signup.
+                </p>
+              </div>
+            )}
+
             <Button
               type="submit"
               disabled={isLoading}
@@ -252,7 +304,7 @@ export const LoginPage: React.FC = () => {
             </Button>
           </form>
 
-          {/* Explicit Demo Mode Option */}
+          {/* Interactive Demo Mode Option */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-200" />
@@ -274,7 +326,7 @@ export const LoginPage: React.FC = () => {
           <div className="mt-7 text-center text-xs text-slate-500">
             Don't have an account?{' '}
             <Link to="/signup" className="font-semibold text-indigo-600 hover:text-indigo-700">
-              Sign up
+              Create instant account
             </Link>
           </div>
         </div>

@@ -33,3 +33,4 @@ supabase/.temp/
 fixtures/KUSHAL*
 *KUSHAL*RESUME*
 *.pdf.pdf
+.env*

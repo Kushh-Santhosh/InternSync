@@ -16,6 +16,7 @@ export type EvidenceStrength = 'strong' | 'moderate' | 'limited' | 'none'
 export interface StudentProfile {
   id: string
   fullName: string
+  username?: string
   email: string
   university: string
   degree: string

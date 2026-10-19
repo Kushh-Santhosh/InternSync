@@ -18,13 +18,16 @@ const AVATAR_PRESETS = [
   { label: 'Full Stack', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=160' },
 ]
 
+import { isSyntheticEmail } from '@/lib/supabase/auth-username'
+
 export const ProfilePage: React.FC = () => {
   const { profile, updateProfile, resetToDemo } = useApp()
 
   const [savedSuccess, setSavedSuccess] = useState(false)
   const [formData, setFormData] = useState({
     fullName: profile.fullName,
-    email: profile.email,
+    username: profile.username || '',
+    email: isSyntheticEmail(profile.email) ? '' : (profile.email || ''),
     avatarUrl: profile.avatarUrl || '',
     university: profile.university,
     degree: profile.degree,
@@ -156,10 +159,25 @@ export const ProfilePage: React.FC = () => {
             />
           </div>
 
+          {profile.username && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Username</label>
+              <input
+                type="text"
+                disabled
+                value={`@${profile.username}`}
+                className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 font-mono cursor-not-allowed"
+              />
+            </div>
+          )}
+
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Contact Email {profile.username && <span className="text-slate-400 font-normal">(optional)</span>}
+            </label>
             <input
               type="email"
+              placeholder={profile.username ? 'e.g. name@university.edu (optional)' : 'name@university.edu'}
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-indigo-500"

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   User,
   Sliders,
@@ -23,10 +24,12 @@ import { useApp } from '@/app/context'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils/cn'
 import { getDocumentSignedUrl } from '@/lib/supabase/database'
+import { isSyntheticEmail } from '@/lib/supabase/auth-username'
 
 type SettingsTab = 'profile' | 'preferences' | 'documents' | 'account' | 'privacy'
 
 export const SettingsPage: React.FC = () => {
+  const navigate = useNavigate()
   const {
     profile,
     updateProfile,
@@ -37,9 +40,8 @@ export const SettingsPage: React.FC = () => {
   } = useApp()
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
 
-  // Profile form state
   const [fullName, setFullName] = useState(profile.fullName || '')
-  const [email, setEmail] = useState(profile.email || '')
+  const [email, setEmail] = useState(isSyntheticEmail(profile.email) ? '' : (profile.email || ''))
   const [university, setUniversity] = useState(profile.university || '')
   const [degree, setDegree] = useState(profile.degree || '')
   const [graduationYear, setGraduationYear] = useState(profile.graduationYear || '2026')
@@ -546,9 +548,23 @@ export const SettingsPage: React.FC = () => {
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-base font-bold text-slate-900">Session</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Signed in as {profile.email || 'your account'}</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Signed in as{' '}
+                <strong className="text-slate-800 font-semibold font-mono">
+                  {profile.username
+                    ? `@${profile.username} (Temporary Hackathon Account)`
+                    : (isSyntheticEmail(profile.email) ? 'Temporary Account' : (profile.email || 'your account'))}
+                </strong>
+              </p>
             </div>
-            <Button variant="outline" onClick={logout} className="gap-2 text-rose-600 border-rose-200 hover:bg-rose-50 self-start sm:self-auto">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                await logout()
+                navigate('/login')
+              }}
+              className="gap-2 text-rose-600 border-rose-200 hover:bg-rose-50 self-start sm:self-auto cursor-pointer"
+            >
               <LogOut className="w-4 h-4" />
               <span>Sign Out</span>
             </Button>

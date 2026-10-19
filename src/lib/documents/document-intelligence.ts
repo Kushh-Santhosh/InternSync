@@ -530,8 +530,23 @@ export async function processUploadedDocument(
     if (aiExtraction) {
       summaryNotes.push('Synthesized structured credentials via AI evidence extraction.')
 
-      if (aiExtraction.fullName) profileUpdates.fullName = aiExtraction.fullName
-      if (aiExtraction.university) profileUpdates.university = aiExtraction.university
+      if (aiExtraction.fullName) {
+        profileUpdates.fullName = aiExtraction.fullName
+      } else {
+        const lines = parsedText.split('\n').map((l) => l.trim()).filter(Boolean)
+        const firstLine = lines[0] || ''
+        if (firstLine && /^[A-Z][a-zA-Z\s\.]{2,45}$/.test(firstLine) && !/resume|curriculum|cv|summary|profile|about/i.test(firstLine)) {
+          profileUpdates.fullName = firstLine
+        }
+      }
+      if (aiExtraction.university) {
+        profileUpdates.university = aiExtraction.university
+      } else {
+        const uniMatch = parsedText.match(/([A-Z][a-zA-Z\s\.]+(?:University|Institute of Technology|College of Engineering))/i)
+        if (uniMatch && uniMatch[1]) {
+          profileUpdates.university = uniMatch[1].trim()
+        }
+      }
       if (aiExtraction.degree) profileUpdates.degree = aiExtraction.degree
       if (aiExtraction.branch) profileUpdates.branch = aiExtraction.branch
       const isExplicitYearStated = /\b([1-5])(?:st|nd|rd|th)?\s+year\b/i.test(parsedText) || /\byear\s+([1-5])\b/i.test(parsedText)
@@ -558,8 +573,13 @@ export async function processUploadedDocument(
           profileUpdates.graduationYear = parsedYr === 2027 && is4YearTech ? 2028 : parsedYr
         }
       }
-      if (aiExtraction.academicMetric) {
-        profileUpdates.academicMetric = aiExtraction.academicMetric
+      const metricMatch = parsedText.match(/(?:Current\s+)?(?:CGPA|GPA|Score|Percentage)[\s:]*([0-9]{1,2}(?:\.[0-9]{1,2})?%?)/i)
+      const cleanMetric = aiExtraction.academicMetric
+        ? String(aiExtraction.academicMetric).replace(/^(?:Current\s+)?(?:CGPA|GPA|Score|Percentage)[\s:]*/i, '').replace(/%/g, '').trim()
+        : (metricMatch ? metricMatch[1].replace(/%/g, '').trim() : '')
+
+      if (cleanMetric) {
+        profileUpdates.academicMetric = cleanMetric
         profileUpdates.isAcademicMetricConfirmed = false
       }
       if (aiExtraction.location) profileUpdates.location = aiExtraction.location

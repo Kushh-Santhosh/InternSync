@@ -18,6 +18,13 @@ import {
   deleteUserDocument,
 } from '@/lib/supabase/database'
 import { generateApplicationId, isValidUUID } from '@/lib/utils/uuid'
+import {
+  getUsernameSyntheticEmail,
+  isSyntheticEmail,
+  normalizeUsername,
+  provisionUsernameAccount,
+  validateUsername,
+} from '@/lib/supabase/auth-username'
 import type {
   ApplicationItem,
   ApplicationStatus,
@@ -38,6 +45,8 @@ export interface AuthUser {
   id: string
   email: string
   fullName: string
+  username?: string
+  isTemporaryUsernameAccount?: boolean
   avatarUrl?: string
   createdAt: string
 }
@@ -50,8 +59,9 @@ export interface SignupResult {
 
 interface AppContextType {
   currentUser: AuthUser | null
-  login: (email: string, password?: string) => Promise<boolean>
+  login: (emailOrUsername: string, password?: string) => Promise<boolean>
   signup: (fullName: string, email: string, password?: string) => Promise<SignupResult>
+  signupWithUsername: (fullName: string, username: string, password: string) => Promise<{ success: boolean; username: string }>
   resendVerificationEmail: (email: string) => Promise<{ success: boolean; message: string }>
   logout: () => Promise<void>
   enterDemoMode: () => void
@@ -236,13 +246,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
    * Loads an authenticated user's records from Supabase.
    * Completely replaces in-memory state unconditionally to prevent cross-account data leaks.
    */
-  const loadUserData = useCallback(async (userId: string, email: string, fullName: string) => {
+  const loadUserData = useCallback(async (userId: string, email: string, fullName: string, usernameParam?: string) => {
+    const cleanEmail = isSyntheticEmail(email) ? '' : email
     // 1. Reset all state to clean baseline for the authenticated user
     setUserProfile({
       ...BLANK_STUDENT_PROFILE,
       id: userId,
-      email,
-      fullName,
+      username: usernameParam,
+      email: cleanEmail,
+      fullName: fullName || 'Student',
     })
     setUserSkills([])
     setUserProjects([])
@@ -257,14 +269,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setUserProfile({
           ...profile,
           id: userId,
-          email: email || profile.email,
+          username: profile.username || usernameParam,
+          email: cleanEmail || (isSyntheticEmail(profile.email) ? '' : profile.email),
         })
       } else {
         const baseline: StudentProfile = {
           ...BLANK_STUDENT_PROFILE,
           id: userId,
-          email,
-          fullName: fullName || email.split('@')[0],
+          username: usernameParam,
+          email: cleanEmail,
+          fullName: fullName || 'Student',
         }
         await upsertUserProfile(baseline)
         setUserProfile(baseline)
@@ -296,15 +310,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (!isMounted || error || !session) return
 
+      const isSynthetic = isSyntheticEmail(session.user.email)
+      const extractedUsername =
+        session.user.user_metadata?.username ||
+        (isSynthetic ? session.user.email?.split('@')[0] : undefined)
+
       const authUser: AuthUser = {
         id: session.user.id,
-        email: session.user.email || '',
+        email: isSynthetic ? '' : (session.user.email || ''),
         fullName:
-          session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Student',
+          session.user.user_metadata?.full_name ||
+          (isSynthetic ? extractedUsername || 'Student' : session.user.email?.split('@')[0] || 'Student'),
+        username: extractedUsername,
+        isTemporaryUsernameAccount: isSynthetic,
         createdAt: session.user.created_at,
       }
       setCurrentUser(authUser)
-      await loadUserData(session.user.id, authUser.email, authUser.fullName)
+      await loadUserData(session.user.id, authUser.email, authUser.fullName, extractedUsername)
     })
 
     const {
@@ -313,16 +335,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isMounted) return
 
       if (session) {
+        const isSynthetic = isSyntheticEmail(session.user.email)
+        const extractedUsername =
+          session.user.user_metadata?.username ||
+          (isSynthetic ? session.user.email?.split('@')[0] : undefined)
+
         const user: AuthUser = {
           id: session.user.id,
-          email: session.user.email || '',
+          email: isSynthetic ? '' : (session.user.email || ''),
           fullName:
-            session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Student',
+            session.user.user_metadata?.full_name ||
+            (isSynthetic ? extractedUsername || 'Student' : session.user.email?.split('@')[0] || 'Student'),
+          username: extractedUsername,
+          isTemporaryUsernameAccount: isSynthetic,
           createdAt: session.user.created_at,
         }
         setCurrentUser(user)
         setIsDemoModeState(false)
-        await loadUserData(session.user.id, user.email, user.fullName)
+        await loadUserData(session.user.id, user.email, user.fullName, extractedUsername)
       } else {
         // No active Supabase session
         // Only clear state if NOT in Demo Mode (preserves offline/demo judging on page refresh)
@@ -402,30 +432,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [currentUser?.id, liveOpportunities, isDemoMode])
 
-  // Login handler
-  const login = async (email: string, password?: string): Promise<boolean> => {
+  // Login handler supporting both usernames and traditional emails
+  const login = async (identifier: string, password?: string): Promise<boolean> => {
     if (isSupabaseConfigured && supabase) {
       if (!password) {
         throw new Error('Please enter your password.')
       }
+
+      const trimmedIdentifier = identifier.trim()
+      const isEmail = trimmedIdentifier.includes('@')
+      const authEmail = isEmail
+        ? trimmedIdentifier
+        : getUsernameSyntheticEmail(trimmedIdentifier)
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: authEmail,
         password,
       })
       if (error) {
+        if (!isEmail) {
+          throw new Error('Invalid username or password. Please verify your credentials.')
+        }
         throw new Error(error.message)
       }
 
       if (data.session) {
+        const isSynthetic = isSyntheticEmail(data.session.user.email)
+        const extractedUsername =
+          data.session.user.user_metadata?.username ||
+          (isSynthetic ? data.session.user.email?.split('@')[0] : undefined)
+
         const user: AuthUser = {
           id: data.session.user.id,
-          email: data.session.user.email || email,
-          fullName: data.session.user.user_metadata?.full_name || email.split('@')[0],
+          email: isSynthetic ? '' : (data.session.user.email || ''),
+          fullName:
+            data.session.user.user_metadata?.full_name ||
+            (isSynthetic ? extractedUsername || 'Student' : authEmail.split('@')[0]),
+          username: extractedUsername,
+          isTemporaryUsernameAccount: isSynthetic,
           createdAt: data.session.user.created_at,
         }
         setCurrentUser(user)
         setIsDemoModeState(false)
-        await loadUserData(user.id, user.email, user.fullName)
+        await loadUserData(user.id, user.email, user.fullName, extractedUsername)
         return true
       }
       return false
@@ -434,6 +483,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     throw new Error(
       'Authentication service is unavailable. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable accounts, or switch to Demo Mode to explore.'
     )
+  }
+
+  // Instant hackathon username-based registration handler (No email required)
+  const signupWithUsername = async (
+    fullName: string,
+    username: string,
+    password: string
+  ): Promise<{ success: boolean; username: string }> => {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error('Authentication backend is unavailable.')
+    }
+
+    const validation = validateUsername(username)
+    if (!validation.valid) {
+      throw new Error(validation.error || 'Invalid username.')
+    }
+
+    if (!fullName.trim() || fullName.trim().length < 2) {
+      throw new Error('Please provide your full name (at least 2 characters).')
+    }
+
+    if (!password || password.length < 6) {
+      throw new Error('Password must be at least 6 characters.')
+    }
+
+    const normalized = normalizeUsername(username)
+
+    // Provision account server-side / via PostgreSQL RPC
+    const provisionRes = await provisionUsernameAccount(fullName, normalized, password)
+    if (!provisionRes.success) {
+      throw new Error(provisionRes.error || 'Failed to create student account.')
+    }
+
+    // Immediately establish authenticated session
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: provisionRes.email,
+      password,
+    })
+
+    if (error || !data.session) {
+      throw new Error(error?.message || 'Account created, but automatic sign-in failed. Please sign in manually.')
+    }
+
+    const user: AuthUser = {
+      id: data.session.user.id,
+      email: '', // internal synthetic email is never exposed to user
+      fullName: fullName.trim(),
+      username: normalized,
+      isTemporaryUsernameAccount: true,
+      createdAt: data.session.user.created_at,
+    }
+
+    setCurrentUser(user)
+    setIsDemoModeState(false)
+
+    const initialProfile: StudentProfile = {
+      ...BLANK_STUDENT_PROFILE,
+      id: user.id,
+      fullName: fullName.trim(),
+      username: normalized,
+      email: '',
+    }
+    setUserProfile(initialProfile)
+    setUserSkills([])
+    setUserProjects([])
+    setDocuments([])
+    setApplications([])
+    setLiveOpportunities([])
+
+    await upsertUserProfile(initialProfile)
+    return { success: true, username: normalized }
   }
 
   // Signup handler respecting email verification
@@ -585,7 +705,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isDemoMode) {
       return SEED_OPPORTUNITIES
     }
-    return liveOpportunities
+    return liveOpportunities.length > 0 ? liveOpportunities : SEED_OPPORTUNITIES
   }, [isDemoMode, liveOpportunities])
 
   // Auto-discover live opportunities on initial load when in real connected mode
@@ -943,6 +1063,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         login,
         signup,
+        signupWithUsername,
         resendVerificationEmail,
         logout,
         enterDemoMode,

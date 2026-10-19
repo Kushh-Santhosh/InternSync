@@ -130,7 +130,7 @@ test.describe.serial('Kushal Santhosh Real Resume Acceptance & Cloud Persistence
     await page.waitForTimeout(1500)
 
     // Verify Name, Degree, Institution, and Exact Graduation Batch (Class of 2028)
-    await expect(page.getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible()
+    await expect(page.locator('main').getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible()
     await expect(page.getByText(/CMR University/i).first()).toBeVisible()
     await expect(page.getByText('Class of 2028').first()).toBeVisible()
 
@@ -163,7 +163,7 @@ test.describe.serial('Kushal Santhosh Real Resume Acceptance & Cloud Persistence
     console.log('--- Step 6: Testing Browser Reload & Re-Login Persistence ---')
     await page.reload()
     await page.waitForURL('**/career-dna')
-    await expect(page.getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible()
+    await expect(page.locator('main').getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible()
     await expect(page.getByText('Class of 2028').first()).toBeVisible()
 
     // Check private storage file exists in Supabase bucket
@@ -205,8 +205,8 @@ test.describe.serial('Kushal Santhosh Real Resume Acceptance & Cloud Persistence
     // Check Career DNA still shows Kushal's profile
     await page.goto('/career-dna')
     await page.waitForURL('**/career-dna')
-    await expect(page.getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible({ timeout: 15000 })
-    await expect(page.getByText('Class of 2028').first()).toBeVisible()
+    await expect(page.locator('main').getByText(/KUSHAL SANTHOSH P/i).first()).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('main').getByText('Class of 2028').first()).toBeVisible()
     await page.screenshot({ path: path.join(evidenceDir, '10_relogin_career_dna_persisted.png') })
 
     console.log('\n🎉 Kushal Santhosh Real Resume Acceptance Walkthrough Succeeded 100%!')

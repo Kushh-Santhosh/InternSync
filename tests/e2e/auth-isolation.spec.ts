@@ -18,10 +18,10 @@ test.describe('Authentication, Demo Mode, and Session Isolation', () => {
     await expect(page.locator('h1')).toContainText(/Sign in/i)
   })
 
-  test('Login form requires email and password', async ({ page }) => {
+  test('Login form requires identifier and password', async ({ page }) => {
     await page.goto('/login')
     await page.click('button[type="submit"]')
-    await expect(page.locator('text=Please enter your email address')).toBeVisible()
+    await expect(page.locator('text=Please enter your username or email address.')).toBeVisible()
   })
 
   test('Interactive Demo Mode activates cleanly without credentials', async ({ page }) => {
@@ -51,6 +51,7 @@ test.describe('Authentication, Demo Mode, and Session Isolation', () => {
 
     if (isMobile) {
       await page.click('button[aria-label="Open mobile menu"]')
+      await page.waitForTimeout(300)
     }
 
     // Click visible sign out button in sidebar

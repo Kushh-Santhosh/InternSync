@@ -18,7 +18,9 @@ import { cn } from '@/lib/utils/cn'
 
 export const CareerDnaPage: React.FC = () => {
   const navigate = useNavigate()
-  const { profile, skills, projects, updateProfile } = useApp()
+  const { profile, skills, projects, updateProfile, documents } = useApp()
+  const docMetric = documents.find((d) => d.extractedData?.academicMetric)?.extractedData?.academicMetric
+  const activeMetric = profile.academicMetric || docMetric
 
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'languages' | 'frontend' | 'ai_ml' | 'data' | 'tools'>('all')
 
@@ -97,7 +99,7 @@ export const CareerDnaPage: React.FC = () => {
       </div>
 
       {/* ACADEMIC METRIC & STANDING VERIFICATION */}
-      {((profile.academicMetric && !profile.isAcademicMetricConfirmed) || (!profile.isCurrentYearConfirmed && profile.currentYear > 0)) && (
+      {((activeMetric && !profile.isAcademicMetricConfirmed) || (!profile.isCurrentYearConfirmed && profile.currentYear > 0)) && (
         <div className="p-5 rounded-2xl border border-amber-200 bg-amber-50/80 text-amber-950 shadow-xs space-y-4">
           <div className="flex items-start gap-3">
             <div className="p-2 bg-amber-100 rounded-xl text-amber-700 shrink-0 mt-0.5">
@@ -113,17 +115,17 @@ export const CareerDnaPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-amber-800 max-w-3xl leading-relaxed">
-                Your profile indicates {profile.academicMetric ? `score/grade metric: ${profile.academicMetric}` : 'academic information'} ({profile.degree || 'Degree'}{profile.graduationYear ? `, Class of ${profile.graduationYear}` : ''}). Please confirm your grading standard and academic standing to ensure accurate matching against internship eligibility rules:
+                Your profile indicates {activeMetric ? `score/grade metric: ${activeMetric}` : 'academic information'} ({profile.degree || 'Degree'}{profile.graduationYear ? `, Class of ${profile.graduationYear}` : ''}). Please confirm your grading standard and academic standing to ensure accurate matching against internship eligibility rules:
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-amber-200/60">
             {/* Metric Confirmation */}
-            {profile.academicMetric && !profile.isAcademicMetricConfirmed && (
+            {activeMetric && !profile.isAcademicMetricConfirmed && (
               <div className="p-3.5 rounded-xl bg-white/80 border border-amber-200/80 space-y-2">
                 <span className="text-xs font-bold text-slate-800 block">
-                  1. Academic Grade Metric ({profile.academicMetric})
+                  1. Academic Grade Metric ({activeMetric})
                 </span>
                 <p className="text-[11px] text-slate-600 leading-normal">
                   How should recruiters and matching algorithms evaluate this score?
@@ -132,7 +134,7 @@ export const CareerDnaPage: React.FC = () => {
                   <Button
                     size="sm"
                     onClick={async () => {
-                      const metricVal = profile.academicMetric || ''
+                      const metricVal = activeMetric || ''
                       await updateProfile({
                         academicMetric: metricVal,
                         academicMetricType: 'percentage',
@@ -142,7 +144,7 @@ export const CareerDnaPage: React.FC = () => {
                     }}
                     className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs"
                   >
-                    Confirm as Percentage
+                    Confirm as {activeMetric ? `${activeMetric.replace(/[^0-9.]/g, '')}% ` : ''}Percentage
                   </Button>
                   <Button
                     size="sm"
@@ -235,10 +237,10 @@ export const CareerDnaPage: React.FC = () => {
           <div>
             <span className="text-slate-400 font-medium block">Academic Metric:</span>
             {(() => {
-              if (!profile.academicMetric) {
+              if (!activeMetric) {
                 return <span className="text-sm font-bold mt-0.5 block text-slate-400">Not specified</span>
               }
-              const cleanScore = profile.academicMetric
+              const cleanScore = activeMetric
                 .replace(/^(?:Current\s+)?(?:CGPA|GPA|Percentage)[\s:]*/i, '')
                 .replace(/%$/, '')
                 .trim()

@@ -35,11 +35,27 @@ export async function fetchUserProfile(userId: string): Promise<StudentProfile |
       return null
     }
 
-    if (!data) return null
+    let academicMetric: string | undefined = undefined
+    let isAcademicMetricConfirmed = false
+
+    if (data.bio) {
+      const confirmedMatch = data.bio.match(/Academic Metric:\s*Confirmed\s*([0-9.]+)%?/i)
+      if (confirmedMatch) {
+        academicMetric = confirmedMatch[1]
+        isAcademicMetricConfirmed = true
+      } else {
+        const unconfirmedMatch = data.bio.match(/Academic Metric:\s*([0-9.]+)%?/i)
+        if (unconfirmedMatch) {
+          academicMetric = unconfirmedMatch[1]
+          isAcademicMetricConfirmed = false
+        }
+      }
+    }
 
     return {
       id: data.id,
       fullName: data.full_name || '',
+      username: data.username || undefined,
       email: '', // filled from auth session
       university: data.university || '',
       degree: data.degree || '',
@@ -55,6 +71,8 @@ export async function fetchUserProfile(userId: string): Promise<StudentProfile |
       githubUsername: data.github_username || '',
       careerInterests: data.career_interests || [],
       targetRole: data.target_role || '',
+      academicMetric,
+      isAcademicMetricConfirmed,
       bio: data.bio || '',
     }
   } catch (err) {
@@ -70,6 +88,7 @@ export async function upsertUserProfile(profile: StudentProfile): Promise<boolea
     const { error } = await supabase.from('profiles').upsert({
       id: profile.id,
       full_name: profile.fullName || 'Student Candidate',
+      username: profile.username || null,
       university: profile.university || 'University',
       degree: profile.degree || 'B.Tech',
       branch: profile.branch || 'Computer Science',
@@ -84,7 +103,19 @@ export async function upsertUserProfile(profile: StudentProfile): Promise<boolea
       github_username: profile.githubUsername || null,
       target_role: profile.targetRole || null,
       career_interests: profile.careerInterests || [],
-      bio: profile.bio || null,
+      bio: (() => {
+        let b = profile.bio || ''
+        if (profile.academicMetric) {
+          const cleanM = profile.academicMetric.replace(/[^0-9.]/g, '')
+          if (profile.isAcademicMetricConfirmed) {
+            b = b.replace(/Academic Metric:[^|]+/i, '').trim()
+            b = (b ? b + ' | ' : '') + `Academic Metric: Confirmed ${cleanM}% aggregate percentage`
+          } else if (!b.includes('Academic Metric:')) {
+            b = (b ? b + ' | ' : '') + `Academic Metric: ${cleanM}`
+          }
+        }
+        return b || null
+      })(),
       updated_at: new Date().toISOString(),
     })
 

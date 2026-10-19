@@ -5,6 +5,7 @@ import {
   Lock,
   Mail,
   User,
+  AtSign,
   Eye,
   EyeOff,
   Sparkles,
@@ -14,30 +15,41 @@ import {
   RotateCw,
   ArrowLeft,
   Info,
+  ShieldCheck,
+  Zap,
 } from 'lucide-react'
 import { useApp } from '@/app/context'
 import { Button } from '@/components/ui/Button'
 import { InternSyncLogo } from '@/components/brand/InternSyncLogo'
+import { validateUsername } from '@/lib/supabase/auth-username'
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate()
-  const { signup, resendVerificationEmail, enterDemoMode, isSupabaseConfigured } = useApp()
+  const { signup, signupWithUsername, resendVerificationEmail, enterDemoMode, isSupabaseConfigured } = useApp()
 
+  // Mode: 'username' (Hackathon MVP, Instant) vs 'email' (Traditional with confirmation)
+  const [signupMode, setSignupMode] = useState<'username' | 'email'>('username')
+
+  // Common and mode-specific fields
   const [fullName, setFullName] = useState('')
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [verificationSent, setVerificationSent] = useState(false)
 
-  // Resend state & cooldown timer
+  // Resend state & cooldown timer for email mode
   const [resendCooldown, setResendCooldown] = useState(0)
   const [isResending, setIsResending] = useState(false)
   const [resendMessage, setResendMessage] = useState('')
   const [resendError, setResendError] = useState('')
 
-  // Handle countdown timer
+  // Countdown timer for resend
   useEffect(() => {
     if (resendCooldown <= 0) return
     const timer = setInterval(() => {
@@ -46,8 +58,48 @@ export const SignupPage: React.FC = () => {
     return () => clearInterval(timer)
   }, [resendCooldown])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleUsernameSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
+
+    if (!fullName.trim() || fullName.trim().length < 2) {
+      setError('Please provide your full name (at least 2 characters).')
+      return
+    }
+
+    const usernameCheck = validateUsername(username)
+    if (!usernameCheck.valid) {
+      setError(usernameCheck.error || 'Please provide a valid username.')
+      return
+    }
+
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters.')
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match. Please re-enter.')
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      await signupWithUsername(fullName.trim(), username.trim(), password)
+      // Account created and session established immediately
+      navigate('/dashboard')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Account creation failed. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
     if (!fullName.trim() || !email.trim()) {
       setError('Please provide your name and email.')
       return
@@ -57,17 +109,15 @@ export const SignupPage: React.FC = () => {
       return
     }
 
-    setError('')
     setIsLoading(true)
 
     try {
       const res = await signup(fullName.trim(), email.trim(), password)
       if (res.requiresVerification) {
         setVerificationSent(true)
-        setResendCooldown(60) // Start 60s cooldown for resending
+        setResendCooldown(60)
       } else {
-        // Immediate session without confirmation required
-        navigate('/onboarding')
+        navigate('/dashboard')
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Account creation failed. Please try again.')
@@ -101,7 +151,7 @@ export const SignupPage: React.FC = () => {
     navigate('/dashboard')
   }
 
-  // --- VERIFICATION PENDING SCREEN ---
+  // --- VERIFICATION PENDING SCREEN (Email Mode Only) ---
   if (verificationSent) {
     return (
       <div className="min-h-screen bg-[#fafbfc] flex flex-col justify-center py-12 sm:px-6 lg:px-8 selection:bg-indigo-100 selection:text-indigo-900">
@@ -123,7 +173,6 @@ export const SignupPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Step-by-Step Instructions */}
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-3 text-xs">
               <div className="font-semibold text-slate-800 flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 text-indigo-600" />
@@ -133,11 +182,10 @@ export const SignupPage: React.FC = () => {
                 <li>Open the confirmation email sent to <span className="font-medium text-slate-800">{email}</span>.</li>
                 <li>Check your <strong>Spam</strong> or <strong>Promotions</strong> folder if it doesn’t arrive within 2 minutes.</li>
                 <li>Click the <strong>Confirm Email</strong> link to activate your student account.</li>
-                <li>Return here to sign in and immediately access your Career DNA and opportunity dashboard.</li>
+                <li>Return here to sign in and immediately access your Career DNA.</li>
               </ul>
             </div>
 
-            {/* Resend Status / Alerts */}
             {resendMessage && (
               <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-medium text-emerald-800 flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -152,11 +200,10 @@ export const SignupPage: React.FC = () => {
               </div>
             )}
 
-            {/* Action Buttons */}
             <div className="space-y-3 pt-1">
               <Button
                 onClick={() => navigate('/login')}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2.5 rounded-xl font-semibold shadow-xs"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2.5 rounded-xl font-semibold shadow-xs cursor-pointer"
               >
                 Proceed to Log In
               </Button>
@@ -202,8 +249,10 @@ export const SignupPage: React.FC = () => {
     )
   }
 
-  const isDuplicateError = error.toLowerCase().includes('already exists') || error.toLowerCase().includes('already registered')
-  const isRateLimitError = error.toLowerCase().includes('rate limit')
+  const isDuplicateError =
+    error.toLowerCase().includes('already taken') ||
+    error.toLowerCase().includes('already exists') ||
+    error.toLowerCase().includes('already registered')
 
   return (
     <div className="min-h-screen bg-[#fafbfc] flex flex-col justify-center py-12 sm:px-6 lg:px-8 selection:bg-indigo-100 selection:text-indigo-900">
@@ -215,14 +264,48 @@ export const SignupPage: React.FC = () => {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
           Build your Career DNA.
         </h1>
-        <p className="mt-2 text-sm text-slate-500">
-          Upload your real evidence and uncover opportunities you actually qualify for.
+        <p className="mt-2 text-xs sm:text-sm text-slate-500">
+          Persistent student accounts with private resume analysis & opportunity readiness.
         </p>
       </div>
 
       {/* Main Card */}
-      <div className="mt-7 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
+      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
         <div className="bg-white py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/50 rounded-3xl border border-slate-200/80">
+          {/* Mode Switcher Tabs */}
+          <div className="flex p-1 rounded-xl bg-slate-100/80 border border-slate-200/60 mb-5">
+            <button
+              type="button"
+              onClick={() => {
+                setSignupMode('username')
+                setError('')
+              }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                signupMode === 'username'
+                  ? 'bg-white text-indigo-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+              <span>Instant Username</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSignupMode('email')
+                setError('')
+              }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                signupMode === 'email'
+                  ? 'bg-white text-indigo-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Mail className="w-3.5 h-3.5" />
+              <span>Email Sign Up</span>
+            </button>
+          </div>
+
           {!isSupabaseConfigured && (
             <div className="mb-5 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1.5">
               <div className="flex items-center gap-1.5 font-bold">
@@ -230,7 +313,7 @@ export const SignupPage: React.FC = () => {
                 <span>Supabase Auth Not Configured</span>
               </div>
               <p className="text-[11px] text-amber-800 leading-relaxed">
-                To create real accounts, provide <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code> and <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">VITE_SUPABASE_ANON_KEY</code> in your environment. You can explore the full application using Demo Mode.
+                To create real accounts, provide <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code> and <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">VITE_SUPABASE_ANON_KEY</code>. You can also explore via Demo Mode.
               </p>
             </div>
           )}
@@ -246,110 +329,205 @@ export const SignupPage: React.FC = () => {
                 <div className="pt-1 border-t border-rose-200/60">
                   <Link
                     to="/login"
+                    state={{ prefillIdentifier: signupMode === 'username' ? username : email }}
                     className="inline-flex items-center gap-1 font-semibold text-indigo-700 hover:text-indigo-900 text-xs underline"
                   >
-                    <span>Click here to sign in to your existing account</span>
+                    <span>Click here to sign in with this account</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
-                </div>
-              )}
-
-              {isRateLimitError && (
-                <div className="pt-2 border-t border-rose-200/60 text-[11px] text-rose-800 leading-normal space-y-2">
-                  <p>
-                    Supabase shared email delivery is currently restricted by hourly project-wide quotas. To enable unrestricted public signups, a custom SMTP provider (e.g. Resend, SendGrid, AWS SES) must be configured in the Supabase Dashboard.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={handleEnterDemo}
-                      className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors cursor-pointer text-[11px]"
-                    >
-                      Explore in Demo Mode
-                    </button>
-                    <Link
-                      to="/login"
-                      state={{ prefillEmail: email }}
-                      className="px-2.5 py-1 rounded-lg bg-white border border-rose-300 text-rose-900 font-medium hover:bg-rose-50 transition-colors text-[11px]"
-                    >
-                      Sign In with Existing Account
-                    </Link>
-                  </div>
                 </div>
               )}
             </div>
           )}
 
-          <form noValidate onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Full name
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Alex Chen"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                />
+          {/* MODE 1: INSTANT USERNAME-BASED SIGNUP (No email inbox required) */}
+          {signupMode === 'username' ? (
+            <form noValidate onSubmit={handleUsernameSubmit} className="space-y-4">
+              {/* Mandatory Hackathon Notice Banner */}
+              <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100/90 text-xs text-slate-700 flex items-start gap-2.5 leading-relaxed">
+                <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-slate-900 block mb-0.5">
+                    Temporary hackathon account:
+                  </span>
+                  <span>
+                    use your username and password to sign in again. Email verification and email-based password recovery are not enabled for this account type.
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Email address
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="email"
-                  required
-                  placeholder="alex@university.edu"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                />
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Full name
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Alex Chen"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Create password
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  placeholder="At least 6 characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Unique username
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    3–30 chars (a-z, 0-9, _)
+                  </span>
+                </div>
+                <div className="relative">
+                  <AtSign className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    required
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
+                    placeholder="e.g. alex_chen"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
+                    className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
+                  />
+                </div>
               </div>
-            </div>
 
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-xl shadow-md shadow-indigo-600/20 transition-all mt-2 cursor-pointer"
-            >
-              <span>{isLoading ? 'Creating account...' : 'Create account'}</span>
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </form>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    placeholder="At least 6 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
 
-          {/* Explicit Demo Mode Option */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Confirm password
+                </label>
+                <div className="relative">
+                  <ShieldCheck className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Re-enter password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-md shadow-indigo-600/20 transition-all mt-2 cursor-pointer"
+              >
+                <span>{isLoading ? 'Creating persistent account...' : 'Create Instant Account & Enter'}</span>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </form>
+          ) : (
+            /* MODE 2: STANDARD EMAIL SIGNUP */
+            <form noValidate onSubmit={handleEmailSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Full name
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Alex Chen"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Email address
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="alex@university.edu"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Create password
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    placeholder="At least 6 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs sm:text-sm rounded-xl shadow-md shadow-indigo-600/20 transition-all mt-2 cursor-pointer"
+              >
+                <span>{isLoading ? 'Creating account...' : 'Create account with email'}</span>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </form>
+          )}
+
+          {/* Interactive Demo Mode Option */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-200" />

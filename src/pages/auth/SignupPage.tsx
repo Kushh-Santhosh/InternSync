@@ -255,10 +255,26 @@ export const SignupPage: React.FC = () => {
               )}
 
               {isRateLimitError && (
-                <div className="pt-1 border-t border-rose-200/60 text-[11px] text-rose-800 leading-normal">
-                  <span>
-                    The authentication server limits verification email dispatch to protect user security. You can wait 2–3 minutes and retry, or explore the full platform immediately via Demo Mode below.
-                  </span>
+                <div className="pt-2 border-t border-rose-200/60 text-[11px] text-rose-800 leading-normal space-y-2">
+                  <p>
+                    Supabase shared email delivery is currently restricted by hourly project-wide quotas. To enable unrestricted public signups, a custom SMTP provider (e.g. Resend, SendGrid, AWS SES) must be configured in the Supabase Dashboard.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleEnterDemo}
+                      className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors cursor-pointer text-[11px]"
+                    >
+                      Explore in Demo Mode
+                    </button>
+                    <Link
+                      to="/login"
+                      state={{ prefillEmail: email }}
+                      className="px-2.5 py-1 rounded-lg bg-white border border-rose-300 text-rose-900 font-medium hover:bg-rose-50 transition-colors text-[11px]"
+                    >
+                      Sign In with Existing Account
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>

@@ -6,8 +6,10 @@ import { SKILL_TAXONOMY, normalizeSkill } from '@/lib/matching/taxonomy'
 import {
   insertUserDocumentMetadata,
   uploadDocumentToStorage,
+  deleteDocumentFromStorage,
   upsertUserProfile,
 } from '@/lib/supabase/database'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase/client'
 import { isValidUUID } from '@/lib/utils/uuid'
 import type {
   EvidenceStrength,
@@ -404,13 +406,24 @@ export async function extractStructuredResumeAI(text: string): Promise<Extracted
 export function validateDocumentFile(file: File): { valid: boolean; error?: string } {
   const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
   if (file.size > MAX_SIZE_BYTES) {
-    return { valid: false, error: 'File size exceeds maximum allowable limit (10MB).' }
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1)
+    return { valid: false, error: `File size exceeds the 10MB limit (uploaded: ${sizeMb}MB). Please upload a smaller document.` }
   }
 
   const blockedExtensions = ['.exe', '.bat', '.cmd', '.sh', '.bin', '.dll', '.msi', '.vbs', '.js']
   const lowerName = file.name.toLowerCase()
   if (blockedExtensions.some((ext) => lowerName.endsWith(ext))) {
-    return { valid: false, error: 'Executable files are prohibited for security.' }
+    return { valid: false, error: 'Executable and script files are strictly prohibited.' }
+  }
+
+  const allowedExtensions = ['.pdf', '.docx', '.doc', '.pptx', '.ppt', '.txt', '.md']
+  const hasAllowedExt = allowedExtensions.some((ext) => lowerName.endsWith(ext))
+  if (!hasAllowedExt) {
+    const extMatch = lowerName.lastIndexOf('.') >= 0 ? lowerName.slice(lowerName.lastIndexOf('.')) : 'unknown'
+    return {
+      valid: false,
+      error: `Unsupported file format "${extMatch}". Please upload a supported PDF, DOCX, PPTX, or TXT file.`
+    }
   }
 
   if (file.type.startsWith('image/')) {
@@ -451,7 +464,9 @@ export async function processUploadedDocument(
     )
   }
 
-  const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+  const docId = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
   let parsedText = ''
   let slideCount: number | undefined
   const extractedProjects: ProjectItem[] = []
@@ -640,48 +655,73 @@ export async function processUploadedDocument(
     }
   }
 
-  // 5. Upload to Supabase Storage & Database if user is authenticated
+  // 5. Upload to Supabase Storage & Database ONLY IF user is genuinely authenticated
   let storagePath: string | undefined
-  if (currentProfile.id) {
-    console.log('[processUploadedDocument] Ensuring profile row exists for:', currentProfile.id)
-    await upsertUserProfile(currentProfile)
+  const hasValidAuthId = Boolean(currentProfile.id && isValidUUID(currentProfile.id))
 
-    console.log('[processUploadedDocument] Uploading to private Supabase storage...')
-    const uploadRes = await uploadDocumentToStorage(currentProfile.id, file)
-    if (uploadRes.error) {
-      console.error('[processUploadedDocument] Storage upload error:', uploadRes.error)
-      throw new Error(`Failed to upload document to storage: ${uploadRes.error}`)
+  if (hasValidAuthId && isSupabaseConfigured && supabase) {
+    try {
+      const { data: authSession } = await supabase.auth.getUser()
+      const isSessionValid = Boolean(authSession?.user && authSession.user.id === currentProfile.id)
+
+      if (isSessionValid) {
+        console.log('[processUploadedDocument] Authenticated student confirmed:', currentProfile.id)
+        await upsertUserProfile(currentProfile)
+
+        console.log('[processUploadedDocument] Uploading to private Supabase storage path...')
+        const uploadRes = await uploadDocumentToStorage(currentProfile.id, file, docId)
+        if (uploadRes.error) {
+          console.error('[processUploadedDocument] Storage upload error:', uploadRes.error)
+          throw new Error(`Failed to upload document to storage: ${uploadRes.error}`)
+        }
+        storagePath = uploadRes.path
+        console.log('[processUploadedDocument] Storage upload successful, path:', storagePath)
+
+        console.log('[processUploadedDocument] Inserting document metadata into public.documents...')
+        const metaRes = await insertUserDocumentMetadata({
+          id: isValidUUID(docId) ? docId : undefined,
+          studentId: currentProfile.id,
+          fileName: file.name,
+          storagePath,
+          contentType: file.type || 'application/octet-stream',
+          fileSize: file.size,
+          documentType: type,
+          processingStatus: 'parsed',
+          extractedSkills: detectedSkills.map((s) => s.skillName),
+          extractedProjects: extractedProjects.map((p) => p.title),
+          extractedData: {
+            skillCount: detectedSkills.length,
+            projectCount: extractedProjects.length,
+            ambiguousFields: aiExtraction?.ambiguousFields || [],
+            academicMetric: aiExtraction?.academicMetric || null,
+            certifications: aiExtraction?.certifications || [],
+          },
+        })
+
+        if (!metaRes) {
+          console.error('[processUploadedDocument] Metadata insertion failed, rolling back storage object...')
+          if (storagePath) {
+            await deleteDocumentFromStorage(storagePath).catch(() => {})
+          }
+          throw new Error('Failed to record document metadata in database. Storage file was safely rolled back.')
+        }
+        console.log('[processUploadedDocument] Document metadata saved successfully!')
+        summaryNotes.push('Stored and recorded securely in private document storage.')
+      } else {
+        console.warn('[processUploadedDocument] Profile ID is set but active session is missing or mismatched. Processing in-memory.')
+        summaryNotes.push('Processed in temporary session. Sign in to permanently save your document and Career DNA.')
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && (err.message.includes('Failed to upload document') || err.message.includes('Failed to record document metadata'))) {
+        throw err
+      }
+      console.error('[processUploadedDocument] Storage upload exception:', err)
+      throw err
     }
-    storagePath = uploadRes.path
-    console.log('[processUploadedDocument] Storage upload successful, path:', storagePath)
-
-    console.log('[processUploadedDocument] Inserting document metadata into public.documents...')
-    const metaRes = await insertUserDocumentMetadata({
-      id: isValidUUID(docId) ? docId : undefined,
-      studentId: currentProfile.id,
-      fileName: file.name,
-      storagePath,
-      contentType: file.type || 'application/octet-stream',
-      fileSize: file.size,
-      documentType: type,
-      processingStatus: 'parsed',
-      extractedSkills: detectedSkills.map((s) => s.skillName),
-      extractedProjects: extractedProjects.map((p) => p.title),
-      extractedData: {
-        skillCount: detectedSkills.length,
-        projectCount: extractedProjects.length,
-        ambiguousFields: aiExtraction?.ambiguousFields || [],
-        academicMetric: aiExtraction?.academicMetric || null,
-        certifications: aiExtraction?.certifications || [],
-      },
-    })
-
-    if (!metaRes) {
-      console.error('[processUploadedDocument] Metadata insertion failed')
-      throw new Error('Failed to record document metadata in database.')
-    }
-    console.log('[processUploadedDocument] Document metadata saved successfully!')
-    summaryNotes.push('Stored and recorded securely in private document storage.')
+  } else {
+    // Visitor or Demo Mode: safe in-memory processing without cloud persistence
+    console.log('[processUploadedDocument] Running in temporary demo/visitor mode (no cloud storage write).')
+    summaryNotes.push('Processed in temporary session. Sign in to permanently save your document and Career DNA.')
   }
 
   const uploadedDoc: UploadedDocument = {

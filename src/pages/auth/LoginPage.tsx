@@ -22,7 +22,7 @@ export const LoginPage: React.FC = () => {
   const location = useLocation()
   const { login, resendVerificationEmail, enterDemoMode, isSupabaseConfigured } = useApp()
 
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => (location.state as any)?.prefillEmail || '')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)

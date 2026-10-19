@@ -407,21 +407,36 @@ export async function upsertUserApplication(app: ApplicationItem): Promise<boole
  */
 export async function uploadDocumentToStorage(
   userId: string,
-  file: File
+  file: File,
+  docId?: string
 ): Promise<{ path: string; error?: string }> {
   if (!isSupabaseConfigured || !supabase) {
     return { path: '', error: 'Supabase storage is not configured' }
   }
 
+  // Ensure caller provides a valid UUID user ID
+  if (!userId || !isValidUUID(userId)) {
+    return { path: '', error: 'Authentication required: User must be signed in with a valid account to upload to cloud storage.' }
+  }
+
   try {
+    // Verify authenticated session matches target user ID
+    const { data: authData, error: authErr } = await supabase.auth.getUser()
+    if (authErr || !authData.user || authData.user.id !== userId) {
+      return { path: '', error: 'Session mismatch: You must be logged in as this student to upload documents.' }
+    }
+
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-    const filePath = `${userId}/${Date.now()}-${sanitizedName}`
+    // Follow clean ownership hierarchy: {authenticated_user_id}/{document_id}/{safe_filename}
+    const filePath = docId
+      ? `${userId}/${docId}/${sanitizedName}`
+      : `${userId}/${Date.now()}-${sanitizedName}`
 
     const { error } = await supabase.storage
       .from('documents')
       .upload(filePath, file, {
         cacheControl: '3600',
-        upsert: false,
+        upsert: true,
       })
 
     if (error) {
@@ -431,6 +446,32 @@ export async function uploadDocumentToStorage(
     return { path: filePath }
   } catch (err: unknown) {
     return { path: '', error: err instanceof Error ? err.message : 'Upload failed' }
+  }
+}
+
+/**
+ * Generate a secure time-limited signed URL for private document download
+ */
+export async function getDocumentSignedUrl(
+  filePath: string,
+  expiresIn = 300
+): Promise<{ signedUrl?: string; error?: string }> {
+  if (!isSupabaseConfigured || !supabase) {
+    return { error: 'Supabase storage is not configured' }
+  }
+
+  try {
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(filePath, expiresIn)
+
+    if (error) {
+      return { error: error.message }
+    }
+
+    return { signedUrl: data.signedUrl }
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Failed to generate signed download URL' }
   }
 }
 

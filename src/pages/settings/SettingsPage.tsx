@@ -17,10 +17,12 @@ import {
   MapPin,
   Briefcase,
   FileCheck,
+  Download,
 } from 'lucide-react'
 import { useApp } from '@/app/context'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils/cn'
+import { getDocumentSignedUrl } from '@/lib/supabase/database'
 
 type SettingsTab = 'profile' | 'preferences' | 'documents' | 'account' | 'privacy'
 
@@ -463,6 +465,22 @@ export const SettingsPage: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    {doc.storagePath && (
+                      <button
+                        onClick={async () => {
+                          const { signedUrl, error } = await getDocumentSignedUrl(doc.storagePath!)
+                          if (error || !signedUrl) {
+                            showToast(error || 'Failed to generate download link.')
+                            return
+                          }
+                          window.open(signedUrl, '_blank')
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                        title="Download private document"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteDocument(doc.id)}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"

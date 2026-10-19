@@ -17,7 +17,7 @@ import {
   fetchUserDocuments,
   deleteUserDocument,
 } from '@/lib/supabase/database'
-import { generateApplicationId } from '@/lib/utils/uuid'
+import { generateApplicationId, isValidUUID } from '@/lib/utils/uuid'
 import type {
   ApplicationItem,
   ApplicationStatus,
@@ -455,8 +455,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
       if (error) {
         const msg = error.message || ''
-        if (msg.includes('rate limit') || error.code === 'over_email_send_rate_limit' || (error as any).status === 429) {
-          throw new Error('Email verification rate limit reached. The authentication mail server has temporarily restricted sending verification emails. Please wait a few minutes before trying again.')
+        if (msg.toLowerCase().includes('rate limit') || error.code === 'over_email_send_rate_limit' || (error as any).status === 429) {
+          throw new Error('Email verification rate limit reached. The Supabase shared mail service has reached its hourly project quota. A custom SMTP provider (Resend, SendGrid, AWS SES) must be configured in the Supabase Dashboard for public registrations. You can explore the full platform immediately via Demo Mode or sign in with an existing verified account.')
         }
         if (msg.toLowerCase().includes('already registered')) {
           throw new Error('An account with this email address already exists. Please sign in instead.')
@@ -521,8 +521,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
       if (error) {
         const msg = error.message || ''
-        if (msg.includes('rate limit') || error.code === 'over_email_send_rate_limit' || (error as any).status === 429) {
-          throw new Error('Email verification rate limit reached. The authentication mail server has temporarily restricted sending verification emails. Please wait a few minutes before requesting another link.')
+        if (msg.toLowerCase().includes('rate limit') || error.code === 'over_email_send_rate_limit' || (error as any).status === 429) {
+          throw new Error('Email verification rate limit reached: Supabase shared email dispatch is currently restricted by project-wide hourly quota. Please wait for the quota window to reset or configure custom SMTP.')
         }
         throw new Error(msg)
       }
@@ -669,50 +669,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true
   }
 
-  // Upload document handler with true persistence
+  // Upload document handler with true persistence and demo safety
   const uploadDocument = async (
     file: File,
     type: 'resume' | 'presentation' | 'report' | 'certificate'
   ): Promise<DocumentAnalysisResult> => {
-    const studentId = currentUser?.id || activeProfile.id
+    const isAuth = Boolean(!isDemoMode && currentUser && isValidUUID(currentUser.id) && isSupabaseConfigured)
+    const studentId = isAuth ? currentUser!.id : activeProfile.id
+
     const effectiveProfile: StudentProfile = {
       ...(userProfile || BLANK_STUDENT_PROFILE),
       id: studentId,
       email: currentUser?.email || activeProfile.email,
       fullName: currentUser?.fullName || activeProfile.fullName,
     }
+
     const result = await processUploadedDocument(file, type, effectiveProfile, activeSkills)
 
-    if (!isDemoMode && currentUser && isSupabaseConfigured) {
-      if (!result.storagePath) {
-        throw new Error('Upload failed: Document could not be saved to private Supabase storage.')
-      }
+    if (isAuth && !result.storagePath) {
+      throw new Error('Upload failed: Document could not be saved to private Supabase storage.')
     }
 
     setDocuments((prev) => [result.document, ...prev])
 
-    if (!isDemoMode) {
+    if (isAuth) {
       if (result.updatedProfile) {
         const updated = { ...userProfile, ...result.updatedProfile, id: studentId }
-        if (currentUser && isSupabaseConfigured) {
-          const ok = await upsertUserProfile(updated)
-          if (!ok) {
-            console.warn('[Context] Failed to persist extracted profile updates to Supabase.')
-          }
+        const ok = await upsertUserProfile(updated)
+        if (!ok) {
+          console.warn('[Context] Failed to persist extracted profile updates to Supabase.')
         }
         setUserProfile(updated)
       }
 
       const merged = result.newSkills
-      if (currentUser && isSupabaseConfigured) {
-        await Promise.all(merged.map((s) => upsertUserSkill(studentId, s)))
-      }
+      await Promise.all(merged.map((s) => upsertUserSkill(studentId, s)))
       setUserSkills(merged)
 
       if (result.newProjects.length > 0) {
-        if (currentUser && isSupabaseConfigured) {
-          await Promise.all(result.newProjects.map((p) => insertUserProject({ ...p, studentId })))
-        }
+        await Promise.all(result.newProjects.map((p) => insertUserProject({ ...p, studentId })))
+        setUserProjects((prev) => [...result.newProjects, ...prev])
+      }
+    } else {
+      // In Demo Mode / temporary unauthenticated visitor session: update in-memory state cleanly
+      if (result.updatedProfile) {
+        setUserProfile((prev) => ({ ...prev, ...result.updatedProfile }))
+      }
+      if (result.newSkills.length > 0) {
+        setUserSkills(result.newSkills)
+      }
+      if (result.newProjects.length > 0) {
         setUserProjects((prev) => [...result.newProjects, ...prev])
       }
     }

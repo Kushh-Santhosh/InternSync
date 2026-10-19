@@ -100,6 +100,11 @@ export const ResumeUploadCard: React.FC<ResumeUploadCardProps> = ({
       console.error('Resume processing error:', err)
       setErrorMessage(msg)
       setIsProcessing(false)
+      setUploadedFileName(null)
+      setCurrentStep(1)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 

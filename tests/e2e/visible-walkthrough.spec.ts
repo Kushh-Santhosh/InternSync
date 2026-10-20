@@ -68,8 +68,9 @@ test.describe.serial('Visible End-to-End Walkthrough & Real Inspection', () => {
     await page.screenshot({ path: path.join(evidenceDir, '06_login_empty_validation.png') })
 
     // Test non-existent credentials (truthful error when Supabase not configured or bad creds)
+    const invalidPass = `Invalid_${Math.random().toString(36).slice(2, 8)}!Aa1`
     await page.fill('input[placeholder="name@university.edu"]', 'student@testuniversity.edu')
-    await page.fill('input[placeholder="••••••••"]', 'wrongpassword')
+    await page.fill('input[placeholder="••••••••"]', invalidPass)
     await page.click('button[type="submit"]')
     await page.waitForTimeout(1000)
     await page.screenshot({ path: path.join(evidenceDir, '07_login_attempt_feedback.png') })

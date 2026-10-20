@@ -3,17 +3,22 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { createClient } from '@supabase/supabase-js'
 
-const PROD_URL = 'https://intern-sync-one.vercel.app'
+const PROD_URL = process.env.TEST_BASE_URL || 'https://intern-sync-one.vercel.app'
 const timestamp = Date.now()
 const testUsername = `user_${timestamp}`
-const testPassword = `Pass#${timestamp}!`
+const testPassword = process.env.TEST_PASSWORD || `Audit_${Math.random().toString(36).slice(2, 10)}!Aa1`
+const wrongPassword = `Invalid_${Math.random().toString(36).slice(2, 10)}!Aa1`
 const testFullName = `Aditya Nair`
 
-// Read Supabase credentials from local .env to verify remote storage
-const envContent = fs.readFileSync('.env', 'utf8')
-const supabaseUrl = envContent.match(/VITE_SUPABASE_URL=([^\r\n]+)/)?.[1] || ''
-const supabaseAnonKey = envContent.match(/VITE_SUPABASE_ANON_KEY=([^\r\n]+)/)?.[1] || ''
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Read Supabase credentials safely
+let supabaseUrl = process.env.VITE_SUPABASE_URL || ''
+let supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || ''
+if (!supabaseUrl && fs.existsSync('.env')) {
+  const envContent = fs.readFileSync('.env', 'utf8')
+  supabaseUrl = envContent.match(/VITE_SUPABASE_URL=([^\r\n]+)/)?.[1] || ''
+  supabaseAnonKey = envContent.match(/VITE_SUPABASE_ANON_KEY=([^\r\n]+)/)?.[1] || ''
+}
+const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder')
 
 async function runLiveAudit() {
   console.log(`[AUDIT] Starting Live Production Audit against ${PROD_URL}`)
@@ -104,7 +109,7 @@ async function runLiveAudit() {
   // Test Incorrect Password Rejection
   console.log('[ACTION] Testing wrong password rejection...')
   await page.fill('[data-testid="identifier-input"]', testUsername)
-  await page.fill('input[type="password"]', 'wrongpassword')
+  await page.fill('input[type="password"]', wrongPassword)
   await page.click('button[type="submit"]')
   await page.waitForTimeout(2000)
   const errorFeedback = page.locator('text=Invalid login credentials')

@@ -7,14 +7,24 @@ import {
   isSyntheticEmail,
 } from '../src/lib/supabase/auth-username.ts'
 
-const SUPABASE_URL = 'https://kkgnhoflqusupqnhgzkz.supabase.co'
-const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8' })
-const parsed = JSON.parse(rawKeys)
-const anonKey = parsed.find((k: any) => k.name === 'anon')?.api_key
-const serviceKey = parsed.find((k: any) => k.name === 'service_role')?.api_key
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
+
+let anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!anonKey || !serviceKey) {
-  throw new Error('Supabase anon or service_role key missing')
+  try {
+    const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8' })
+    const parsed = JSON.parse(rawKeys)
+    anonKey = anonKey || parsed.find((k: any) => k.name === 'anon')?.api_key
+    serviceKey = serviceKey || parsed.find((k: any) => k.name === 'service_role')?.api_key
+  } catch {
+    // Continue with whatever is available
+  }
+}
+
+if (!anonKey || !serviceKey) {
+  throw new Error('Supabase anon or service_role key missing from environment or CLI')
 }
 
 const adminClient = createClient(SUPABASE_URL, serviceKey, { auth: { persistSession: false } })
@@ -63,8 +73,10 @@ async function runVerification() {
   const ts = Date.now()
   const userAName = `kushal_alpha_${ts}`
   const userBName = `kushal_beta_${ts}`
-  const passwordA = 'testpassword'
-  const passwordB = 'testpassword'
+  const passwordA = `A_${Math.random().toString(36).slice(2, 10)}!Aa1`
+  const passwordB = `B_${Math.random().toString(36).slice(2, 10)}!Aa1`
+  const wrongPassword = `Wrong_${Math.random().toString(36).slice(2, 10)}!Aa1`
+  const diffPassword = `Diff_${Math.random().toString(36).slice(2, 10)}!Aa1`
 
   console.log(`\n[Step 3] Provisioning Account A (@${userAName}) and Account B (@${userBName})...`)
 
@@ -88,7 +100,7 @@ async function runVerification() {
   console.log('\n[Step 4] Testing duplicate username prevention...')
   const { data: dupRpc } = await anonClient.rpc('provision_username_student', {
     p_username: userAName,
-    p_password: 'diffpassword',
+    p_password: diffPassword,
     p_full_name: 'Imposter Student',
   })
   if (dupRpc?.success) {
@@ -119,7 +131,7 @@ async function runVerification() {
   console.log('\n[Step 6] Testing invalid credentials rejection...')
   const { error: badAuthErr } = await anonClient.auth.signInWithPassword({
     email: rpcA.email,
-    password: 'wrongpassword',
+    password: wrongPassword,
   })
   if (!badAuthErr) {
     throw new Error('Sign-in with invalid password unexpectedly succeeded!')

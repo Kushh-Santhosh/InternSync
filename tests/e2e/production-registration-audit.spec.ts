@@ -43,7 +43,8 @@ test.describe('Production Public Registration & Authentication Security Audit', 
     // 3. Valid Registration through the actual UI
     console.log('--- Step 4: Valid Registration Submission ---')
     const uniqueEmail = `audit.student.${Date.now()}@internsync.dev`
-    const validPassword = 'testpassword'
+    const validPassword = `Student_${Math.random().toString(36).slice(2, 10)}!Aa1`
+    const wrongPassword = `Wrong_${Math.random().toString(36).slice(2, 10)}!Aa1`
 
     await nameInput.fill('Audit Test Student')
     await emailInput.fill(uniqueEmail)
@@ -129,7 +130,7 @@ test.describe('Production Public Registration & Authentication Security Audit', 
     console.log('--- Step 7: Test Wrong Password on Login ---')
     await page.goto(`${PROD_URL}/login`, { waitUntil: 'networkidle' })
     await page.fill('input[type="email"]', uniqueEmail)
-    await page.fill('input[type="password"]', 'wrongpassword')
+    await page.fill('input[type="password"]', wrongPassword)
     await page.click('button[type="submit"]:has-text("Sign in")')
     await expect(page.locator('.bg-rose-50, .text-rose-700, [role="alert"]')).toBeVisible()
     await page.screenshot({

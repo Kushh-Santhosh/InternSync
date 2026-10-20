@@ -142,8 +142,9 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
     console.log('--- Step B1: Testing invalid credentials on live Vercel ---')
     await page.goto(`${PROD_BASE_URL}/login`, { waitUntil: 'networkidle' })
 
+    const invalidPass = `Invalid_${Math.random().toString(36).slice(2, 8)}!Aa1`
     await page.fill('input[placeholder="name@university.edu"]', 'invalid.random@internsync.io')
-    await page.fill('input[placeholder="••••••••"]', 'wrongpassword')
+    await page.fill('input[placeholder="••••••••"]', invalidPass)
     await page.click('button[type="submit"]')
     await page.waitForTimeout(1000)
     // Expect error alert or message

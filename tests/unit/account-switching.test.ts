@@ -211,9 +211,10 @@ describe('Account Switching, Session Restoration & Isolation Tests', () => {
       error: null,
     })
 
+    const ephemeralPassword = `Mock_${Math.random().toString(36).slice(2, 8)}!1Aa`
     const { data, error } = await supabase.auth.signUp({
       email: 'student@college.edu',
-      password: 'testpassword',
+      password: ephemeralPassword,
       options: { data: { full_name: 'New Student' } },
     })
 

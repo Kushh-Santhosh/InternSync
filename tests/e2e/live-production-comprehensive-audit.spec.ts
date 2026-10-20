@@ -7,7 +7,7 @@ import { execSync } from 'child_process'
 test.describe.serial('InternSync Live Production Comprehensive Audit Suite', () => {
   const timestamp = Date.now()
   const testUsername = `qa_audit_${timestamp.toString().slice(-6)}`
-  const testPassword = `AuditPass2026!${timestamp.toString().slice(-4)}`
+  const testPassword = process.env.TEST_PASSWORD || `Audit_${Math.random().toString(36).slice(2, 10)}!Aa1`
   const testFullName = `Audit Student ${timestamp.toString().slice(-4)}`
   const evidenceDir = path.resolve(process.cwd(), 'test-evidence', 'live-production-audit')
 
@@ -19,17 +19,22 @@ test.describe.serial('InternSync Live Production Comprehensive Audit Suite', () 
       fs.mkdirSync(evidenceDir, { recursive: true })
     }
 
-    const SUPABASE_URL = 'https://kkgnhoflqusupqnhgzkz.supabase.co'
+    const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
     try {
-      const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'ignore'],
-      })
-      const keys = JSON.parse(rawKeys)
-      const serviceKey = keys.find((k: any) => k.name.includes('service_role')).api_key
-      adminClient = createClient(SUPABASE_URL, serviceKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      })
+      let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (!serviceKey) {
+        const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'ignore'],
+        })
+        const keys = JSON.parse(rawKeys)
+        serviceKey = keys.find((k: any) => k.name.includes('service_role')).api_key
+      }
+      if (serviceKey) {
+        adminClient = createClient(SUPABASE_URL, serviceKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        })
+      }
     } catch (err) {
       console.warn('[Setup Warning] Unable to initialize Supabase admin client:', err)
     }

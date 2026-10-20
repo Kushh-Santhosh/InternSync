@@ -43,9 +43,13 @@ async function runCloudVerification() {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 
-  console.log('\n[Phase 1] Authenticating Live Student User via GoTrue...');
-  const studentEmail = 'internsync.test.a.1792086565384@gmail.com';
-  const studentPassword = 'StrongP@ssw0rd!1792086565384';
+  const studentEmail = process.env.TEST_STUDENT_EMAIL || 'internsync.test.a.1792086565384@gmail.com';
+  const studentPassword = process.env.TEST_STUDENT_PASSWORD;
+
+  if (!studentPassword) {
+    console.warn('[INFO] TEST_STUDENT_PASSWORD environment variable not configured. Set TEST_STUDENT_PASSWORD to run manual cloud storage verification.');
+    return;
+  }
 
   const { data: authData, error: authErr } = await studentClient.auth.signInWithPassword({
     email: studentEmail,

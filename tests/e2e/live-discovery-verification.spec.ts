@@ -9,7 +9,7 @@ const PROD_BASE_URL = 'https://intern-sync-one.vercel.app'
 test.describe('Live Opportunity Search & Service State Inspection', () => {
   const timestamp = Date.now()
   const testEmail = `live.search.${timestamp}@internsync.io`
-  const testPassword = `LiveSearch123!${timestamp}`
+  const testPassword = process.env.TEST_PASSWORD || `Search_${Math.random().toString(36).slice(2, 10)}!Aa1`
   let testUserId = ''
   let adminClient: any = null
 
@@ -20,16 +20,25 @@ test.describe('Live Opportunity Search & Service State Inspection', () => {
       fs.mkdirSync(evidenceDir, { recursive: true })
     }
 
-    const SUPABASE_URL = 'https://kkgnhoflqusupqnhgzkz.supabase.co'
-    const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-    })
-    const keys = JSON.parse(rawKeys)
-    const serviceKey = keys.find((k: any) => k.name.includes('service_role')).api_key
-    adminClient = createClient(SUPABASE_URL, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
+    const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
+    try {
+      let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (!serviceKey) {
+        const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'ignore'],
+        })
+        const keys = JSON.parse(rawKeys)
+        serviceKey = keys.find((k: any) => k.name.includes('service_role')).api_key
+      }
+      if (serviceKey) {
+        adminClient = createClient(SUPABASE_URL, serviceKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        })
+      }
+    } catch (err) {
+      console.warn('[Setup Warning] Unable to initialize Supabase admin client:', err)
+    }
 
     const { data: userRecord, error: createErr } = await adminClient.auth.admin.createUser({
       email: testEmail,

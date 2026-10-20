@@ -4,7 +4,9 @@ test.describe('Temporary Username-Based Account E2E Flow', () => {
   const ts = Date.now()
   const user1 = `alpha_student_${ts}`
   const user2 = `beta_student_${ts}`
-  const password = 'testpassword'
+  const password = process.env.TEST_PASSWORD || `E2E_${Math.random().toString(36).slice(2, 10)}!Aa1`
+  const mismatchFirst = `MatchA_${Math.random().toString(36).slice(2, 10)}!Aa1`
+  const mismatchSecond = `MatchB_${Math.random().toString(36).slice(2, 10)}!Aa1`
 
   test('Signup page displays required hackathon disclaimer and instant username mode', async ({ page }) => {
     await page.goto('/signup')
@@ -48,8 +50,8 @@ test.describe('Temporary Username-Based Account E2E Flow', () => {
     await expect(page.locator('text=Password must be at least 6 characters')).toBeVisible()
 
     // Password mismatch
-    await page.fill('input[placeholder*="At least 6 characters"]', 'Password123!')
-    await page.fill('input[placeholder*="Re-enter password"]', 'diffpassword')
+    await page.fill('input[placeholder*="At least 6 characters"]', mismatchFirst)
+    await page.fill('input[placeholder*="Re-enter password"]', mismatchSecond)
     await page.click('button[type="submit"]')
     await expect(page.locator('text=Passwords do not match')).toBeVisible()
   })
@@ -146,8 +148,8 @@ test.describe('Temporary Username-Based Account E2E Flow', () => {
     await page2.goto('/signup')
     await page2.fill('input[placeholder*="Alex Chen"]', 'Duplicate Imposter')
     await page2.fill('input[placeholder*="alex_chen"]', user1)
-    await page2.fill('input[placeholder*="At least 6 characters"]', 'otherpassword')
-    await page2.fill('input[placeholder*="Re-enter password"]', 'otherpassword')
+    await page2.fill('input[placeholder*="At least 6 characters"]', mismatchFirst)
+    await page2.fill('input[placeholder*="Re-enter password"]', mismatchFirst)
     await page2.click('button[type="submit"]')
 
     // Must show duplicate username error

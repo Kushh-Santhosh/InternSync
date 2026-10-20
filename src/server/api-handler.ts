@@ -43,9 +43,8 @@ const defaultConfig: ServerConfig = {
   adzunaAppId: '',
   adzunaAppKey: '',
   adzunaCountry: 'in',
-  supabaseUrl: 'https://kkgnhoflqusupqnhgzkz.supabase.co',
-  supabaseAnonKey:
-    'YOUR_SUPABASE_ANON_KEY_PLACEHOLDER',
+  supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co',
+  supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
 }
 
 // Read local .env if present on filesystem (supporting both local dev and preview)

@@ -7,7 +7,7 @@ import { execSync } from 'child_process'
 test.describe.serial('Kushal Santhosh Real Resume Acceptance & Cloud Persistence Test', () => {
   const timestamp = Date.now()
   const testEmail = `kushal.accept.test.${timestamp}@internsync.io`
-  const testPassword = `AcceptancePass123!${timestamp}`
+  const testPassword = process.env.TEST_STUDENT_PASSWORD || `Accept_${Math.random().toString(36).slice(2, 8)}!Aa1${timestamp}`
   let testUserId = ''
   let adminClient: any = null
 
@@ -18,15 +18,23 @@ test.describe.serial('Kushal Santhosh Real Resume Acceptance & Cloud Persistence
       fs.mkdirSync(evidenceDir, { recursive: true })
     }
 
-    // Retrieve service role key via official CLI in-memory for cloud test account creation
-    const SUPABASE_URL = 'https://kkgnhoflqusupqnhgzkz.supabase.co'
-    try {
-      const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'ignore'],
-      })
-      const keys = JSON.parse(rawKeys)
-      const serviceKey = keys.find((k: any) => k.name.includes('service_role')).api_key
+    // Retrieve service role key via environment or CLI in-memory
+    const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
+    let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceKey) {
+      try {
+        const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'ignore'],
+        })
+        const keys = JSON.parse(rawKeys)
+        serviceKey = keys.find((k: any) => k.name.includes('service_role'))?.api_key
+      } catch {
+        // CLI not available or not linked
+      }
+    }
+
+    if (serviceKey) {
       adminClient = createClient(SUPABASE_URL, serviceKey, {
         auth: { autoRefreshToken: false, persistSession: false },
       })

@@ -32,6 +32,8 @@ test.describe.serial('InternSync Production MVP End-to-End Real User Audit', () 
       fullPage: true,
     })
 
+    const studentPassword = process.env.TEST_STUDENT_PASSWORD || `AuditPass_${Date.now().toString(36)}!Aa1`
+
     // ────────────────────────────────────────────────────────────
     // 2. SIGN IN AS STUDENT 1: PRIYA NAIR (Software Engineer)
     // ────────────────────────────────────────────────────────────
@@ -40,7 +42,7 @@ test.describe.serial('InternSync Production MVP End-to-End Real User Audit', () 
     await expect(page.getByRole('heading', { name: /Sign in/i })).toBeVisible()
 
     await page.fill('input[placeholder="name@university.edu"]', 'priya.nair.student@internsync.dev')
-    await page.fill('input[placeholder="••••••••"]', 'testpassword')
+    await page.fill('input[placeholder="••••••••"]', studentPassword)
     await page.click('button[type="submit"]')
 
     // Wait for redirect to dashboard
@@ -276,7 +278,7 @@ test.describe.serial('InternSync Production MVP End-to-End Real User Audit', () 
     console.log('--- Step 10: Login as Ananya Sen (Student 2) ---')
     await page.goto(`${PROD_URL}/login`, { waitUntil: 'networkidle' })
     await page.fill('input[placeholder="name@university.edu"]', 'ananya.design.student@internsync.dev')
-    await page.fill('input[placeholder="••••••••"]', 'testpassword')
+    await page.fill('input[placeholder="••••••••"]', studentPassword)
     await page.click('button[type="submit"]')
     await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15000 })
 

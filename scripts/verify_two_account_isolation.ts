@@ -2,10 +2,17 @@ import { createClient } from '@supabase/supabase-js'
 import { execSync } from 'child_process'
 
 const SUPABASE_URL = 'https://kkgnhoflqusupqnhgzkz.supabase.co'
-const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8' })
-const parsed = JSON.parse(rawKeys)
-const anonKey = parsed.find((k: any) => k.name === 'anon')?.api_key
-const serviceKey = parsed.find((k: any) => k.name === 'service_role')?.api_key
+let anonKey = process.env.VITE_SUPABASE_ANON_KEY
+let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!anonKey || !serviceKey) {
+  try {
+    const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8' })
+    const parsed = JSON.parse(rawKeys)
+    anonKey = anonKey || parsed.find((k: any) => k.name === 'anon')?.api_key
+    serviceKey = serviceKey || parsed.find((k: any) => k.name === 'service_role' || k.name === 'service_role key')?.api_key
+  } catch {}
+}
 
 if (!anonKey || !serviceKey) {
   throw new Error('Could not find Supabase anon or service_role key')
@@ -20,8 +27,8 @@ async function runIsolationVerification() {
 
   const userAEmail = 'ananya.design.student@internsync.dev'
   const userBEmail = 'priya.nair.student@internsync.dev'
-  const userAPassword = 'testpassword'
-  const userBPassword = 'testpassword'
+  const userAPassword = process.env.TEST_USER_A_PASSWORD || `UserA_${Math.random().toString(36).slice(2, 10)}!Aa1`
+  const userBPassword = process.env.TEST_USER_B_PASSWORD || `UserB_${Math.random().toString(36).slice(2, 10)}!Aa1`
 
   const userAUid = 'a7def223-cd31-4d38-b1b4-b81cf40c7968'
   const userBUid = '4d1aa223-819a-4725-9ecd-68d55fbcac40'

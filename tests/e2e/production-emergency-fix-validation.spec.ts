@@ -26,10 +26,12 @@ test.describe('Production Emergency Fix: Resume Upload RLS & Student Signup Vali
     const passwordInput = page.locator('input[type="password"]').first()
     const submitBtn = page.locator('button[type="submit"]:has-text("Create account")').first()
 
+    const testPassword = `Pass_${Math.random().toString(36).slice(2, 10)}!Aa1`
+
     // Test form preservation
     await nameInput.fill('Kushal Test Student')
     await emailInput.fill('santosh.podaralla@gmail.com')
-    await passwordInput.fill('testpassword')
+    await passwordInput.fill(testPassword)
 
     console.log('Submitting signup with rate-limited email...')
     await submitBtn.click()
@@ -38,7 +40,7 @@ test.describe('Production Emergency Fix: Resume Upload RLS & Student Signup Vali
     // Form values must remain preserved
     await expect(nameInput).toHaveValue('Kushal Test Student')
     await expect(emailInput).toHaveValue('santosh.podaralla@gmail.com')
-    await expect(passwordInput).toHaveValue('testpassword')
+    await expect(passwordInput).toHaveValue(testPassword)
 
     // Check error banner shows clear message
     const errorContainer = page.locator('.bg-rose-50')
@@ -100,8 +102,9 @@ test.describe('Production Emergency Fix: Resume Upload RLS & Student Signup Vali
     const passwordInput = page.locator('input[type="password"]')
     const signInBtn = page.locator('button[type="submit"]:has-text("Sign in")')
 
+    const passwordA = process.env.TEST_STUDENT_PASSWORD || `PassA_${Date.now().toString(36)}!Aa1`
     await emailInput.fill('ananya.design.student@internsync.dev')
-    await passwordInput.fill('testpassword')
+    await passwordInput.fill(passwordA)
     await signInBtn.click()
 
     await page.waitForURL('**/dashboard', { timeout: 15000 })
@@ -164,9 +167,10 @@ test.describe('Production Emergency Fix: Resume Upload RLS & Student Signup Vali
     console.log('\n--- [Workflow 4] Testing Cross-User Account Isolation (Account B) ---')
 
     // Sign in as Account B (Priya Nair)
+    const passwordB = process.env.TEST_STUDENT_PASSWORD || `PassB_${Date.now().toString(36)}!Aa1`
     await page.goto(`${PROD_URL}/login`, { waitUntil: 'networkidle' })
     await page.fill('input[type="email"]', 'priya.nair.student@internsync.dev')
-    await page.fill('input[type="password"]', 'testpassword')
+    await page.fill('input[type="password"]', passwordB)
     await page.click('button[type="submit"]:has-text("Sign in")')
 
     await page.waitForURL('**/dashboard', { timeout: 15000 })

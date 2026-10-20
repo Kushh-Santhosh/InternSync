@@ -41,10 +41,12 @@ async function run() {
     await page.goto(`${PROD_URL}/login`, { waitUntil: 'networkidle' })
     await page.screenshot({ path: path.join(screenshotDir, '04_login_screen.png'), fullPage: false })
 
+    const demoPassword = process.env.DEMO_STUDENT_PASSWORD || `Demo_${Date.now().toString(36)}!Aa1`
+
     // 4. Authenticate as Priya Nair (Student 1 - Technical Track)
     console.log('Logging in as Priya Nair...')
     await page.fill('input[type="email"]', 'priya.nair.student@internsync.dev')
-    await page.fill('input[type="password"]', 'testpassword')
+    await page.fill('input[type="password"]', demoPassword)
     await page.click('button[type="submit"]:has-text("Sign in")')
     await page.waitForURL('**/dashboard', { timeout: 15000 })
     await page.waitForTimeout(1000)
@@ -134,7 +136,7 @@ async function run() {
     console.log('Logging in as Ananya Sen...')
     await page.goto(`${PROD_URL}/login`, { waitUntil: 'networkidle' })
     await page.fill('input[type="email"]', 'ananya.design.student@internsync.dev')
-    await page.fill('input[type="password"]', 'testpassword')
+    await page.fill('input[type="password"]', demoPassword)
     await page.click('button[type="submit"]:has-text("Sign in")')
     await page.waitForURL('**/dashboard', { timeout: 15000 })
     await page.waitForTimeout(1000)
@@ -188,7 +190,7 @@ async function run() {
     // Mobile Login & Dashboard
     await mobilePage.goto(`${PROD_URL}/login`, { waitUntil: 'networkidle' })
     await mobilePage.fill('input[type="email"]', 'priya.nair.student@internsync.dev')
-    await mobilePage.fill('input[type="password"]', 'testpassword')
+    await mobilePage.fill('input[type="password"]', demoPassword)
     await mobilePage.click('button[type="submit"]:has-text("Sign in")')
     await mobilePage.waitForURL('**/dashboard', { timeout: 15000 })
     await mobilePage.waitForTimeout(1000)

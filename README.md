@@ -1,229 +1,150 @@
 # InternSync 🎯
 
-> **Understand your fit. Improve your profile. Find the right internship.**
-
-InternSync is a competition-grade, AI-powered internship opportunity-readiness platform for students. Rather than acting as a simple search aggregator, InternSync analyzes a student's complete profile, validates skill claims with project and code evidence, evaluates strict academic eligibility, explains why roles match or mismatch, categorizes opportunities into **APPLY / PREPARE / SKIP**, and generates tailored 14-day skill-gap preparation plans.
+<div align="center">
+  <img src="public/brand/internsync-logo.png" alt="InternSync Logo" width="340" />
+  <p><strong>From Apply Everywhere to Know Where You Fit.</strong></p>
+  <p><em>AI-Powered Internship Opportunity-Readiness & Decision-Support Platform</em></p>
+  <p>
+    <a href="https://intern-sync-one.vercel.app"><strong>🌐 Live Website</strong></a> •
+    <a href="https://github.com/Kushh-Santhosh/InternSync"><strong>📦 GitHub Repository</strong></a> •
+    <a href="#-quick-start-local-development"><strong>⚡ Quick Start</strong></a> •
+    <a href="#-level-2-mvp-presentation-alignment"><strong>📊 MVP Pitch Deck</strong></a>
+  </p>
+</div>
 
 ---
 
-## ✨ Key Features
+## 🏆 Project Overview
 
-1. **🧬 Career DNA Engine**
-   Multi-dimensional capability scoring (Software Engineering, AI/ML, Full-Stack, Data Science) synthesized from coursework, projects, GitHub signals, and assessments.
+**Team:** Team Fensta  
+**Competition:** SaaarthiX Hackathon — Level 2 MVP  
+**Production URL:** [https://intern-sync-one.vercel.app](https://intern-sync-one.vercel.app)  
+**Repository:** [https://github.com/Kushh-Santhosh/InternSync](https://github.com/Kushh-Santhosh/InternSync)  
 
-2. **🔍 Evidence-Based Skill Verification**
-   Skills are backed by multi-source evidence (Resume, Projects, GitHub repositories, and Skill Lab assessments) with confidence ratings (Strong, Moderate, Limited).
+InternSync shifts the student job search paradigm from generic keyword aggregators to an **Opportunity Readiness & Decision-Support Engine**. Every feature answers:
+*Why does this role fit? What qualifications or skills are missing? What should the student do next?*
 
-3. **📊 Explainable Deterministic Matching**
-   Weighted scoring engine evaluating 8 distinct vectors:
-   - Skill Compatibility: 30%
-   - Academic Eligibility: 20%
-   - Project Evidence: 15%
-   - Education: 10%
-   - Experience: 10%
-   - Location: 5%
-   - Availability: 5%
-   - Career Intent: 5%
+---
 
-4. **⚡ Tri-State Decision Engine**
-   - **APPLY NOW:** High match (>=80%) with full eligibility satisfied.
-   - **PREPARE FIRST:** 60–79% match with addressable gaps and a generated 14-day study plan.
-   - **SKIP:** Ineligible or poor alignment, saving students valuable time.
+## 🌟 The 4 Core Structural Gaps InternSync Solves
 
-5. **📅 14-Day Preparation Roadmaps**
-   Actionable daily study sprints with exercises, curated resources, and milestone checkpoints for target opportunities.
+1. **The Discovery Gap:** Stale, duplicate, or expired job postings across disconnected boards are replaced with live, traceable ATS feeds (Greenhouse, Lever, Ashby, Jobicy) with 100% genuine source application URLs.
+2. **The Understanding Gap:** Unstructured, dense job descriptions are parsed into transparent requirements: required skills, academic year cutoffs, degree prerequisites, and work mode.
+3. **The Readiness Gap:** Static self-declared keyword resumes are transformed into a dynamic, 8-factor **Career DNA** backed by extracted project evidence, course credentials, and validated technical signals.
+4. **The Decision Gap:** Random spraying and silent ghosting are replaced with a deterministic tri-state recommendation engine: **APPLY NOW** (≥80%), **PREPARE FIRST** (60–79% with a 14-day sprint roadmap), and **SKIP** (<60% or hard eligibility failure).
 
-6. **⚖️ 3-Way Opportunity Comparison**
-   Side-by-side comparative analysis matrix with AI-generated trade-off recommendations.
+---
 
-7. **🧪 Skill Lab (Adaptive Assessments)**
-   Signal tests covering Python, React, TypeScript, SQL, and AI/ML to boost skill confidence.
+## 🔄 Core Student Workflow
 
-8. **📋 Kanban Application Tracker**
-   Full application lifecycle management across 7 stages: *Saved*, *Preparing*, *Applied*, *Assessment*, *Interview*, *Offer*, *Rejected*.
+```
+Resume / Multi-Evidence Ingestion (PDF, Projects)
+                    ↓
+         Dynamic 8-Factor Career DNA
+                    ↓
+Live Opportunity Research (Greenhouse, Lever, Ashby)
+                    ↓
+  Deterministic Weighted Fit & Gap Scoring
+                    ↓
+    Tri-State Decision & Preparation Action
+ [ APPLY NOW (≥80%) | PREPARE FIRST (60-79%) | SKIP (<60%) ]
+```
 
-9. **💬 AI Career Assistant**
-   Context-aware conversational advisor grounded in the student's live Career DNA and ingested opportunities.
+---
 
-10. **🚀 100% Offline Demo Mode**
-    Runs out-of-the-box with high-fidelity seed data (34 opportunities across India & Remote) even if external Supabase or AI keys are absent.
+## ✨ Implemented Product Capabilities
+
+| Capability | Status | Implementation Details |
+|---|---|---|
+| **Official Brand Overhaul** | ✅ Production Live | Distinctive 4-petal cyan/blue/purple symbol, dark navy `Intern` and purple `Sync` wordmark, SVG & ICO favicons, PWA web manifest. |
+| **Authentication & Profile Isolation** | ✅ Production Live | Supabase Auth supporting Email and instant Username logins (`@demo.internsync.invalid`), strict Row Level Security (RLS) policies. |
+| **Document Intelligence & Parsing** | ✅ Production Live | Client-side native PDF text stream extraction (`unpdf`), project deck slide ingestion, 10MB limit enforcement, scanned document OCR detection. |
+| **8-Factor Career DNA** | ✅ Production Live | Skills (30%), Eligibility (20%), Projects (15%), Education (10%), Experience (10%), Location (5%), Availability (5%), Intent (5%). |
+| **Live ATS Opportunity Discovery** | ✅ Production Live | 34 verified opportunities across HackerRank, Supabase, Rubrik, InMobi with zero fictional records, backed by live URL verifier. |
+| **Deterministic Fit Engine** | ✅ Production Live | Pure mathematical scoring with transparent breakdown of matching skills, missing tools, and strict academic eligibility gates. |
+| **Resume Intelligence & Critique** | ✅ Production Live | STAR-format bullet elevation, role-targeted gap explanations without hallucinating achievements or experience. |
+| **14-Day Preparation Roadmaps** | ✅ Production Live | Daily milestone-driven learning sprints for roles classified as `PREPARE FIRST`. |
+| **Kanban Application Tracker** | ✅ Production Live | 7-stage application lifecycle (*Saved*, *Preparing*, *Applied*, *Assessment*, *Interview*, *Offer*, *Rejected*) persisted to Supabase. |
+| **AI Career Assistant** | ✅ Production Live | Context-aware advisor grounded in the student's live Career DNA and ingested opportunities with Gemini/OpenRouter fallback routing. |
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Frontend:** React 19, TypeScript, Vite
-- **Styling & UI:** Tailwind CSS, Lucide React, Radix UI patterns
-- **Backend & Database:** Supabase (PostgreSQL, Auth, RLS, Storage)
-- **AI Engine:** Provider abstraction supporting Google Gemini, OpenRouter, and a deterministic local fallback
-- **Testing & Tooling:** Vitest, Testing Library, Oxlint
+- **Frontend:** Vite, React 19, Strict TypeScript, Tailwind CSS, Lucide React
+- **Backend & Cloud:** Supabase (PostgreSQL 15+, Auth, RLS, Storage)
+- **AI Engine:** Multi-provider router supporting Google Gemini, OpenRouter, and local deterministic fallback
+- **Document Ingestion:** `unpdf` native WebAssembly PDF parser, JSZip XML parser for Office formats
+- **Testing & Quality:** Vitest (86 tests passing), Playwright E2E suites, Oxlint (0 errors)
+
+---
+
+## 📊 Level 2 MVP Presentation Alignment
+
+The platform directly mirrors the 11-slide SaaarthiX Level 2 MVP pitch deck:
+- **Slide 1 — Product Reveal:** "From Apply Everywhere to Know Where You Fit" (Landing Page Hero)
+- **Slide 2 — Student Problem:** 4 real challenges (Discovery Overload, Eligibility Uncertainty, Unspoken Gaps, Decision Paralysis)
+- **Slide 3 — 4 Core Gaps:** Discovery, Understanding, Readiness, Decision
+- **Slide 4 — Introducing InternSync:** 5-Stage Opportunity Readiness Pipeline
+- **Slide 5 — Student Profile & Career DNA:** 8-Factor Profile Extraction & Cloud Persistence
+- **Slide 6 — Live Opportunity Discovery:** Genuine ATS Listings with Direct Application Links
+- **Slide 7 — Match & Fit Analysis:** Deterministic Scoring & Tri-State Classification
+- **Slide 8 — Resume Intelligence:** Truthful Bullet Improvement & 14-Day Prep Roadmaps
+- **Slide 9 — Live Product Demonstration:** End-to-End Walkthrough
+- **Slide 10 — Architecture & Rigor:** Verified Tech Stack & Cloud RLS Security
+- **Slide 11 — Vision & Links:** Next Steps, Live App, and GitHub Repository
 
 ---
 
 ## 🚀 Quick Start (Local Development)
 
 ### 1. Prerequisites
-- Node.js 18+ (tested on Node 20+)
+- Node.js 20+
 - npm or pnpm
 
-### 2. Installation
+### 2. Clone and Install
 ```bash
-git clone https://github.com/your-username/InternSync.git
+git clone https://github.com/Kushh-Santhosh/InternSync.git
 cd InternSync
 npm install
 ```
 
-### 3. Environment Setup (Optional)
-Copy `.env.example` to `.env`:
+### 3. Environment Configuration
+Copy the template file:
 ```bash
 cp .env.example .env
 ```
-*(Note: If left unconfigured, InternSync offers an explicit, isolated **Interactive Demo Mode** for demonstration purposes without writing mock data to production accounts).*
 
-### 4. Run Development Server
+Required environment variables (no secret credentials committed to GitHub):
 ```bash
-npm run dev
-```
-Open `http://localhost:5173` in your browser.
-
-### 5. Running Tests & Quality Checks
-```bash
-npm run typecheck   # Strict TypeScript check (0 errors)
-npm run lint        # Oxlint linting (0 errors)
-npm run test        # Vitest unit & integration suite (47 tests passing across 7 suites)
-npm run test:e2e    # Playwright browser E2E suite (50 tests passing across Desktop & Mobile)
-npm run build       # Production bundle build
-```
-
----
-
-## 🛠️ Real Product Implementation & Architecture
-
-### Verified Production Capabilities
-1. **Real Supabase Authentication & Multi-Tenant Isolation:**
-   - Full signup, login, session restoration, logout, and password updates backed by Supabase Auth.
-   - Strict Row Level Security (RLS) ensuring student profiles, uploaded documents, skill evidence, projects, and applications remain strictly private to the authenticated owner.
-2. **Multi-Format Document Parsing & Intelligence:**
-   - Client-side format parsers for **PDF** (literal strings, Tj/TJ stream operators), **DOCX** (JSZip XML extraction from `word/document.xml`), **PPTX** (`ppt/slides/slide*.xml`), and **TXT**.
-   - Strict security validation: rejects dangerous executables (`.exe`, `.sh`, `.bat`), enforces 10MB upload limits, and accurately flags image-based documents requiring OCR.
-   - Honest, measured skill confidence (60–72% baseline for resume claims; no fabricated 90%+ scores for keyword mentions).
-3. **Deterministic 8-Factor Matching Engine:**
-   - Explainable scoring: Skills (30%), Eligibility (20%), Project Evidence (15%), Education (10%), Experience (10%), Location (5%), Availability (5%), Intent (5%).
-   - Hard academic eligibility gates (e.g. academic standing / year mismatch strictly yields **SKIP** recommendation regardless of high skill match).
-   - Project evidence actively increases matching scores (verified via automated regression test).
-4. **Live Opportunity Discovery:**
-   - Server-side OpenRouter web search and Adzuna API integration.
-   - Provider credentials and internal model chains are securely kept server-side; students are never asked for API keys.
-   - Transparent error payloads: returns explicit typed error states (`503 OPENROUTER_NOT_CONFIGURED`, `502 SEARCH_PROVIDER_ERROR`) rather than silently returning empty or fake results.
-   - Honest empty states: if 0 opportunities are found, 0 are displayed.
-5. **Persistent Application Tracker & Skill Lab:**
-   - Full 7-stage application lifecycle (*Saved*, *Preparing*, *Applied*, *Assessment*, *Interview*, *Offer*, *Rejected*) persisted to Supabase database.
-   - Explicit student action: saving an opportunity does not claim an application was submitted; application status is only marked applied on student confirmation.
-   - Objective Skill Lab quizzes for Python, React, SQL, and Machine Learning that persist verified assessment scores to the student's profile.
-6. **Separated Interactive Demo Mode:**
-   - Distinct, explicit toggle for judges to preview the platform with demo profile (Rahul Sharma) and 34 pre-evaluated opportunities without contaminating real user accounts.
-
----
-
-## ⚙️ Environment Configuration
-
-Create a `.env` file in the root directory:
-
-```bash
-# Supabase Configuration (Required for user authentication, database, and storage)
+# Supabase Configuration (Required for cloud authentication and storage)
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 
-# Internal AI & Search Discovery (Server-side implementation details)
-OPENROUTER_API_KEY=sk-or-v1-your-key-here
-OPENROUTER_PRIMARY_MODEL=meta-llama/llama-3.3-70b-instruct
-OPENROUTER_FALLBACK_MODELS=openai/gpt-4o-mini,meta-llama/llama-3.1-70b-instruct,qwen/qwen-2.5-72b-instruct
+# AI Model Routing (Server-side; falls back cleanly to deterministic local engine if omitted)
+GOOGLE_GENAI_API_KEY=your-gemini-key
+OPENROUTER_API_KEY=your-openrouter-key
+```
 
-# Adzuna Live Jobs API (Permanently disabled for free plan operation)
-ADZUNA_ENABLED=false
+### 4. Development & Build
+```bash
+npm run dev        # Launch Vite development server at http://localhost:5173
+npm run build      # Compile server bundle and production Vite bundle
+npm run typecheck  # Strict TypeScript compilation check (0 errors)
+npm run lint       # Fast Oxlint static analysis (0 errors)
+npm run test       # Run 86 unit & integration tests with Vitest
 ```
 
 ---
 
-## 🗄️ Database Setup & Storage Migrations
+## 🔒 Security & Data Privacy
 
-InternSync requires PostgreSQL 15+ and Supabase Storage. All migrations are **100% idempotent** with safe `DROP POLICY IF EXISTS`, `ADD COLUMN IF NOT EXISTS`, and conflict handling.
-
-### Option A: Run All-In-One Script (Recommended)
-Copy the entire contents of [`supabase/migrations/20261015_all_migrations_combined.sql`](file:///Users/kushal/Documents/projects/InternSync/supabase/migrations/20261015_all_migrations_combined.sql) and execute it in your **Supabase Dashboard -> SQL Editor**.
-
-### Option B: Run Migrations in Exact Dependency Order
-If applying migrations individually, execute them in this exact order:
-
-1. **`supabase/migrations/20261005_init.sql`**
-   - Enables UUID extensions (`uuid-ossp`, `pgcrypto`).
-   - Creates tables: `profiles`, `skills`, `student_skills`, `projects`, `opportunities`, `match_results`, `applications`, `assessment_questions`, `assistant_conversations`.
-   - Enables Row Level Security (RLS) on all tables and creates student ownership policies.
-
-2. **`supabase/migrations/20261015_documents_and_preferences.sql`**
-   - Adds profile columns: `target_role`, `career_interests`, `bio`.
-   - Adds opportunity columns: `source_url`, `source_domain`.
-   - Adds application unique constraint (`student_id, opportunity_id`) and scoring columns.
-   - Creates the `documents` metadata table and its RLS policies.
-
-3. **`supabase/migrations/20261015_storage_setup.sql`**
-   - Creates the private `documents` bucket in `storage.buckets` (10MB limit, allowed types: PDF, DOCX, DOC, PPTX, TXT).
-   - Enables RLS on `storage.objects`.
-   - Adds per-user folder-namespaced policies for upload, read, update, and delete:
-     `(storage.foldername(name))[1] = auth.uid()::text`.
-   - Guarantees strict multi-tenant isolation where students cannot read or write to another user's documents.
-
-### Safe Schema & Storage Health Check
-InternSync provides a safe schema-health check at `/api/settings/health` and in **Settings -> Integrations & Cloud**. It automatically distinguishes between a configured Supabase connection and a database whose application tables and storage bucket are verified ready. If any tables or buckets are missing, it flags `CONFIGURED_SCHEMA_PENDING` and specifies the exact migration needed.
+- **Untrusted Input Protection:** Resume PDFs and candidate documents are treated as untrusted data; prompt-injection defenses and strict regex sanitizers are applied.
+- **Row Level Security:** Supabase RLS policies guarantee candidates can only access and modify their own documents, profiles, and tracked applications.
+- **Client Key Isolation:** Private API keys (Gemini, OpenRouter, Supabase service roles) are strictly confined to server-side middleware and never exposed to client-side bundles.
 
 ---
 
-## 🧪 Quality Gate & Test Execution
+## 📄 License
 
-InternSync is verified against strict automated unit, integration, and browser acceptance tests:
-
-### Unit & Integration Suites (`npm run test` — Vitest, 47 tests):
-- `tests/unit/opportunity-persistence.test.ts` (6 tests passing): UUIDv5 identity generation, database persistence before application linking, collision resistance, and graceful failure handling.
-- `tests/unit/account-switching.test.ts` (3 tests passing): Multi-tenant account isolation, state cleanup upon logout, and session restoration.
-- `tests/unit/document-extraction.test.ts` (9 tests passing): Compressed PDF extraction, multi-page parsing, scanned document detection, legacy `.doc`/`.ppt` rejection, and structured schema extraction.
-- `tests/unit/real-product-pipeline.test.ts` (10 tests passing): 150+ skill taxonomy normalization, measured confidence scores, deterministic 8-factor fit, project evidence contribution, and hard eligibility mismatch gating.
-- `tests/unit/live-search.test.ts` (8 tests passing): Query generation, URL normalization, deduplication, and requirement extraction.
-- `tests/unit/matching.test.ts` (6 tests passing): Scoring weights, eligibility edge cases, and 14-day roadmap synthesis.
-- `tests/unit/model-router.test.ts` (5 tests passing): Health checks, latency tracking, and fallback chains.
-
-### End-to-End Browser Suites (`npm run test:e2e` — Playwright, 50 tests across Desktop & Mobile):
-- `tests/e2e/api-endpoints.spec.ts` (14 tests): Serverless endpoints (`/api/settings/health`, `/api/verify-url`, `/api/search/live`, `/api/search/adzuna`, `/api/ai/extract-resume`) and SPA routing integrity.
-- `tests/e2e/auth-isolation.spec.ts` (10 tests): Landing page, protected route redirection, login form validation, demo mode activation, refresh session persistence, and clean logout.
-- `tests/e2e/document-and-settings.spec.ts` (10 tests): Career DNA evidence breakdown, student-centric settings tabs, documents dropzone, Skill Lab quiz scoring, and Dream Internship simulator.
-- `tests/e2e/opportunities-and-matching.spec.ts` (8 tests): Verified opportunity badging, deterministic match breakdown, 14-day roadmap, saving to application tracker without false applied states, and comparison drawer.
-- `tests/e2e/navigation-and-layout.spec.ts` (8 tests): Honest 404 page, direct nested route navigation (`/career-paths`, `/profile`, `/assistant`), and mobile responsive drawer navigation.
-
----
-
-## 🚀 Vercel Production & Preview Deployment
-
-InternSync is configured for seamless deployment to Vercel with dedicated serverless functions and Single Page Application (SPA) routing:
-
-1. **Vercel Functions:** Standalone serverless endpoints in `api/` handle all backend logic (`/api/search/live`, `/api/ai/extract-resume`, `/api/ai/chat`, `/api/verify-url`, `/api/settings/health`).
-2. **SPA Routing:** Configured in `vercel.json` so `/api/(.*)` routes directly to serverless functions, and `/(.*)` rewrites to `/index.html` for client-side navigation.
-3. **Node Runtime:** Node.js `>=20.0.0` configured in `package.json`.
-4. **Environment Variables Required in Vercel:**
-   - `VITE_SUPABASE_URL`: Supabase URL
-   - `VITE_SUPABASE_ANON_KEY`: Supabase Anonymous Public Key
-   - `OPENROUTER_API_KEY`: Server-side OpenRouter Key
-   - `OPENROUTER_PRIMARY_MODEL`: Server-side Primary Model (default: `meta-llama/llama-3.3-70b-instruct`)
-   - `OPENROUTER_FALLBACK_MODELS`: Server-side Fallback Models (`openai/gpt-4o-mini,meta-llama/llama-3.1-70b-instruct,qwen/qwen-2.5-72b-instruct`)
-   - `ADZUNA_ENABLED`: `false`
-
----
-
-## 🛡️ Security & Privacy
-- Resumes and external inputs are strictly isolated as untrusted data with prompt-injection defense prompts and size limits.
-- All scoring formulas and eligibility gates are 100% deterministic to guarantee fairness and auditability.
-- Private document files and student records are protected by database Row Level Security.
-- Server-side API keys and internal provider configurations are never leaked to client bundles or settings pages.
-
----
-
-## 📜 License
-MIT License. Built for competition and ideathon evaluation.
+MIT License. Developed with pride by Team Fensta for SaaarthiX.

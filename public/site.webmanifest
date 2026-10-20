@@ -1,0 +1,21 @@
+{
+  "name": "InternSync — Opportunity Readiness Platform",
+  "short_name": "InternSync",
+  "description": "AI-powered internship opportunity-readiness platform for students and educational ecosystems.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#5D3FF3",
+  "icons": [
+    {
+      "src": "/brand/internsync-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/internsync-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

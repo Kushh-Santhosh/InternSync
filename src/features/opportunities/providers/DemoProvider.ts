@@ -51,7 +51,7 @@ export class DemoProvider implements OpportunityProvider {
     return {
       provider: this.name,
       status: 'ACTIVE',
-      message: 'Demo dataset provider is active with 34 verified opportunities.',
+      message: 'Demo dataset provider is active with 16 verified opportunities.',
       lastChecked: new Date().toISOString(),
     }
   }

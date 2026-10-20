@@ -4,35 +4,67 @@ import { SEED_OPPORTUNITIES } from '../src/data/seed-opportunities.ts'
 import { generateOpportunityId } from '../src/lib/utils/uuid.ts'
 
 const SUPABASE_URL = 'https://kkgnhoflqusupqnhgzkz.supabase.co'
-const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8' })
-const parsed = JSON.parse(rawKeys)
-const serviceKey = parsed.find((k: any) => k.name === 'service_role')?.api_key
+
+function getServiceKey(): string {
+  // 1. Read from approved server-side environment variable
+  const envKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
+  if (envKey) return envKey
+
+  // 2. Query via Supabase CLI if logged in locally
+  try {
+    const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    })
+    const parsed = JSON.parse(rawKeys)
+    const key = parsed.find((k: any) => k.name === 'service_role' || k.name === 'service_role key')?.api_key
+    if (key) return key
+  } catch {}
+
+  throw new Error(
+    'Supabase service_role key not configured. Set the SUPABASE_SERVICE_ROLE_KEY environment variable.'
+  )
+}
+
+const serviceKey = getServiceKey()
 const supabase = createClient(SUPABASE_URL, serviceKey)
 
 async function syncVerifiedOpportunities() {
-  console.log('[Sync] Removing legacy example.com opportunities from Supabase...')
-  const { data: badOpps, error: findErr } = await supabase
-    .from('opportunities')
-    .select('id, company_name, application_url')
-    .ilike('application_url', '%example.com%')
+  console.log('[Sync] Starting verified opportunities sync to Supabase...')
+  console.log(`[Sync] Verified dataset count: ${SEED_OPPORTUNITIES.length}`)
 
-  if (findErr) {
-    console.error('Error finding bad opps:', findErr)
+  const verifiedIds = new Set(
+    SEED_OPPORTUNITIES.map(opp =>
+      generateOpportunityId(opp.sourceUrl || opp.applicationUrl, opp.companyName, opp.roleTitle)
+    )
+  )
+
+  // 1. Fetch all existing opportunities
+  const { data: existingOpps, error: fetchErr } = await supabase
+    .from('opportunities')
+    .select('id, company_name, role_title, application_url')
+
+  if (fetchErr) {
+    console.error('Error fetching existing opportunities:', fetchErr)
     return
   }
 
-  if (badOpps && badOpps.length > 0) {
-    const badIds = badOpps.map(b => b.id)
-    const { error: delErr } = await supabase.from('opportunities').delete().in('id', badIds)
+  // 2. Identify unverified / obsolete / non-internship records to purge
+  const toDelete = (existingOpps || []).filter(o => !verifiedIds.has(o.id))
+  if (toDelete.length > 0) {
+    console.log(`[Sync] Removing ${toDelete.length} obsolete/unverified records from Supabase...`)
+    const deleteIds = toDelete.map(o => o.id)
+    const { error: delErr } = await supabase.from('opportunities').delete().in('id', deleteIds)
     if (delErr) {
-      console.error('Error deleting bad opps:', delErr)
+      console.error('Error deleting unverified opportunities:', delErr)
     } else {
-      console.log(`[Sync] Successfully deleted ${badOpps.length} obsolete example.com opportunities.`)
+      console.log(`[Sync] Successfully purged ${toDelete.length} unverified records.`)
     }
   } else {
-    console.log('[Sync] No example.com opportunities found.')
+    console.log('[Sync] No obsolete records found to purge.')
   }
 
+  // 3. Upsert verified opportunities
   console.log(`[Sync] Upserting ${SEED_OPPORTUNITIES.length} verified opportunities...`)
   let count = 0
   for (const opp of SEED_OPPORTUNITIES) {
@@ -69,10 +101,11 @@ async function syncVerifiedOpportunities() {
 
   console.log(`[Sync] Successfully upserted ${count}/${SEED_OPPORTUNITIES.length} verified opportunities into Supabase.`)
 
+  // 4. Verify final remote state
   const { data: finalOpps } = await supabase.from('opportunities').select('id, company_name, role_title, application_url')
   console.log(`[Sync] Final count of opportunities in Supabase: ${finalOpps?.length}`)
-  const remainingBad = finalOpps?.filter(o => o.application_url?.includes('example.com'))
-  console.log(`[Sync] Remaining example.com opps in Supabase: ${remainingBad?.length}`)
+  const badUrls = finalOpps?.filter(o => o.application_url?.includes('example.com') || o.application_url?.includes('jobicy.com'))
+  console.log(`[Sync] Remaining bad/unverified opps in Supabase: ${badUrls?.length || 0}`)
 }
 
 syncVerifiedOpportunities().catch(console.error)

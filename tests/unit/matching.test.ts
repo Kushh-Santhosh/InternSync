@@ -23,8 +23,11 @@ describe('Skill Taxonomy & Normalization', () => {
 })
 
 describe('Deterministic Matching Engine', () => {
-  it('calculates APPLY NOW for high-affinity role (Demo Labs AI Intern)', () => {
-    const opp = SEED_OPPORTUNITIES.find((o) => o.id === 'opp-ai-demo-labs')!
+  it('calculates APPLY NOW for high-affinity role (HackerRank SDE Intern)', () => {
+    const opp = SEED_OPPORTUNITIES.find(
+      (o) => o.companyName === 'HackerRank' && o.roleTitle.includes('Software Development Engineer')
+    )!
+    expect(opp).toBeDefined()
     const result = calculateMatch({
       student: DEMO_STUDENT_PROFILE,
       skills: DEMO_STUDENT_SKILLS,
@@ -38,8 +41,11 @@ describe('Deterministic Matching Engine', () => {
     expect(result.whyMatched.length).toBeGreaterThan(0)
   })
 
-  it('calculates PREPARE FIRST for role with addressable skill gap (VisionForge ML Intern)', () => {
-    const opp = SEED_OPPORTUNITIES.find((o) => o.id === 'opp-ml-visionforge')!
+  it('calculates PREPARE FIRST for role with addressable skill gap (Perplexity ML Research Intern)', () => {
+    const opp = SEED_OPPORTUNITIES.find(
+      (o) => o.companyName === 'Perplexity' && o.roleTitle.includes('Research Engineer')
+    )!
+    expect(opp).toBeDefined()
     const result = calculateMatch({
       student: DEMO_STUDENT_PROFILE,
       skills: DEMO_STUDENT_SKILLS,
@@ -52,8 +58,11 @@ describe('Deterministic Matching Engine', () => {
     expect(result.skillScore).toBeLessThan(75) // Triggered PREPARE FIRST because critical skill is missing
   })
 
-  it('calculates SKIP for hard eligibility mismatch (4th-year only distributed systems)', () => {
-    const opp = SEED_OPPORTUNITIES.find((o) => o.id === 'opp-be-hyperscale')!
+  it('calculates SKIP for hard eligibility mismatch (Modal ML Research 4th-year only)', () => {
+    const opp = SEED_OPPORTUNITIES.find(
+      (o) => o.companyName === 'Modal' && o.roleTitle.includes('ML Research Intern')
+    )!
+    expect(opp).toBeDefined()
     const result = calculateMatch({
       student: DEMO_STUDENT_PROFILE,
       skills: DEMO_STUDENT_SKILLS,
@@ -68,8 +77,11 @@ describe('Deterministic Matching Engine', () => {
 
 describe('14-Day Skill Gap Roadmap Synthesizer', () => {
   it('generates a 14-day structured timeline targeting missing skills', () => {
-    const opp = SEED_OPPORTUNITIES.find((o) => o.id === 'opp-ml-visionforge')!
-    const roadmap = generateSkillGapRoadmap(opp, ['PyTorch', 'Computer Vision'])
+    const opp = SEED_OPPORTUNITIES.find(
+      (o) => o.companyName === 'Perplexity' && o.roleTitle.includes('Research Engineer')
+    )!
+    expect(opp).toBeDefined()
+    const roadmap = generateSkillGapRoadmap(opp, ['PyTorch', 'Transformer Architecture'])
 
     expect(roadmap.durationDays).toBe(14)
     expect(roadmap.dailyPlan.length).toBe(14)

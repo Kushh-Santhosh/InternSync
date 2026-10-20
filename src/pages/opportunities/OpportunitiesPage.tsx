@@ -443,7 +443,11 @@ export const OpportunitiesPage: React.FC = () => {
                         </div>
                         <div className="flex justify-between border-b border-slate-200/60 pb-1">
                           <span className="text-slate-500">Stipend:</span>
-                          <span className="font-bold text-slate-800">₹{opp.stipendAmount?.toLocaleString()}/m</span>
+                          <span className="font-bold text-slate-800">
+                            {opp.stipendAmount
+                              ? `${opp.stipendCurrency === 'USD' ? '$' : '₹'}${opp.stipendAmount.toLocaleString()}/${opp.stipendPeriod === 'hour' ? 'hr' : 'm'}`
+                              : 'Not Disclosed'}
+                          </span>
                         </div>
                       </div>
 

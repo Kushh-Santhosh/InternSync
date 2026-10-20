@@ -162,7 +162,9 @@ export const OpportunityDetailPage: React.FC = () => {
                   <span>{opportunity.internshipDurationMonths} Months</span>
                 </span>
                 <span className="flex items-center gap-1 text-slate-900 font-bold">
-                  ₹{opportunity.stipendAmount?.toLocaleString()}/month
+                  {opportunity.stipendAmount
+                    ? `${opportunity.stipendCurrency === 'USD' ? '$' : '₹'}${opportunity.stipendAmount.toLocaleString()}/${opportunity.stipendPeriod === 'hour' ? 'hr' : 'month'}`
+                    : 'Stipend: Not Disclosed'}
                 </span>
               </div>
             </div>
@@ -219,9 +221,9 @@ export const OpportunityDetailPage: React.FC = () => {
           </div>
 
           <div className="text-xs text-slate-400 font-medium">
-            Deadline: {opportunity.deadline && !isNaN(Date.parse(opportunity.deadline))
-              ? new Date(opportunity.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-              : 'Rolling / Continuous applications'}
+            Deadline: {opportunity.isUndated || !opportunity.deadline || isNaN(Date.parse(opportunity.deadline))
+              ? 'Rolling / Continuous applications (Active)'
+              : new Date(opportunity.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </div>
         </div>
       </div>

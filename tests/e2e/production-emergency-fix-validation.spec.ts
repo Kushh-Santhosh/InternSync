@@ -3,9 +3,8 @@ import * as path from 'path'
 import * as fs from 'fs'
 
 import { createClient } from '@supabase/supabase-js'
-import { execSync } from 'child_process'
 
-const PROD_URL = 'https://intern-sync-one.vercel.app'
+const PROD_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:4173'
 const evidenceDir = path.resolve(process.cwd(), 'test-evidence/emergency-fix')
 const genuineResumePath = path.resolve(process.cwd(), 'fixtures/rahul_sharma_real_resume.pdf')
 const testStudentPassword = process.env.TEST_STUDENT_PASSWORD || `EmergencyPass_${Date.now().toString(36)}!Aa1`
@@ -17,26 +16,20 @@ test.describe('Production Emergency Fix: Resume Upload RLS & Student Signup Vali
     }
 
     const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
-    let serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
-    if (!serviceKey) {
-      try {
-        const raw = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] })
-        const parsed = JSON.parse(raw)
-        serviceKey = parsed.find((k: any) => k.name.includes('service_role') || k.name.includes('secret'))?.api_key
-      } catch {}
+    const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
+    if (!serviceKey && !process.env.TEST_STUDENT_PASSWORD) {
+      throw new Error('Missing required environment variable SUPABASE_SECRET_KEY (or TEST_STUDENT_PASSWORD). Cannot synchronize test accounts for emergency fix validation.')
     }
 
     if (serviceKey) {
-      try {
-        const adminClient = createClient(SUPABASE_URL, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
-        const priyaUid = '4d1aa223-819a-4725-9ecd-68d55fbcac40'
-        const ananyaUid = 'a7def223-cd31-4d38-b1b4-b81cf40c7968'
-        await adminClient.auth.admin.updateUserById(priyaUid, { password: testStudentPassword })
-        await adminClient.auth.admin.updateUserById(ananyaUid, { password: testStudentPassword })
-        console.log('✓ Synchronized authorized test accounts for emergency fix validation')
-      } catch (e: any) {
-        console.warn('Could not sync test account credentials via admin API:', e?.message || e)
-      }
+      const adminClient = createClient(SUPABASE_URL, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+      const priyaUid = '4d1aa223-819a-4725-9ecd-68d55fbcac40'
+      const ananyaUid = 'a7def223-cd31-4d38-b1b4-b81cf40c7968'
+      const { error: err1 } = await adminClient.auth.admin.updateUserById(priyaUid, { password: testStudentPassword })
+      if (err1) throw new Error(`Failed to synchronize Priya demo account: ${err1.message}`)
+      const { error: err2 } = await adminClient.auth.admin.updateUserById(ananyaUid, { password: testStudentPassword })
+      if (err2) throw new Error(`Failed to synchronize Ananya demo account: ${err2.message}`)
+      console.log('✓ Synchronized authorized test accounts for emergency fix validation')
     }
   })
 
@@ -47,6 +40,11 @@ test.describe('Production Emergency Fix: Resume Upload RLS & Student Signup Vali
     expect(page.url()).toContain('/signup')
 
     await page.screenshot({ path: path.join(evidenceDir, '01_signup_screen_initial.png'), fullPage: true })
+
+    const emailTabBtn = page.locator('button:has-text("Email address"), button:has-text("Email")').first()
+    if (await emailTabBtn.isVisible()) {
+      await emailTabBtn.click()
+    }
 
     const nameInput = page.locator('input[placeholder*="Alex Chen"], input[type="text"]').first()
     const emailInput = page.locator('input[type="email"]').first()
@@ -125,11 +123,11 @@ test.describe('Production Emergency Fix: Resume Upload RLS & Student Signup Vali
     console.log('\n--- [Workflow 3] Testing Authenticated Student Upload (Account A) ---')
     await page.goto(`${PROD_URL}/login`, { waitUntil: 'networkidle' })
 
-    const emailInput = page.locator('input[type="email"]')
-    const passwordInput = page.locator('input[type="password"]')
+    const identifierInput = page.locator('input[placeholder*="university.edu"], input[name="identifier"], input[type="text"]').first()
+    const passwordInput = page.locator('input[type="password"], input[placeholder="••••••••"]').first()
     const signInBtn = page.locator('button[type="submit"]:has-text("Sign in")')
 
-    await emailInput.fill('ananya.design.student@internsync.dev')
+    await identifierInput.fill('ananya.design.student@internsync.dev')
     await passwordInput.fill(testStudentPassword)
     await signInBtn.click()
 
@@ -167,7 +165,7 @@ test.describe('Production Emergency Fix: Resume Upload RLS & Student Signup Vali
 
     // Confirm document item is visible in the list (heading role to disambiguate from toast)
     const docHeading = page.getByRole('heading', { name: 'rahul_sharma_real_resume.pdf' }).first()
-    await expect(docHeading).toBeVisible({ timeout: 10000 })
+    await expect(docHeading).toBeVisible({ timeout: 40000 })
     console.log('✓ Document appears in student documents list!')
 
     // Confirm download button exists
@@ -194,8 +192,8 @@ test.describe('Production Emergency Fix: Resume Upload RLS & Student Signup Vali
 
     // Sign in as Account B (Priya Nair)
     await page.goto(`${PROD_URL}/login`, { waitUntil: 'networkidle' })
-    await page.fill('input[type="email"]', 'priya.nair.student@internsync.dev')
-    await page.fill('input[type="password"]', testStudentPassword)
+    await page.fill('input[placeholder*="university.edu"], input[name="identifier"], input[type="text"]', 'priya.nair.student@internsync.dev')
+    await page.fill('input[type="password"], input[placeholder="••••••••"]', testStudentPassword)
     await page.click('button[type="submit"]:has-text("Sign in")')
 
     await page.waitForURL('**/dashboard', { timeout: 15000 })

@@ -1,21 +1,34 @@
 import { createClient } from '@supabase/supabase-js'
-import { execSync } from 'child_process'
+import fs from 'fs'
+import path from 'path'
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
-let anonKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
-let serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
-
-if (!anonKey || !serviceKey) {
-  try {
-    const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] })
-    const parsed = JSON.parse(rawKeys)
-    anonKey = anonKey || parsed.find((k: any) => k.name === 'anon' || k.name.includes('publishable'))?.api_key
-    serviceKey = serviceKey || parsed.find((k: any) => k.name.includes('service_role') || k.name.includes('secret'))?.api_key
-  } catch {}
+// Load .env
+const envPath = path.resolve(process.cwd(), '.env')
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf-8')
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim()
+    if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+      const idx = trimmed.indexOf('=')
+      const key = trimmed.slice(0, idx).trim()
+      const val = trimmed.slice(idx + 1).trim()
+      if (!process.env[key]) {
+        process.env[key] = val
+      }
+    }
+  }
 }
 
-if (!anonKey || !serviceKey) {
-  throw new Error('Could not find Supabase anon/publishable or service_role/secret key in environment')
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
+const anonKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
+
+if (!anonKey) {
+  throw new Error('Missing required environment variable SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_PUBLISHABLE_KEY.')
+}
+
+if (!serviceKey) {
+  throw new Error('Missing required environment variable SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY).')
 }
 
 const adminClient = createClient(SUPABASE_URL, serviceKey, { auth: { persistSession: false } })

@@ -2,7 +2,6 @@ import { test, expect } from '@playwright/test'
 import path from 'node:path'
 import fs from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
-import { execSync } from 'child_process'
 import { calculateMatch } from '../../src/lib/matching/engine.ts'
 import type { Opportunity, StudentProfile, SkillEvidenceItem, ProjectItem } from '../../src/types/index.ts'
 
@@ -28,23 +27,14 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
     }
 
     const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
-    let serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
+    const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
     if (!serviceKey) {
-      try {
-        const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
-          encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'ignore'],
-        })
-        const keys = JSON.parse(rawKeys)
-        serviceKey = keys.find((k: any) => k.name.includes('service_role') || k.name.includes('secret'))?.api_key
-      } catch {}
+      throw new Error('Missing required environment variable SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY). Cannot run live acceptance test without admin credentials.')
     }
 
-    if (serviceKey) {
-      adminClient = createClient(SUPABASE_URL, serviceKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      })
-    }
+    adminClient = createClient(SUPABASE_URL, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
 
       // 1. Create primary genuine test student via official Supabase admin API
       const { data: userRecord, error: createErr } = await adminClient.auth.admin.createUser({

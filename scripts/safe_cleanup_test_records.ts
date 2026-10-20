@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
@@ -26,26 +25,10 @@ if (!SUPABASE_URL) {
   process.exit(1);
 }
 
-// Retrieve service role key from environment first, or via CLI in-memory
-let serviceRoleKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
+// Retrieve secret key from environment (modern SUPABASE_SECRET_KEY preferred)
+const serviceRoleKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 if (!serviceRoleKey) {
-  try {
-    const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore']
-    });
-    const parsed = JSON.parse(rawKeys);
-    const found = parsed.find((k: { name: string; api_key?: string }) => k.name.includes('service_role') || k.name.includes('secret'));
-    if (found && found.api_key) {
-      serviceRoleKey = found.api_key;
-    }
-  } catch (e) {
-    // CLI query failed
-  }
-}
-
-if (!serviceRoleKey) {
-  console.error('Could not obtain Supabase secret key from environment or CLI');
+  console.error('Missing required environment variable SUPABASE_SECRET_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY). Provide the modern Supabase secret key to execute admin cleanup.');
   process.exit(1);
 }
 

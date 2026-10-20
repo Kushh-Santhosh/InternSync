@@ -41,26 +41,21 @@ async function run() {
     await page.goto(`${PROD_URL}/login`, { waitUntil: 'networkidle' })
     await page.screenshot({ path: path.join(screenshotDir, '04_login_screen.png'), fullPage: false })
 
-    const demoPassword = process.env.DEMO_STUDENT_PASSWORD || `Demo_${Date.now().toString(36)}!Aa1`
+    const demoPassword = process.env.DEMO_STUDENT_PASSWORD || process.env.TEST_STUDENT_PASSWORD || `Demo_${Date.now().toString(36)}!Aa1`
 
     // Synchronize test account passwords if admin privileges are available
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const { execSync } = await import('child_process')
       const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
-      let serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
-      if (!serviceKey) {
-        try {
-          const raw = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] })
-          serviceKey = JSON.parse(raw).find((k: any) => k.name.includes('service_role') || k.name.includes('secret'))?.api_key
-        } catch {}
-      }
+      const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
       if (serviceKey) {
+        const { createClient } = await import('@supabase/supabase-js')
         const adminClient = createClient(SUPABASE_URL, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
         await adminClient.auth.admin.updateUserById('4d1aa223-819a-4725-9ecd-68d55fbcac40', { password: demoPassword })
         await adminClient.auth.admin.updateUserById('a7def223-cd31-4d38-b1b4-b81cf40c7968', { password: demoPassword })
       }
-    } catch {}
+    } catch (err) {
+      console.warn('Note: Could not sync demo account password via admin API:', err instanceof Error ? err.message : err)
+    }
 
     // 4. Authenticate as Priya Nair (Student 1 - Technical Track)
     console.log('Logging in as Priya Nair...')

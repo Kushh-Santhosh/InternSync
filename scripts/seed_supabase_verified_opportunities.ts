@@ -1,25 +1,31 @@
 import { createClient } from '@supabase/supabase-js'
-import { execSync } from 'child_process'
+import fs from 'fs'
+import path from 'path'
 import { SEED_OPPORTUNITIES } from '../src/data/seed-opportunities.ts'
 import { generateOpportunityId } from '../src/lib/utils/uuid.ts'
 
-const SUPABASE_URL = 'https://kkgnhoflqusupqnhgzkz.supabase.co'
+// Load .env
+const envPath = path.resolve(process.cwd(), '.env')
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf-8')
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim()
+    if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+      const idx = trimmed.indexOf('=')
+      const key = trimmed.slice(0, idx).trim()
+      const val = trimmed.slice(idx + 1).trim()
+      if (!process.env[key]) {
+        process.env[key] = val
+      }
+    }
+  }
+}
+
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
 
 function getServiceKey(): string {
-  // 1. Read from approved server-side environment variable
   const envKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
   if (envKey) return envKey
-
-  // 2. Query via Supabase CLI if logged in locally
-  try {
-    const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-    })
-    const parsed = JSON.parse(rawKeys)
-    const key = parsed.find((k: any) => k.name.includes('service_role') || k.name.includes('secret'))?.api_key
-    if (key) return key
-  } catch {}
 
   throw new Error(
     'Supabase secret key not configured. Set the SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY environment variable.'

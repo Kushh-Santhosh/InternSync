@@ -7,7 +7,7 @@ const SUPABASE_URL = 'https://kkgnhoflqusupqnhgzkz.supabase.co'
 
 function getServiceKey(): string {
   // 1. Read from approved server-side environment variable
-  const envKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
+  const envKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
   if (envKey) return envKey
 
   // 2. Query via Supabase CLI if logged in locally
@@ -17,12 +17,12 @@ function getServiceKey(): string {
       stdio: ['pipe', 'pipe', 'ignore'],
     })
     const parsed = JSON.parse(rawKeys)
-    const key = parsed.find((k: any) => k.name === 'service_role' || k.name === 'service_role key')?.api_key
+    const key = parsed.find((k: any) => k.name.includes('service_role') || k.name.includes('secret'))?.api_key
     if (key) return key
   } catch {}
 
   throw new Error(
-    'Supabase service_role key not configured. Set the SUPABASE_SERVICE_ROLE_KEY environment variable.'
+    'Supabase secret key not configured. Set the SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY environment variable.'
   )
 }
 

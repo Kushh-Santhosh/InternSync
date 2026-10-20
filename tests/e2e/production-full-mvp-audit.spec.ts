@@ -2,12 +2,40 @@ import { test, expect } from '@playwright/test'
 import path from 'node:path'
 import fs from 'node:fs'
 
+import { createClient } from '@supabase/supabase-js'
+import { execSync } from 'child_process'
+
 const PROD_URL = 'https://intern-sync-one.vercel.app'
 const evidenceDir = path.resolve(process.cwd(), 'test-evidence', 'mvp-audit')
+const studentPassword = process.env.TEST_STUDENT_PASSWORD || `AuditPass_${Date.now().toString(36)}!Aa1`
 
-test.beforeAll(() => {
+test.beforeAll(async () => {
   if (!fs.existsSync(evidenceDir)) {
     fs.mkdirSync(evidenceDir, { recursive: true })
+  }
+
+  // Ensure authorized test accounts are configured with the active test credentials
+  const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
+  let serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
+  if (!serviceKey) {
+    try {
+      const raw = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] })
+      const parsed = JSON.parse(raw)
+      serviceKey = parsed.find((k: any) => k.name.includes('service_role') || k.name.includes('secret'))?.api_key
+    } catch {}
+  }
+
+  if (serviceKey) {
+    try {
+      const adminClient = createClient(SUPABASE_URL, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+      const priyaUid = '4d1aa223-819a-4725-9ecd-68d55fbcac40'
+      const ananyaUid = 'a7def223-cd31-4d38-b1b4-b81cf40c7968'
+      await adminClient.auth.admin.updateUserById(priyaUid, { password: studentPassword })
+      await adminClient.auth.admin.updateUserById(ananyaUid, { password: studentPassword })
+      console.log('✓ Synchronized authorized test accounts for production MVP audit')
+    } catch (e: any) {
+      console.warn('Could not sync test account credentials via admin API:', e?.message || e)
+    }
   }
 })
 
@@ -31,8 +59,6 @@ test.describe.serial('InternSync Production MVP End-to-End Real User Audit', () 
       path: path.join(evidenceDir, `${viewportLabel}_01_landing.png`),
       fullPage: true,
     })
-
-    const studentPassword = process.env.TEST_STUDENT_PASSWORD || `AuditPass_${Date.now().toString(36)}!Aa1`
 
     // ────────────────────────────────────────────────────────────
     // 2. SIGN IN AS STUDENT 1: PRIYA NAIR (Software Engineer)

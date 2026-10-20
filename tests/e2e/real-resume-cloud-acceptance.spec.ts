@@ -20,7 +20,7 @@ test.describe.serial('Real Resume Acceptance & Cloud Persistence E2E Test', () =
 
     // Retrieve service role key via environment or CLI in-memory
     const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
-    let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    let serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
     if (!serviceKey) {
       try {
         const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
@@ -28,7 +28,7 @@ test.describe.serial('Real Resume Acceptance & Cloud Persistence E2E Test', () =
           stdio: ['pipe', 'pipe', 'ignore'],
         })
         const keys = JSON.parse(rawKeys)
-        serviceKey = keys.find((k: any) => k.name.includes('service_role'))?.api_key
+        serviceKey = keys.find((k: any) => k.name.includes('service_role') || k.name.includes('secret'))?.api_key
       } catch {
         // CLI not available or not linked
       }

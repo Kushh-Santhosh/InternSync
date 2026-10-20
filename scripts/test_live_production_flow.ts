@@ -12,11 +12,11 @@ const testFullName = `Aditya Nair`
 
 // Read Supabase credentials safely
 let supabaseUrl = process.env.VITE_SUPABASE_URL || ''
-let supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || ''
+let supabaseAnonKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
 if (!supabaseUrl && fs.existsSync('.env')) {
   const envContent = fs.readFileSync('.env', 'utf8')
   supabaseUrl = envContent.match(/VITE_SUPABASE_URL=([^\r\n]+)/)?.[1] || ''
-  supabaseAnonKey = envContent.match(/VITE_SUPABASE_ANON_KEY=([^\r\n]+)/)?.[1] || ''
+  supabaseAnonKey = envContent.match(/(?:VITE_SUPABASE_PUBLISHABLE_KEY|VITE_SUPABASE_ANON_KEY)=([^\r\n]+)/)?.[1] || ''
 }
 const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder')
 

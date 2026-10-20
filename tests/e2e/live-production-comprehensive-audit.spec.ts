@@ -21,14 +21,16 @@ test.describe.serial('InternSync Live Production Comprehensive Audit Suite', () 
 
     const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
     try {
-      let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      let serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
       if (!serviceKey) {
-        const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
-          encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'ignore'],
-        })
-        const keys = JSON.parse(rawKeys)
-        serviceKey = keys.find((k: any) => k.name.includes('service_role')).api_key
+        try {
+          const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'ignore'],
+          })
+          const keys = JSON.parse(rawKeys)
+          serviceKey = keys.find((k: any) => k.name.includes('service_role') || k.name.includes('secret'))?.api_key
+        } catch {}
       }
       if (serviceKey) {
         adminClient = createClient(SUPABASE_URL, serviceKey, {

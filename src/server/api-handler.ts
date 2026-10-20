@@ -44,7 +44,8 @@ const defaultConfig: ServerConfig = {
   adzunaAppKey: '',
   adzunaCountry: 'in',
   supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co',
-  supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+  supabaseAnonKey: process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+  supabaseServiceRoleKey: process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '',
 }
 
 // Read local .env if present on filesystem (supporting both local dev and preview)
@@ -74,7 +75,8 @@ try {
           if (key === 'ADZUNA_APP_KEY' && val) defaultConfig.adzunaAppKey = val
           if (key === 'ADZUNA_COUNTRY' && val) defaultConfig.adzunaCountry = val
           if ((key === 'VITE_SUPABASE_URL' || key === 'SUPABASE_URL') && val) defaultConfig.supabaseUrl = val
-          if ((key === 'VITE_SUPABASE_ANON_KEY' || key === 'SUPABASE_ANON_KEY') && val) defaultConfig.supabaseAnonKey = val
+          if ((key === 'VITE_SUPABASE_PUBLISHABLE_KEY' || key === 'SUPABASE_PUBLISHABLE_KEY' || key === 'VITE_SUPABASE_ANON_KEY' || key === 'SUPABASE_ANON_KEY') && val) defaultConfig.supabaseAnonKey = val
+          if ((key === 'SUPABASE_SECRET_KEY' || key === 'SUPABASE_SERVICE_ROLE_KEY' || key === 'SUPABASE_SERVICE_KEY') && val) defaultConfig.supabaseServiceRoleKey = val
         }
       }
     }
@@ -119,8 +121,19 @@ export function getServerConfig(): ServerConfig {
     adzunaAppKey: process.env.ADZUNA_APP_KEY || defaultConfig.adzunaAppKey || '',
     adzunaCountry: process.env.ADZUNA_COUNTRY || defaultConfig.adzunaCountry || 'in',
     supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || defaultConfig.supabaseUrl || '',
-    supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || defaultConfig.supabaseAnonKey || '',
-    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '',
+    supabaseAnonKey:
+      process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+      process.env.SUPABASE_PUBLISHABLE_KEY ||
+      process.env.VITE_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      defaultConfig.supabaseAnonKey ||
+      '',
+    supabaseServiceRoleKey:
+      process.env.SUPABASE_SECRET_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_SERVICE_KEY ||
+      defaultConfig.supabaseServiceRoleKey ||
+      '',
   }
 }
 

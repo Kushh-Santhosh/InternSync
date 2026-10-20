@@ -9,15 +9,15 @@ import {
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
 
-let anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
-let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+let anonKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+let serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 
 if (!anonKey || !serviceKey) {
   try {
-    const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8' })
+    const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] })
     const parsed = JSON.parse(rawKeys)
-    anonKey = anonKey || parsed.find((k: any) => k.name === 'anon')?.api_key
-    serviceKey = serviceKey || parsed.find((k: any) => k.name === 'service_role')?.api_key
+    anonKey = anonKey || parsed.find((k: any) => k.name === 'anon' || k.name.includes('publishable'))?.api_key
+    serviceKey = serviceKey || parsed.find((k: any) => k.name.includes('service_role') || k.name.includes('secret'))?.api_key
   } catch {
     // Continue with whatever is available
   }

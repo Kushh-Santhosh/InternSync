@@ -26,24 +26,26 @@ if (!SUPABASE_URL) {
   process.exit(1);
 }
 
-// Retrieve service role key in-memory via official CLI (never logged or printed)
-let serviceRoleKey = '';
-try {
-  const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'ignore']
-  });
-  const parsed = JSON.parse(rawKeys);
-  const found = parsed.find((k: { name: string; api_key?: string }) => k.name === 'service_role key' || k.name === 'service_role');
-  if (found && found.api_key) {
-    serviceRoleKey = found.api_key;
+// Retrieve service role key from environment first, or via CLI in-memory
+let serviceRoleKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
+if (!serviceRoleKey) {
+  try {
+    const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore']
+    });
+    const parsed = JSON.parse(rawKeys);
+    const found = parsed.find((k: { name: string; api_key?: string }) => k.name.includes('service_role') || k.name.includes('secret'));
+    if (found && found.api_key) {
+      serviceRoleKey = found.api_key;
+    }
+  } catch (e) {
+    // CLI query failed
   }
-} catch (e) {
-  console.error('Failed to query service role key via CLI:', e);
 }
 
 if (!serviceRoleKey) {
-  console.error('Could not obtain service role key from CLI');
+  console.error('Could not obtain Supabase secret key from environment or CLI');
   process.exit(1);
 }
 

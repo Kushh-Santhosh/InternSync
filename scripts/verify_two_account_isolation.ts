@@ -1,21 +1,21 @@
 import { createClient } from '@supabase/supabase-js'
 import { execSync } from 'child_process'
 
-const SUPABASE_URL = 'https://kkgnhoflqusupqnhgzkz.supabase.co'
-let anonKey = process.env.VITE_SUPABASE_ANON_KEY
-let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://kkgnhoflqusupqnhgzkz.supabase.co'
+let anonKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+let serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 
 if (!anonKey || !serviceKey) {
   try {
-    const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8' })
+    const rawKeys = execSync('supabase projects api-keys --project-ref kkgnhoflqusupqnhgzkz --reveal --output json', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] })
     const parsed = JSON.parse(rawKeys)
-    anonKey = anonKey || parsed.find((k: any) => k.name === 'anon')?.api_key
-    serviceKey = serviceKey || parsed.find((k: any) => k.name === 'service_role' || k.name === 'service_role key')?.api_key
+    anonKey = anonKey || parsed.find((k: any) => k.name === 'anon' || k.name.includes('publishable'))?.api_key
+    serviceKey = serviceKey || parsed.find((k: any) => k.name.includes('service_role') || k.name.includes('secret'))?.api_key
   } catch {}
 }
 
 if (!anonKey || !serviceKey) {
-  throw new Error('Could not find Supabase anon or service_role key')
+  throw new Error('Could not find Supabase anon/publishable or service_role/secret key in environment')
 }
 
 const adminClient = createClient(SUPABASE_URL, serviceKey, { auth: { persistSession: false } })

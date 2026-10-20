@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   User,
   Sliders,
@@ -38,7 +38,18 @@ export const SettingsPage: React.FC = () => {
     uploadDocument,
     deleteDocument,
   } = useApp()
-  const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab') as SettingsTab | null
+  const [activeTab, setActiveTabState] = useState<SettingsTab>(
+    tabParam && ['profile', 'preferences', 'documents', 'account', 'privacy'].includes(tabParam)
+      ? tabParam
+      : 'profile'
+  )
+
+  const setActiveTab = (tab: SettingsTab) => {
+    setActiveTabState(tab)
+    setSearchParams({ tab })
+  }
 
   const [fullName, setFullName] = useState(profile.fullName || '')
   const [email, setEmail] = useState(isSyntheticEmail(profile.email) ? '' : (profile.email || ''))

@@ -27,7 +27,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:4173',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:4180',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     launchOptions: {
@@ -47,8 +47,8 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: 'npm run preview -- --port 4173 --host',
-        port: 4173,
+        command: 'npm run preview -- --port 4180 --host',
+        port: 4180,
         reuseExistingServer: true,
         timeout: 30000,
       },

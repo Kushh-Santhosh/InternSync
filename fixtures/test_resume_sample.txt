@@ -1,0 +1,21 @@
+RAHUL SHARMA
+Email: rahul.sharma.dev2026@gmail.com
+Phone: +91 98765 43210
+Location: New Delhi, India
+
+EDUCATION
+Delhi Technological University (DTU)
+Degree: B.Tech in Computer Science and Engineering
+Year: 3rd Year | Class of 2026 | CGPA: 8.8 / 10.0
+
+CORE SKILLS
+Python, TypeScript, React, Node.js, FastAPI, PostgreSQL, Docker, Git
+
+EXPERIENCE
+Software Engineering Intern at TechNova Solutions (May 2025 - July 2025)
+- Implemented full-stack dashboards with React and TypeScript.
+- Designed REST APIs with FastAPI and PostgreSQL.
+
+PROJECTS
+1. InternSync - Opportunity Readiness Platform (React, TypeScript, Gemini)
+2. NeuroVision - Real-time Image Classifier (Python, Docker, FastAPI)

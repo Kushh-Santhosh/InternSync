@@ -203,9 +203,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Applications Kanban state
   const [applications, setApplications] = useState<ApplicationItem[]>(() => {
-    if (!currentUser?.id) return []
     try {
-      const saved = localStorage.getItem(getUserStorageKey(currentUser.id, 'applications'))
+      const key = currentUser?.id && !isDemoMode
+        ? getUserStorageKey(currentUser.id, 'applications')
+        : 'internsync_demo_applications'
+      const saved = localStorage.getItem(key)
       return saved ? JSON.parse(saved) : []
     } catch {
       return []
@@ -421,9 +423,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser?.id, documents, isDemoMode])
 
   useEffect(() => {
-    if (currentUser?.id && !isDemoMode) {
-      localStorage.setItem(getUserStorageKey(currentUser.id, 'applications'), JSON.stringify(applications))
-    }
+    try {
+      const key = currentUser?.id && !isDemoMode
+        ? getUserStorageKey(currentUser.id, 'applications')
+        : 'internsync_demo_applications'
+      localStorage.setItem(key, JSON.stringify(applications))
+    } catch {}
   }, [currentUser?.id, applications, isDemoMode])
 
   useEffect(() => {

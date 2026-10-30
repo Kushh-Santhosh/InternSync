@@ -1,15 +1,22 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
+  BookOpen,
   Building,
   CheckCircle2,
   Clock,
+  ExternalLink,
+  HelpCircle,
+  Info,
   KanbanSquare,
   MapPin,
+  ShieldAlert,
+  ShieldCheck,
   Sparkles,
 } from 'lucide-react'
 import { useApp } from '@/app/context'
@@ -40,6 +47,28 @@ export const OpportunityDetailPage: React.FC = () => {
   const opportunity = opportunities.find((o) => o.id === id)
   const match = opportunity ? matches.get(opportunity.id) : undefined
 
+  // Roadmap progress state with local persistence
+  const [completedDays, setCompletedDays] = useState<number[]>(() => {
+    if (!id) return []
+    try {
+      const saved = localStorage.getItem(`roadmap_${id}`)
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  const toggleDayCompletion = (dayNum: number) => {
+    if (!id) return
+    setCompletedDays((prev) => {
+      const next = prev.includes(dayNum) ? prev.filter((d) => d !== dayNum) : [...prev, dayNum]
+      try {
+        localStorage.setItem(`roadmap_${id}`, JSON.stringify(next))
+      } catch {}
+      return next
+    })
+  }
+
   if (!opportunity || !match) {
     return (
       <div className="py-20 text-center">
@@ -56,6 +85,7 @@ export const OpportunityDetailPage: React.FC = () => {
 
   // Synthesize 14-day roadmap for missing skills
   const roadmap = generateSkillGapRoadmap(opportunity, match.missingSkills)
+  const completionPercent = Math.round((completedDays.length / 14) * 100)
 
   // Safe external URL verification
   const isDirectApplySafe = isSafeApplicationUrl(opportunity.applicationUrl)
@@ -76,6 +106,42 @@ export const OpportunityDetailPage: React.FC = () => {
     navigate('/applications')
   }
 
+  // Evidence locator helper
+  const getSkillEvidence = (skillName: string) => {
+    const norm = skillName.toLowerCase()
+    const skillItem = skills.find((s) => s.skillName.toLowerCase() === norm)
+    const projItem = projects.find((p) => p.technologies.some((t) => t.toLowerCase() === norm))
+    const expItem = profile.experiences?.find(
+      (e) => e.summary?.toLowerCase().includes(norm) || e.roleTitle.toLowerCase().includes(norm)
+    )
+
+    const badges: string[] = []
+    if (skillItem) {
+      if (skillItem.evidenceSources?.includes('assessment')) {
+        badges.push(`Skill Lab Assessment (${skillItem.assessmentScore ?? skillItem.confidence}%)`)
+      }
+      if (skillItem.evidenceSources?.includes('project')) {
+        badges.push('Project Evidence')
+      }
+      if (skillItem.evidenceSources?.includes('github')) {
+        badges.push('GitHub Evidence')
+      }
+      if (skillItem.evidenceSources?.includes('resume')) {
+        badges.push(`Resume Extracted (${skillItem.confidence}%)`)
+      }
+    }
+    if (projItem && !badges.some((b) => b.includes('Project'))) {
+      badges.push(`Project: ${projItem.title}`)
+    }
+    if (expItem && !badges.some((b) => b.includes('Experience'))) {
+      badges.push(`Experience: ${expItem.company}`)
+    }
+    if (badges.length === 0) {
+      badges.push('Resume Keyword Evidence')
+    }
+    return badges
+  }
+
   // Human recommendation text
   const getHumanRecommendation = () => {
     if (match.recommendation === 'APPLY NOW') {
@@ -91,9 +157,28 @@ export const OpportunityDetailPage: React.FC = () => {
       return {
         decision: 'Prepare first.',
         rationale:
-          `You have a strong foundation in core skills, but this role specifically looks for ${match.missingSkills.join(' & ')}. Spend 14 days following the targeted sprint roadmap before submitting.`,
+          `You have a strong foundation in core skills, but this role specifically looks for ${match.missingSkills.join(' & ') || 'additional requirements'}. Spend 14 days following the targeted sprint roadmap before submitting.`,
         bannerStyle: 'border-amber-200 bg-amber-50/60 text-amber-950',
         badgeText: 'PREPARE FIRST: Meaningful Gaps — 14-Day Sprint Available',
+      }
+    }
+    if (match.recommendation === 'NOT ELIGIBLE') {
+      return {
+        decision: 'Not Eligible.',
+        rationale:
+          match.eligibilityNotes[0] ||
+          'Your current profile does not satisfy one or more mandatory eligibility constraints (degree, academic standing, or CGPA threshold).',
+        bannerStyle: 'border-rose-200 bg-rose-50/70 text-rose-950',
+        badgeText: 'NOT ELIGIBLE: Hard Constraint Mismatch',
+      }
+    }
+    if (match.recommendation === 'NEEDS VERIFICATION') {
+      return {
+        decision: 'Needs Verification.',
+        rationale:
+          'Certain critical eligibility criteria (such as minimum degree or academic year) were not disclosed in this listing. Verify before investing extensive preparation time.',
+        bannerStyle: 'border-blue-200 bg-blue-50/70 text-blue-950',
+        badgeText: 'NEEDS VERIFICATION: Unspecified Criteria',
       }
     }
     return {
@@ -102,7 +187,7 @@ export const OpportunityDetailPage: React.FC = () => {
         match.eligibilityNotes[0] ||
         'This role requires different academic year standing, continuous 6-month co-op terms, or an entirely distinct technical stack.',
       bannerStyle: 'border-slate-200 bg-slate-100/70 text-slate-800',
-      badgeText: 'SKIP: Hard Eligibility Mismatch or Low Alignment',
+      badgeText: 'SKIP: Low Alignment or Major Skill Divergence',
     }
   }
 
@@ -267,101 +352,330 @@ export const OpportunityDetailPage: React.FC = () => {
         ))}
       </div>
 
-      {/* TAB 1: Fit & Score Breakdown (Priority 5) */}
+      {/* TAB 1: Fit & Score Breakdown */}
       {activeTab === 'fit' && (
         <div className="space-y-6 animate-in fade-in">
-          {/* WHY YOU MATCH Breakdown */}
-          <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider text-slate-400">
-              Why You Match
-            </h3>
+          {/* HARD ELIGIBILITY & TRANSPARENCY CARD */}
+          <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                {match.eligibilityStatus === 'Eligible' && (
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                )}
+                {match.eligibilityStatus === 'Ineligible' && (
+                  <ShieldAlert className="w-5 h-5 text-rose-600" />
+                )}
+                {match.eligibilityStatus === 'Needs verification' && (
+                  <HelpCircle className="w-5 h-5 text-amber-600" />
+                )}
+                {match.eligibilityStatus === 'Not specified' && (
+                  <Info className="w-5 h-5 text-slate-500" />
+                )}
+                <div>
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Hard Eligibility Gate
+                  </div>
+                  <div className="text-sm font-extrabold text-slate-900">
+                    Status: {match.eligibilityStatus || 'Eligible'}
+                  </div>
+                </div>
+              </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <span
+                className={cn(
+                  'text-xs font-bold px-3 py-1 rounded-full border self-start sm:self-auto',
+                  match.eligibilityStatus === 'Eligible'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : match.eligibilityStatus === 'Ineligible'
+                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                    : match.eligibilityStatus === 'Needs verification'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-slate-50 text-slate-700 border-slate-200'
+                )}
+              >
+                {match.eligibilityStatus || 'Eligible'}
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-700 leading-relaxed">
+              {match.explanation ||
+                (match.eligibilityNotes[0] ??
+                  'Candidate satisfies academic and role eligibility criteria based on profile records.')}
+            </p>
+
+            {match.eligibilityNotes.length > 1 && (
+              <ul className="text-xs text-slate-600 space-y-1 pl-4 list-disc">
+                {match.eligibilityNotes.slice(1).map((note, idx) => (
+                  <li key={idx}>{note}</li>
+                ))}
+              </ul>
+            )}
+
+            {match.unknownCriteria && match.unknownCriteria.length > 0 && (
+              <div className="mt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 flex items-start gap-2">
+                <HelpCircle className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-slate-700">Not specified in listing (No assumptions made): </span>
+                  <span>{match.unknownCriteria.join(', ')}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 8-DIMENSION SCORING BREAKDOWN */}
+          <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider text-slate-400">
+                Deterministic Fit Dimensions
+              </h3>
+              <span className="text-xs text-slate-400 font-medium">Weighted Model (Total 100%)</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-center">
-                <span className="text-[11px] font-semibold text-slate-500 block">Skills Fit</span>
-                <span className="text-xl font-black text-slate-900 mt-1 block">{match.skillScore}%</span>
+                <span className="text-[10px] font-semibold text-slate-500 block truncate">Skills (30%)</span>
+                <span className="text-lg font-black text-slate-900 mt-0.5 block">{match.skillScore}%</span>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-center">
-                <span className="text-[11px] font-semibold text-slate-500 block">Eligibility</span>
-                <span className="text-xl font-black text-slate-900 mt-1 block">{match.eligibilityScore}%</span>
+                <span className="text-[10px] font-semibold text-slate-500 block truncate">Eligibility (20%)</span>
+                <span className="text-lg font-black text-slate-900 mt-0.5 block">{match.eligibilityScore}%</span>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-center">
-                <span className="text-[11px] font-semibold text-slate-500 block">Project Evidence</span>
-                <span className="text-xl font-black text-slate-900 mt-1 block">{match.projectScore}%</span>
+                <span className="text-[10px] font-semibold text-slate-500 block truncate">Projects (15%)</span>
+                <span className="text-lg font-black text-slate-900 mt-0.5 block">{match.projectScore}%</span>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-center">
-                <span className="text-[11px] font-semibold text-slate-500 block">Education</span>
-                <span className="text-xl font-black text-slate-900 mt-1 block">{match.educationScore}%</span>
+                <span className="text-[10px] font-semibold text-slate-500 block truncate">Education (10%)</span>
+                <span className="text-lg font-black text-slate-900 mt-0.5 block">{match.educationScore}%</span>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-center">
-                <span className="text-[11px] font-semibold text-slate-500 block">Location</span>
-                <span className="text-xl font-black text-slate-900 mt-1 block">{match.locationScore}%</span>
+                <span className="text-[10px] font-semibold text-slate-500 block truncate">Experience (10%)</span>
+                <span className="text-lg font-black text-slate-900 mt-0.5 block">{match.experienceScore ?? 100}%</span>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-center">
+                <span className="text-[10px] font-semibold text-slate-500 block truncate">Location (5%)</span>
+                <span className="text-lg font-black text-slate-900 mt-0.5 block">{match.locationScore}%</span>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-center">
+                <span className="text-[10px] font-semibold text-slate-500 block truncate">Availability (5%)</span>
+                <span className="text-lg font-black text-slate-900 mt-0.5 block">{match.availabilityScore ?? 100}%</span>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-center">
+                <span className="text-[10px] font-semibold text-slate-500 block truncate">Intent (5%)</span>
+                <span className="text-lg font-black text-slate-900 mt-0.5 block">{match.intentScore ?? 100}%</span>
               </div>
             </div>
           </div>
 
-          {/* EVIDENCE & WHAT'S MISSING (Priority 5) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* EVIDENCE SECTION */}
-            <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-4">
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Verified Evidence Found</span>
-              </h3>
+          {/* 3-CATEGORY SKILL GAP ANALYSIS */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider text-slate-400">
+              Three-Category Skill Gap Analysis
+            </h3>
 
-              <div className="space-y-3">
-                {match.whyMatched.map((reason, i) => (
-                  <div
-                    key={i}
-                    className="p-3.5 rounded-xl bg-emerald-50/50 border border-emerald-100/80 flex items-start gap-3 text-xs"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-emerald-950 block">{reason}</span>
-                    </div>
+            <div className="grid grid-cols-1 gap-4">
+              {/* CATEGORY 1: ALREADY SATISFIED */}
+              <div className="p-5 rounded-2xl border border-emerald-200 bg-emerald-50/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <h4 className="text-sm font-bold text-emerald-950">
+                      1. Already Satisfied ({match.skillsMatched?.length || 0})
+                    </h4>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* WHAT'S MISSING SECTION */}
-            <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-4">
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <span>What's Missing</span>
-              </h3>
-
-              {match.missingSkills.length === 0 ? (
-                <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-100 text-xs text-emerald-900 font-semibold flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>No missing skill gaps detected! Your profile satisfies all core prerequisites.</span>
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded">
+                    Verified in Profile & Evidence
+                  </span>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {match.missingSkills.map((skill, i) => (
-                    <div
-                      key={i}
-                      className="p-4 rounded-xl bg-amber-50/50 border border-amber-200/70 flex items-center justify-between text-xs"
-                    >
-                      <div>
-                        <div className="font-bold text-amber-950">{skill}</div>
-                        <div className="text-[11px] text-amber-700 mt-0.5">
-                          Prerequisite not yet demonstrated in projects or assessments
+
+                {(!match.skillsMatched || match.skillsMatched.length === 0) ? (
+                  <p className="text-xs text-slate-500 italic">No skills currently verified for this listing.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {match.skillsMatched.map((skill) => {
+                      const evidenceBadges = getSkillEvidence(skill)
+                      return (
+                        <div
+                          key={skill}
+                          className="p-3 rounded-xl bg-white border border-emerald-200/80 shadow-2xs flex flex-col justify-between"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-900">{skill}</span>
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                              Satisfied
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {evidenceBadges.map((badge, bIdx) => (
+                              <span
+                                key={bIdx}
+                                className="text-[10px] text-slate-600 bg-slate-100 border border-slate-200/70 px-1.5 py-0.5 rounded"
+                              >
+                                {badge}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* CATEGORY 2: NEEDS IMPROVEMENT */}
+              <div className="p-5 rounded-2xl border border-amber-200 bg-amber-50/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <h4 className="text-sm font-bold text-amber-950">
+                      2. Needs Improvement ({match.skillsNeedsImprovement?.length || 0})
+                    </h4>
+                  </div>
+                  <span className="text-[11px] font-semibold text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded">
+                    Confidence &lt; 60% — Practice Recommended
+                  </span>
+                </div>
+
+                {(!match.skillsNeedsImprovement || match.skillsNeedsImprovement.length === 0) ? (
+                  <p className="text-xs text-slate-500 italic">No low-confidence skills detected for this role.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {match.skillsNeedsImprovement.map((skill) => (
+                      <div
+                        key={skill}
+                        className="p-3 rounded-xl bg-white border border-amber-200/80 shadow-2xs flex items-center justify-between"
+                      >
+                        <div>
+                          <span className="text-xs font-bold text-amber-950 block">{skill}</span>
+                          <span className="text-[10px] text-amber-700 mt-0.5 block">
+                            Detected with basic familiarity; complete assessment before technical rounds
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate('/skill-lab')}
+                          className="shrink-0 text-xs border-amber-300 text-amber-900 hover:bg-amber-50 ml-2"
+                        >
+                          Skill Lab
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* CATEGORY 3: MISSING REQUIREMENTS */}
+              <div className="p-5 rounded-2xl border border-rose-200 bg-rose-50/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600" />
+                    <h4 className="text-sm font-bold text-rose-950">
+                      3. Missing Requirements (
+                      {(match.requiredSkillsMissing?.length || 0) + (match.preferredSkillsMissing?.length || 0)}
+                      )
+                    </h4>
+                  </div>
+                  <span className="text-[11px] font-semibold text-rose-700 bg-rose-100/70 px-2 py-0.5 rounded">
+                    Action Required Before Applying
+                  </span>
+                </div>
+
+                {(!match.requiredSkillsMissing || match.requiredSkillsMissing.length === 0) &&
+                (!match.preferredSkillsMissing || match.preferredSkillsMissing.length === 0) ? (
+                  <div className="p-3 rounded-xl bg-white border border-emerald-200 text-xs text-emerald-800 font-semibold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>No missing required or preferred skills! All requirements met.</span>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Required Skills Missing */}
+                    {match.requiredSkillsMissing && match.requiredSkillsMissing.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-[11px] font-bold text-rose-900 uppercase tracking-wider">
+                          Mandatory Required Skills Missing:
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {match.requiredSkillsMissing.map((skill) => (
+                            <div
+                              key={skill}
+                              className="p-3 rounded-xl bg-white border border-rose-200/80 shadow-2xs flex items-center justify-between"
+                            >
+                              <div>
+                                <span className="text-xs font-bold text-rose-950 block">{skill}</span>
+                                <span className="text-[10px] text-rose-700 mt-0.5 block">
+                                  Mandatory prerequisite not found in profile
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setActiveTab('roadmap')}
+                                className="shrink-0 text-xs border-rose-300 text-rose-900 hover:bg-rose-50 ml-2"
+                              >
+                                <span>Sprint Plan</span>
+                                <ArrowRight className="w-3 h-3 ml-1" />
+                              </Button>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setActiveTab('roadmap')}
-                        className="text-xs border-amber-300 text-amber-900 bg-white hover:bg-amber-50"
-                      >
-                        <span>Study Plan</span>
-                        <ArrowRight className="w-3 h-3 ml-1" />
-                      </Button>
-                    </div>
-                  ))}
+                    )}
+
+                    {/* Preferred Skills Missing */}
+                    {match.preferredSkillsMissing && match.preferredSkillsMissing.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-rose-100">
+                        <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          Preferred / Bonus Skills Missing:
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {match.preferredSkillsMissing.map((skill) => (
+                            <div
+                              key={skill}
+                              className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between"
+                            >
+                              <div>
+                                <span className="text-xs font-bold text-slate-900 block">{skill}</span>
+                                <span className="text-[10px] text-slate-500 mt-0.5 block">
+                                  Nice-to-have skill — does not disqualify your candidacy
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setActiveTab('roadmap')}
+                                className="shrink-0 text-xs text-indigo-600 hover:bg-indigo-50 ml-2"
+                              >
+                                Learn
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* VERIFIED EVIDENCE HIGHLIGHTS */}
+          <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Evidence Grounds</span>
+            </h3>
+
+            <div className="space-y-2.5">
+              {match.whyMatched.map((reason, i) => (
+                <div
+                  key={i}
+                  className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3 text-xs"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span className="font-medium text-slate-800">{reason}</span>
                 </div>
-              )}
+              ))}
             </div>
           </div>
         </div>
@@ -381,7 +695,8 @@ export const OpportunityDetailPage: React.FC = () => {
       {/* TAB 3: 14-Day Preparation Roadmap */}
       {activeTab === 'roadmap' && (
         <div className="space-y-6 animate-in fade-in">
-          <div className="p-6 rounded-2xl border border-indigo-200 bg-indigo-50/40 shadow-xs">
+          {/* SPRINT HEADER & PROGRESS */}
+          <div className="p-6 rounded-2xl border border-indigo-200 bg-indigo-50/50 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">
@@ -405,42 +720,145 @@ export const OpportunityDetailPage: React.FC = () => {
                 </Button>
               </div>
             </div>
+
+            {/* PROGRESS BAR */}
+            <div className="pt-3 border-t border-indigo-100/80">
+              <div className="flex items-center justify-between text-xs font-semibold text-indigo-900 mb-1.5">
+                <span>Sprint Completion: {completedDays.length} of 14 Days Completed</span>
+                <span>{completionPercent}%</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-indigo-100 overflow-hidden">
+                <div
+                  className="h-full bg-indigo-600 transition-all duration-300"
+                  style={{ width: `${completionPercent}%` }}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Daily Timeline */}
           <div className="space-y-3">
-            {roadmap.dailyPlan.map((day) => (
-              <div
-                key={day.day}
-                className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-2xs hover:border-slate-300 transition-all"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold flex items-center justify-center border border-indigo-100">
-                      D{day.day}
-                    </span>
-                    <h4 className="text-sm font-bold text-slate-900">{day.title}</h4>
-                  </div>
-                  <span className="text-[11px] text-slate-500 italic">{day.objective}</span>
-                </div>
-
-                <div className="mt-3 space-y-1.5">
-                  {day.tasks.map((task, idx) => (
-                    <div key={idx} className="flex items-start gap-2 text-xs text-slate-700">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
-                      <span>{task}</span>
+            {roadmap.dailyPlan.map((day) => {
+              const isCompleted = completedDays.includes(day.day)
+              return (
+                <div
+                  key={day.day}
+                  className={cn(
+                    'p-4 sm:p-5 rounded-2xl border transition-all',
+                    isCompleted
+                      ? 'border-emerald-200 bg-emerald-50/20'
+                      : 'border-slate-200 bg-white shadow-2xs hover:border-slate-300'
+                  )}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isCompleted}
+                        onChange={() => toggleDayCompletion(day.day)}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        id={`day-checkbox-${day.day}`}
+                      />
+                      <label
+                        htmlFor={`day-checkbox-${day.day}`}
+                        className="flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <span
+                          className={cn(
+                            'w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center border',
+                            isCompleted
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                          )}
+                        >
+                          D{day.day}
+                        </span>
+                        <h4
+                          className={cn(
+                            'text-sm font-bold',
+                            isCompleted ? 'text-slate-500 line-through' : 'text-slate-900'
+                          )}
+                        >
+                          {day.title}
+                        </h4>
+                      </label>
                     </div>
-                  ))}
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span>{day.estimatedMinutes || 60} mins</span>
+                      </span>
+                      <span className="text-[11px] text-slate-500 italic hidden md:inline">
+                        {day.objective}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 space-y-2">
+                    <div className="space-y-1.5">
+                      {day.tasks.map((task, idx) => (
+                        <div key={idx} className="flex items-start gap-2 text-xs text-slate-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
+                          <span className={cn(isCompleted && 'text-slate-400')}>{task}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* EXPECTED OUTCOME */}
+                    {day.expectedOutcome && (
+                      <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-700 flex items-start gap-2">
+                        <span className="font-bold text-slate-900 shrink-0">🎯 Expected Outcome:</span>
+                        <span>{day.expectedOutcome}</span>
+                      </div>
+                    )}
+
+                    {/* AUTHENTIC RESOURCES */}
+                    {day.resources && day.resources.length > 0 && (
+                      <div className="mt-3 pt-2 border-t border-slate-100 space-y-1.5">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Verified Learning Resources:
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {day.resources.map((res, rIdx) => (
+                            <a
+                              key={rIdx}
+                              href={res.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 bg-indigo-50/70 hover:bg-indigo-100 border border-indigo-200/80 px-2.5 py-1 rounded-lg transition-colors"
+                            >
+                              <BookOpen className="w-3 h-3" />
+                              <span>{res.label}</span>
+                              <ExternalLink className="w-3 h-3 text-indigo-400" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
 
-      {/* TAB 3: Job Description & Requirements */}
+      {/* TAB 4: Job Description & Requirements */}
       {activeTab === 'description' && (
         <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-6 animate-in fade-in">
+          {opportunity.isPartiallyVerified && (
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold block">Partially Verified Listing</span>
+                <span>
+                  The full description could not be retrieved from the provider listing endpoint. Requirements are evaluated strictly against confirmed fields without unverified assumptions.
+                </span>
+              </div>
+            </div>
+          )}
+
           <div>
             <h3 className="text-sm font-bold text-slate-900 mb-2">Role Overview</h3>
             <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
@@ -450,32 +868,87 @@ export const OpportunityDetailPage: React.FC = () => {
 
           <div className="pt-4 border-t border-slate-100">
             <h3 className="text-sm font-bold text-slate-900 mb-2">Academic & Experience Eligibility</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                 <span className="text-slate-500 font-medium">Eligible Academic Years:</span>
                 <div className="font-bold text-slate-900 mt-0.5">
-                  Year {opportunity.eligibleYears.join(', ')}
+                  {opportunity.eligibleYears && opportunity.eligibleYears.length > 0
+                    ? `Year ${opportunity.eligibleYears.join(', ')}`
+                    : 'Open to all academic years'}
                 </div>
               </div>
 
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                 <span className="text-slate-500 font-medium">Eligible Degrees:</span>
                 <div className="font-bold text-slate-900 mt-0.5">
-                  {opportunity.eligibleDegrees.join(', ')}
+                  {opportunity.eligibleDegrees && opportunity.eligibleDegrees.length > 0
+                    ? opportunity.eligibleDegrees.join(', ')
+                    : 'Any relevant degree program'}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-slate-500 font-medium">Accepted Academic Branches:</span>
+                <div className="font-bold text-slate-900 mt-0.5">
+                  {opportunity.acceptedBranches && opportunity.acceptedBranches.length > 0
+                    ? opportunity.acceptedBranches.join(', ')
+                    : 'All branches welcome'}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-slate-500 font-medium">Minimum CGPA:</span>
+                <div className="font-bold text-slate-900 mt-0.5">
+                  {opportunity.minCgpa ? `${opportunity.minCgpa} / 10.0` : 'No minimum CGPA required'}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-slate-500 font-medium">Experience Requirement:</span>
+                <div className="font-bold text-slate-900 mt-0.5">
+                  {opportunity.experienceRequirements || 'Entry-level (No prior experience required)'}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-slate-500 font-medium">Work Mode & Location:</span>
+                <div className="font-bold text-slate-900 mt-0.5">
+                  {opportunity.location} ({opportunity.workMode})
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100">
-            <h3 className="text-sm font-bold text-slate-900 mb-2">Required Skills</h3>
-            <div className="flex flex-wrap gap-1.5">
-              {opportunity.requiredSkills.map((s) => (
-                <span key={s} className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-800 text-xs font-semibold">
-                  {s}
-                </span>
-              ))}
+          <div className="pt-4 border-t border-slate-100 space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 mb-2">Required Skills (Mandatory)</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {opportunity.requiredSkills.map((s) => (
+                  <span
+                    key={s}
+                    className="px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-900 text-xs font-semibold"
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
             </div>
+
+            {opportunity.preferredSkills && opportunity.preferredSkills.length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold text-slate-700 mb-2">Preferred Skills (Bonus)</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {opportunity.preferredSkills.map((s) => (
+                    <span
+                      key={s}
+                      className="px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -68805,6 +68805,41 @@ CRITICAL RULES:
     }
     return [];
   }
+  /**
+   * Performs optical character recognition on an image or document buffer
+   */
+  async ocrDocument(buffer, mimeType) {
+    if (!this.client) {
+      throw new Error("Gemini OCR client not configured (missing GEMINI_API_KEY).");
+    }
+    const base64Data = buffer.toString("base64");
+    const prompt = "Extract all textual content from this resume or document accurately. Preserve names, contact details, sections, dates, degrees, projects, skills, and work experience exactly as written without fabricating or inferring.";
+    const candidateModels = this.getCandidateModels();
+    for (const model of candidateModels) {
+      try {
+        const response = await this.client.models.generateContent({
+          model,
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { inlineData: { mimeType, data: base64Data } },
+                { text: prompt }
+              ]
+            }
+          ]
+        });
+        const text = response.text?.trim();
+        if (text) return text;
+      } catch (err) {
+        this.recordFailure(model);
+        if (!this.isRetriableError(err)) {
+          throw err;
+        }
+      }
+    }
+    return "";
+  }
 };
 
 // src/features/opportunities/sources/registry.ts
@@ -70290,6 +70325,36 @@ ${safeText}` }
     });
   }
 }
+async function handleAiOcr(req, res) {
+  const config = getServerConfig();
+  try {
+    const body = await parseJsonBody(req);
+    if (!body.fileBase64) {
+      sendJson(res, 400, { error: "fileBase64 data is required for OCR", code: "MISSING_FILE_DATA" });
+      return;
+    }
+    if (!config.geminiApiKey) {
+      sendJson(res, 503, {
+        error: "OCR service is not configured on the server (GEMINI_API_KEY missing).",
+        code: "OCR_NOT_CONFIGURED"
+      });
+      return;
+    }
+    const gemini = getGeminiProvider();
+    const buffer = Buffer.from(body.fileBase64, "base64");
+    const mimeType = body.mimeType || "image/png";
+    const extractedText = await gemini.ocrDocument(buffer, mimeType);
+    sendJson(res, 200, {
+      success: true,
+      text: extractedText
+    });
+  } catch (err) {
+    sendJson(res, 500, {
+      error: err?.message || "OCR extraction failed",
+      code: "OCR_ERROR"
+    });
+  }
+}
 var serverSearchCache = /* @__PURE__ */ new Map();
 var SERVER_SEARCH_CACHE_TTL = 30 * 60 * 1e3;
 async function handleSearchLive(req, res) {
@@ -70970,6 +71035,10 @@ async function handleApiRequest(req, res) {
     await handleAiExtractResume(req, res);
     return true;
   }
+  if (req.method === "POST" && pathname === "/api/ai/ocr") {
+    await handleAiOcr(req, res);
+    return true;
+  }
   if (req.method === "POST" && pathname === "/api/search/live") {
     await handleSearchLive(req, res);
     return true;
@@ -70999,6 +71068,7 @@ export {
   getUnifiedAiRouter,
   handleAiChat,
   handleAiExtractResume,
+  handleAiOcr,
   handleApiRequest,
   handleAuthRegisterUsername,
   handleN8nOpportunityDiscovery,

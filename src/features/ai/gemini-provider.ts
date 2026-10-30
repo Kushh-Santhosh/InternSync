@@ -315,4 +315,43 @@ CRITICAL RULES:
 
     return []
   }
+
+  /**
+   * Performs optical character recognition on an image or document buffer
+   */
+  public async ocrDocument(buffer: Buffer, mimeType: string): Promise<string> {
+    if (!this.client) {
+      throw new Error('Gemini OCR client not configured (missing GEMINI_API_KEY).')
+    }
+
+    const base64Data = buffer.toString('base64')
+    const prompt = 'Extract all textual content from this resume or document accurately. Preserve names, contact details, sections, dates, degrees, projects, skills, and work experience exactly as written without fabricating or inferring.'
+
+    const candidateModels = this.getCandidateModels()
+    for (const model of candidateModels) {
+      try {
+        const response = await this.client.models.generateContent({
+          model,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { inlineData: { mimeType, data: base64Data } },
+                { text: prompt },
+              ],
+            },
+          ],
+        })
+        const text = response.text?.trim()
+        if (text) return text
+      } catch (err: unknown) {
+        this.recordFailure(model)
+        if (!this.isRetriableError(err)) {
+          throw err
+        }
+      }
+    }
+
+    return ''
+  }
 }

@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowUpRight, Clock, AlertTriangle } from 'lucide-react'
+import { ArrowUpRight, Clock, AlertTriangle, ShieldAlert, HelpCircle } from 'lucide-react'
 import type { RecommendationType } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
@@ -14,7 +14,7 @@ export const RecommendationBadge: React.FC<RecommendationBadgeProps> = ({
   size = 'md',
   className,
 }) => {
-  const configs = {
+  const configs: Record<RecommendationType, { label: string; icon: React.ComponentType<{ className?: string }>; bg: string; dot: string }> = {
     'APPLY NOW': {
       label: 'APPLY NOW',
       icon: ArrowUpRight,
@@ -32,6 +32,18 @@ export const RecommendationBadge: React.FC<RecommendationBadgeProps> = ({
       icon: AlertTriangle,
       bg: 'bg-slate-100 text-slate-700 border-slate-300/80',
       dot: 'bg-slate-400',
+    },
+    'NOT ELIGIBLE': {
+      label: 'NOT ELIGIBLE',
+      icon: ShieldAlert,
+      bg: 'bg-rose-50 text-rose-800 border-rose-300/80',
+      dot: 'bg-rose-500',
+    },
+    'NEEDS VERIFICATION': {
+      label: 'NEEDS VERIFICATION',
+      icon: HelpCircle,
+      bg: 'bg-blue-50 text-blue-800 border-blue-300/80',
+      dot: 'bg-blue-500',
     },
   }
 

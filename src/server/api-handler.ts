@@ -552,6 +552,41 @@ CRITICAL RULES:
   }
 }
 
+// Optical Character Recognition (OCR) for scanned PDFs and image-based resumes
+export async function handleAiOcr(req: any, res: any): Promise<void> {
+  const config = getServerConfig()
+  try {
+    const body = await parseJsonBody<{ fileBase64: string; mimeType: string }>(req)
+    if (!body.fileBase64) {
+      sendJson(res, 400, { error: 'fileBase64 data is required for OCR', code: 'MISSING_FILE_DATA' })
+      return
+    }
+
+    if (!config.geminiApiKey) {
+      sendJson(res, 503, {
+        error: 'OCR service is not configured on the server (GEMINI_API_KEY missing).',
+        code: 'OCR_NOT_CONFIGURED',
+      })
+      return
+    }
+
+    const gemini = getGeminiProvider()
+    const buffer = Buffer.from(body.fileBase64, 'base64')
+    const mimeType = body.mimeType || 'image/png'
+    const extractedText = await gemini.ocrDocument(buffer, mimeType)
+
+    sendJson(res, 200, {
+      success: true,
+      text: extractedText,
+    })
+  } catch (err: any) {
+    sendJson(res, 500, {
+      error: err?.message || 'OCR extraction failed',
+      code: 'OCR_ERROR',
+    })
+  }
+}
+
 // In-memory server-side discovery cache (30 minutes TTL)
 const serverSearchCache = new Map<string, { timestamp: number; payload: any }>()
 const SERVER_SEARCH_CACHE_TTL = 30 * 60 * 1000
@@ -1383,6 +1418,12 @@ export async function handleApiRequest(
   // 3. POST /api/ai/extract-resume
   if (req.method === 'POST' && pathname === '/api/ai/extract-resume') {
     await handleAiExtractResume(req, res)
+    return true
+  }
+
+  // 3b. POST /api/ai/ocr
+  if (req.method === 'POST' && pathname === '/api/ai/ocr') {
+    await handleAiOcr(req, res)
     return true
   }
 

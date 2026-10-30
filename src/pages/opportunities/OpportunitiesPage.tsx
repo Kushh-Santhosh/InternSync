@@ -374,8 +374,8 @@ export const OpportunitiesPage: React.FC = () => {
         isOpen={isCompareModalOpen}
         onClose={() => setIsCompareModalOpen(false)}
         title="Side-by-Side Opportunity Comparison"
-        description="Compare up to 3 target internships with an explainable AI trade-off analysis."
-        maxWidth="2xl"
+        description="Compare up to 3 target internships with deterministic fit and eligibility trade-offs."
+        maxWidth="4xl"
       >
         <div className="space-y-6">
           {comparedOpportunities.length === 0 ? (
@@ -385,98 +385,200 @@ export const OpportunitiesPage: React.FC = () => {
           ) : (
             <div>
               {/* Comparative AI Summary Box */}
-              <div className="p-4 rounded-xl bg-indigo-50/70 border border-indigo-200/80 mb-6 text-xs text-indigo-950 space-y-1">
-                <div className="font-bold flex items-center gap-1.5 text-indigo-900">
-                  <Sparkles className="w-4 h-4 text-indigo-600" />
-                  <span>AI Comparative Fit Synthesis</span>
-                </div>
-                <p className="leading-relaxed text-indigo-800">
-                  {comparedOpportunities[0].opp.roleTitle} at {comparedOpportunities[0].opp.companyName} represents your highest immediate readiness ({comparedOpportunities[0].match.overallMatchScore}%) with zero blocking skill prerequisites.
-                  {comparedOpportunities.length > 1 &&
-                    ` In contrast, ${comparedOpportunities[1].opp.roleTitle} requires 14 days of dedicated preparation before your application will be competitive.`}
-                </p>
-              </div>
+              {(() => {
+                const eligibleCompared = comparedOpportunities.filter(
+                  (c) => c.match.recommendation !== 'NOT ELIGIBLE' && c.match.recommendation !== 'SKIP'
+                )
+                const topFit = (eligibleCompared.length > 0 ? eligibleCompared : comparedOpportunities)
+                  .reduce((best, curr) => (curr.match.overallMatchScore > best.match.overallMatchScore ? curr : best), comparedOpportunities[0])
+
+                return (
+                  <div className="p-4 rounded-xl bg-indigo-50/70 border border-indigo-200/80 mb-6 text-xs text-indigo-950 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5 text-indigo-900">
+                      <Sparkles className="w-4 h-4 text-indigo-600" />
+                      <span>Comparative Fit Synthesis</span>
+                    </div>
+                    <p className="leading-relaxed text-indigo-800">
+                      <strong className="text-indigo-950">{topFit.opp.roleTitle}</strong> at {topFit.opp.companyName} is your highest recommended fit ({topFit.match.overallMatchScore}%) with {topFit.match.eligibilityStatus} eligibility standing.
+                      {comparedOpportunities.length > 1 && (
+                        <span>
+                          {' '}Evaluating across {comparedOpportunities.length} opportunities helps you prioritize applications with immediate readiness versus those requiring preparatory sprints.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )
+              })()}
 
               {/* Multi-Column Comparison Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {comparedOpportunities.map(({ opp, match }) => (
-                  <div
-                    key={opp.id}
-                    className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between space-y-4"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900 truncate">
-                          {opp.companyName}
-                        </span>
-                        <button
-                          onClick={() => toggleComparison(opp.id)}
-                          className="text-slate-400 hover:text-slate-600 p-0.5"
+              {(() => {
+                const eligibleCompared = comparedOpportunities.filter(
+                  (c) => c.match.recommendation !== 'NOT ELIGIBLE' && c.match.recommendation !== 'SKIP'
+                )
+                const topFitId = (eligibleCompared.length > 0 ? eligibleCompared : comparedOpportunities)
+                  .reduce((best, curr) => (curr.match.overallMatchScore > best.match.overallMatchScore ? curr : best), comparedOpportunities[0])?.opp.id
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {comparedOpportunities.map(({ opp, match }) => {
+                      const isTopFit = opp.id === topFitId
+                      return (
+                        <div
+                          key={opp.id}
+                          className={cn(
+                            'p-4 rounded-xl border flex flex-col justify-between space-y-4 transition-all relative',
+                            isTopFit
+                              ? 'border-indigo-400 bg-white ring-2 ring-indigo-500/20 shadow-md'
+                              : 'border-slate-200 bg-slate-50/50'
+                          )}
                         >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <h4 className="text-sm font-extrabold text-slate-900 mt-1">{opp.roleTitle}</h4>
+                          <div>
+                            {/* Top Recommended Fit Badge */}
+                            {isTopFit && (
+                              <div className="mb-2 -mt-1 flex items-center gap-1 text-[11px] font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full w-fit">
+                                <Sparkles className="w-3 h-3 text-indigo-600" />
+                                <span>Top Recommended Fit</span>
+                              </div>
+                            )}
 
-                      <div className="mt-3 flex items-center gap-3">
-                        <ScoreRing score={match.overallMatchScore} size="sm" showLabel={false} />
-                        <RecommendationBadge type={match.recommendation} size="sm" />
-                      </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-900 truncate">
+                                {opp.companyName}
+                              </span>
+                              <button
+                                onClick={() => toggleComparison(opp.id)}
+                                className="text-slate-400 hover:text-slate-600 p-0.5"
+                                title="Remove from comparison"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <h4 className="text-sm font-extrabold text-slate-900 mt-1">{opp.roleTitle}</h4>
 
-                      {/* Criteria Breakdown */}
-                      <div className="mt-4 space-y-2 text-xs">
-                        <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                          <span className="text-slate-500">Skill Fit:</span>
-                          <span className="font-bold text-slate-800">{match.skillScore}%</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                          <span className="text-slate-500">Eligibility:</span>
-                          <span className="font-bold text-slate-800">{match.eligibilityScore}%</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                          <span className="text-slate-500">Project Proof:</span>
-                          <span className="font-bold text-slate-800">{match.projectScore}%</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                          <span className="text-slate-500">Location:</span>
-                          <span className="font-medium text-slate-800">{opp.location}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                          <span className="text-slate-500">Stipend:</span>
-                          <span className="font-bold text-slate-800">
-                            {opp.stipendAmount
-                              ? `${opp.stipendCurrency === 'USD' ? '$' : '₹'}${opp.stipendAmount.toLocaleString()}/${opp.stipendPeriod === 'hour' ? 'hr' : 'm'}`
-                              : 'Not Disclosed'}
-                          </span>
-                        </div>
-                      </div>
+                            <div className="mt-3 flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <ScoreRing score={match.overallMatchScore} size="sm" showLabel={false} />
+                                <span className="text-sm font-extrabold text-slate-900">{match.overallMatchScore}%</span>
+                              </div>
+                              <RecommendationBadge type={match.recommendation} size="sm" />
+                            </div>
 
-                      {/* Missing Gaps */}
-                      <div className="mt-3">
-                        <div className="text-[11px] font-bold text-slate-500 uppercase">
-                          Missing Skills:
-                        </div>
-                        <div className="text-xs text-amber-700 font-semibold mt-0.5">
-                          {match.missingSkills.length > 0
-                            ? match.missingSkills.join(', ')
-                            : 'None (Full match)'}
-                        </div>
-                      </div>
-                    </div>
+                            {/* Eligibility Gate Status */}
+                            <div className="mt-3 p-2 rounded-lg bg-slate-100/80 border border-slate-200 text-xs flex items-center justify-between">
+                              <span className="text-slate-500 font-medium">Eligibility:</span>
+                              <span
+                                className={cn(
+                                  'font-bold px-1.5 py-0.5 rounded text-[11px]',
+                                  match.eligibilityStatus === 'Eligible'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : match.eligibilityStatus === 'Ineligible'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : match.eligibilityStatus === 'Needs verification'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-slate-200 text-slate-800'
+                                )}
+                              >
+                                {match.eligibilityStatus || 'Eligible'}
+                              </span>
+                            </div>
 
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setIsCompareModalOpen(false)
-                        navigate(`/opportunities/${opp.id}`)
-                      }}
-                      className="w-full text-xs mt-4"
-                    >
-                      View Full Details
-                    </Button>
+                            {/* Criteria Breakdown */}
+                            <div className="mt-3 space-y-2 text-xs">
+                              <div className="flex justify-between border-b border-slate-200/60 pb-1">
+                                <span className="text-slate-500">Skills Matched:</span>
+                                <span className="font-bold text-emerald-700">
+                                  {match.skillsMatched?.length || 0} / {opp.requiredSkills.length}
+                                </span>
+                              </div>
+                              <div className="flex justify-between border-b border-slate-200/60 pb-1">
+                                <span className="text-slate-500">Education:</span>
+                                <span className="font-medium text-slate-800 text-right truncate max-w-[130px]">
+                                  {opp.eligibleDegrees && opp.eligibleDegrees.length > 0
+                                    ? opp.eligibleDegrees[0]
+                                    : 'Any degree'}
+                                  {opp.eligibleYears && opp.eligibleYears.length > 0
+                                    ? ` (Yr ${opp.eligibleYears.join(',')})`
+                                    : ''}
+                                </span>
+                              </div>
+                              <div className="flex justify-between border-b border-slate-200/60 pb-1">
+                                <span className="text-slate-500">Min CGPA:</span>
+                                <span className="font-medium text-slate-800">
+                                  {opp.minCgpa ? `${opp.minCgpa} / 10` : 'None required'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between border-b border-slate-200/60 pb-1">
+                                <span className="text-slate-500">Experience:</span>
+                                <span className="font-medium text-slate-800 text-right truncate max-w-[140px]">
+                                  {opp.experienceRequirements || 'None required'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between border-b border-slate-200/60 pb-1">
+                                <span className="text-slate-500">Location:</span>
+                                <span className="font-medium text-slate-800 text-right truncate max-w-[140px]">
+                                  {opp.location} ({opp.workMode})
+                                </span>
+                              </div>
+                              <div className="flex justify-between border-b border-slate-200/60 pb-1">
+                                <span className="text-slate-500">Duration & Stipend:</span>
+                                <span className="font-bold text-slate-800">
+                                  {opp.internshipDurationMonths}m •{' '}
+                                  {opp.stipendAmount
+                                    ? `${opp.stipendCurrency === 'USD' ? '$' : '₹'}${opp.stipendAmount.toLocaleString()}/${opp.stipendPeriod === 'hour' ? 'hr' : 'm'}`
+                                    : 'Unpaid/NDA'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between border-b border-slate-200/60 pb-1">
+                                <span className="text-slate-500">Deadline:</span>
+                                <span className="font-medium text-slate-700">
+                                  {opp.isUndated || !opp.deadline || isNaN(Date.parse(opp.deadline))
+                                    ? 'Rolling'
+                                    : new Date(opp.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Missing Gaps */}
+                            <div className="mt-3">
+                              <div className="text-[11px] font-bold text-slate-500 uppercase">
+                                Missing Skills:
+                              </div>
+                              <div className="text-xs text-amber-800 font-semibold mt-0.5">
+                                {match.missingSkills.length > 0
+                                  ? match.missingSkills.join(', ')
+                                  : 'None (Full match)'}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 pt-2">
+                            {opp.applicationUrl && (
+                              <a
+                                href={opp.applicationUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block w-full text-center text-xs font-semibold py-1.5 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+                              >
+                                Direct Application URL
+                              </a>
+                            )}
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setIsCompareModalOpen(false)
+                                navigate(`/opportunities/${opp.id}`)
+                              }}
+                              className="w-full text-xs"
+                            >
+                              View Full Details
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                ))}
-              </div>
+                )
+              })()}
 
               <div className="flex justify-end pt-4">
                 <Button variant="outline" size="sm" onClick={clearComparison}>

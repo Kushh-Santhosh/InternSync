@@ -12,29 +12,34 @@ export const OpportunityExtractionSchema = z.object({
   work_mode: z.enum(['remote', 'hybrid', 'onsite']),
   required_skills: z.array(z.string()),
   preferred_skills: z.array(z.string()),
-  eligible_years: z.array(z.number()),
-  eligible_degrees: z.array(z.string()),
-  duration_months: z.number().default(3),
+  eligible_years: z.array(z.number()).default([]),
+  eligible_degrees: z.array(z.string()).default([]),
+  duration_months: z.number().default(0),
   stipend_amount: z.number().optional(),
   stipend_currency: z.string().optional(),
   deadline: z.string().optional(),
   application_url: z.string(),
+  is_partially_verified: z.boolean().default(false),
+  experience_requirements: z.string().optional(),
+  min_cgpa: z.number().optional(),
 })
 
 export type ExtractedOpportunityData = z.infer<typeof OpportunityExtractionSchema>
 
 /**
- * Deterministic parser that analyzes untrusted raw job snippets and text
+ * Deterministic parser that analyzes untrusted raw job snippets and text without fabricating requirements.
  */
 export function extractRequirementsDeterministically(
   raw: RawSearchResult,
   fullText?: string
 ): ExtractedOpportunityData {
-  const text = `${raw.title} ${raw.snippet} ${fullText || ''}`
-  const lower = text.toLowerCase()
+  const sourceText = fullText || raw.snippet || ''
+  const isPartiallyVerified = !fullText || fullText.length < 150
+  const combinedText = `${raw.title} ${sourceText}`
+  const lower = combinedText.toLowerCase()
 
-  // 1. Role & Company extraction
-  let company = 'Tech Company'
+  // 1. Role & Company extraction: extract truthfully without inventing placeholder names
+  let company = ''
   let role = raw.title
 
   if (raw.title.includes(' at ')) {
@@ -48,10 +53,14 @@ export function extractRequirementsDeterministically(
   } else if (raw.title.includes(' - ')) {
     const parts = raw.title.split(' - ')
     role = parts[0].trim()
-    if (parts[1] && parts[1].length < 30) company = parts[1].trim()
+    if (parts[1] && parts[1].length < 35) company = parts[1].trim()
   }
 
-  // 2. Work Mode
+  if (!company) {
+    company = raw.source ? raw.source.replace(/\(.*?\)/g, '').trim() : 'Employer'
+  }
+
+  // 2. Work Mode: evaluate strictly from text
   let work_mode: 'remote' | 'hybrid' | 'onsite' = 'onsite'
   if (lower.includes('remote') || lower.includes('work from home')) {
     work_mode = 'remote'
@@ -59,45 +68,81 @@ export function extractRequirementsDeterministically(
     work_mode = 'hybrid'
   }
 
-  // 3. Location
-  let location = 'Bengaluru'
-  const cities = ['Bengaluru', 'Bangalore', 'Hyderabad', 'Pune', 'Mumbai', 'Delhi', 'Noida', 'Gurugram', 'Chennai']
+  // 3. Location: extract strictly if mentioned, never default to Bengaluru
+  let location = ''
+  const cities = [
+    'Bengaluru', 'Bangalore', 'Hyderabad', 'Pune', 'Mumbai',
+    'Delhi', 'Noida', 'Gurugram', 'Chennai', 'Kolkata', 'Ahmedabad',
+    'San Francisco', 'New York', 'London', 'Seattle', 'Singapore'
+  ]
   for (const c of cities) {
-    if (new RegExp(`\\b${c}\\b`, 'i').test(text)) {
+    if (new RegExp(`\\b${c}\\b`, 'i').test(combinedText)) {
       location = c === 'Bangalore' ? 'Bengaluru' : c
       break
     }
   }
-  if (work_mode === 'remote') location = 'Remote, India'
 
-  // 4. Skills extraction using taxonomy
+  if (!location) {
+    location = work_mode === 'remote' ? 'Remote, India' : 'Location Unspecified'
+  }
+
+  // 4. Skills extraction: distinguish required vs preferred from section wording
   const required_skills: string[] = []
   const preferred_skills: string[] = []
 
+  // Segment text into required vs preferred zones if clear section boundaries exist
+  const preferredSectionMatch = combinedText.match(/(?:preferred|bonus|nice to have|good to have|plus|desirable|plus points)[\s\S]*$/i)
+  const preferredSectionText = preferredSectionMatch ? preferredSectionMatch[0].toLowerCase() : ''
+
+  const requiredSectionMatch = combinedText.match(/(?:requirements|required|qualifications|must have|minimum qualifications|basic qualifications|eligibility)[\s\S]*?(?=(?:preferred|bonus|nice to have|benefits|$))/i)
+  const requiredSectionText = requiredSectionMatch ? requiredSectionMatch[0].toLowerCase() : ''
+
   for (const item of SKILL_TAXONOMY) {
     const canonical = item.canonicalName
+    const canonicalLower = canonical.toLowerCase()
     let matched = false
-    if (lower.includes(canonical.toLowerCase())) {
-      matched = true
-    } else {
+    let inPreferredZone = false
+    let inRequiredZone = false
+
+    const matchesSkill = (str: string) => {
+      if (str.includes(canonicalLower)) return true
       for (const alias of item.aliases) {
-        if (new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text)) {
-          matched = true
-          break
+        if (new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(str)) {
+          return true
         }
+      }
+      return false
+    }
+
+    if (matchesSkill(lower)) {
+      matched = true
+      if (preferredSectionText && matchesSkill(preferredSectionText)) {
+        inPreferredZone = true
+      }
+      if (requiredSectionText && matchesSkill(requiredSectionText)) {
+        inRequiredZone = true
       }
     }
 
     if (matched) {
-      if (required_skills.length < 5) {
-        required_skills.push(canonical)
-      } else if (preferred_skills.length < 3) {
+      if (inPreferredZone && !inRequiredZone) {
         preferred_skills.push(canonical)
+      } else if (inRequiredZone) {
+        required_skills.push(canonical)
+      } else {
+        // Fallback: If mentioned in role title, it is required; otherwise based on skill type
+        if (matchesSkill(role.toLowerCase())) {
+          required_skills.push(canonical)
+        } else if (required_skills.length < 4) {
+          required_skills.push(canonical)
+        } else {
+          preferred_skills.push(canonical)
+        }
       }
     }
   }
 
-  // Only extract from title if explicitly found in taxonomy, do not invent unmentioned skills
+  // If no taxonomy skill matched in text, check title
   if (required_skills.length === 0) {
     for (const item of SKILL_TAXONOMY) {
       if (new RegExp(`\\b${item.canonicalName.toLowerCase()}\\b`, 'i').test(role)) {
@@ -106,27 +151,60 @@ export function extractRequirementsDeterministically(
     }
   }
 
-  // 5. Eligible academic years
-  const eligible_years: number[] = [2, 3, 4]
+  // 5. Eligible academic years: extract ONLY if stated; never fabricate [2, 3, 4]
+  const eligible_years: number[] = []
   if (lower.includes('final year only') || lower.includes('4th year only')) {
-    eligible_years.length = 0
     eligible_years.push(4)
-  } else if (lower.includes('pre-final') || lower.includes('3rd year')) {
-    eligible_years.length = 0
+  } else if (lower.includes('3rd year only')) {
     eligible_years.push(3)
+  } else if (lower.includes('pre-final and final') || lower.includes('3rd and 4th')) {
+    eligible_years.push(3, 4)
+  } else if (lower.includes('2nd, 3rd') || lower.includes('2nd and 3rd')) {
+    eligible_years.push(2, 3)
+  } else {
+    // Check batch mentions (e.g. batch of 2026, 2025)
+    const batchMatches = combinedText.match(/\b(?:batch\s+(?:of\s+)?|class\s+(?:of\s+)?)(202[4-9])\b/gi)
+    if (batchMatches) {
+      const yearMatches = batchMatches.map((m) => parseInt(m.replace(/\D/g, ''), 10))
+      eligible_years.push(...yearMatches)
+    }
   }
 
-  // 6. Stipend
+  // 6. Eligible degrees: extract ONLY if stated; never fabricate default list
+  const eligible_degrees: string[] = []
+  const degreeCheckPatterns = [
+    { name: 'B.Tech', regex: /\b(?:b\.?tech|bachelor of technology)\b/i },
+    { name: 'B.E', regex: /\b(?:b\.?e|bachelor of engineering)\b/i },
+    { name: 'M.Tech', regex: /\b(?:m\.?tech|master of technology)\b/i },
+    { name: 'MCA', regex: /\bmca\b/i },
+    { name: 'BCA', regex: /\bbca\b/i },
+    { name: 'B.Sc', regex: /\bb\.?sc\b/i },
+    { name: 'M.Sc', regex: /\bm\.?sc\b/i },
+  ]
+  for (const deg of degreeCheckPatterns) {
+    if (deg.regex.test(combinedText)) {
+      eligible_degrees.push(deg.name)
+    }
+  }
+
+  // 7. Duration: extract ONLY if stated; never default to 3 months
+  let duration_months = 0
+  const durationMatch = combinedText.match(/\b([1-9]|1[0-2])\s*(?:-|to)?\s*(?:months?|mos?)\b/i)
+  if (durationMatch) {
+    duration_months = parseInt(durationMatch[1], 10)
+  }
+
+  // 8. Stipend
   let stipend_amount: number | undefined
-  const stipendMatch = text.match(/(?:₹|rs\.?|inr)\s*([\d,]+)/i)
+  const stipendMatch = combinedText.match(/(?:₹|rs\.?|inr)\s*([\d,]+)/i)
   if (stipendMatch) {
     const parsed = parseInt(stipendMatch[1].replace(/,/g, ''), 10)
     if (parsed >= 5000 && parsed <= 150000) stipend_amount = parsed
   }
 
-  // 7. Deadline: Extract genuine deadline ONLY if explicitly mentioned. NEVER invent or fabricate.
+  // 9. Deadline: Extract genuine deadline ONLY if explicitly mentioned.
   let deadline: string | undefined
-  const deadlineMatch = text.match(/(?:deadline|apply\s+by|last\s+date|due\s+date|closes\s+on)\s*[:-]?\s*([A-Za-z0-9, -]{4,25})/i)
+  const deadlineMatch = combinedText.match(/(?:deadline|apply\s+by|last\s+date|due\s+date|closes\s+on)\s*[:-]?\s*([A-Za-z0-9, -]{4,25})/i)
   if (deadlineMatch) {
     const rawDateStr = deadlineMatch[1].trim()
     const parsed = Date.parse(rawDateStr)
@@ -135,22 +213,31 @@ export function extractRequirementsDeterministically(
     }
   }
 
+  // 10. Minimum CGPA
+  let min_cgpa: number | undefined
+  const cgpaMatch = combinedText.match(/(?:min(?:imum)?\s+)?(?:cgpa|gpa)[\s:]*([6-9](?:\.[0-9]{1,2})?)/i)
+  if (cgpaMatch) {
+    min_cgpa = parseFloat(cgpaMatch[1])
+  }
+
   return {
     title: role,
     company,
     role,
-    description: raw.snippet || `Internship opportunity for ${role} at ${company}.`,
+    description: sourceText || `Internship opportunity for ${role} at ${company}.`,
     location,
     work_mode,
     required_skills: Array.from(new Set(required_skills)),
     preferred_skills: Array.from(new Set(preferred_skills)),
     eligible_years,
-    eligible_degrees: ['B.Tech', 'B.E', 'M.Tech', 'BCA', 'MCA'],
-    duration_months: 3,
+    eligible_degrees,
+    duration_months,
     stipend_amount,
     stipend_currency: stipend_amount ? 'INR' : undefined,
     deadline,
     application_url: raw.url,
+    is_partially_verified: isPartiallyVerified,
+    min_cgpa,
   }
 }
 
@@ -258,6 +345,10 @@ export function buildOpportunityFromExtraction(
     eligibleDegrees: data.eligible_degrees,
     requiredSkills: data.required_skills.map((s) => normalizeSkill(s)),
     preferredSkills: data.preferred_skills.map((s) => normalizeSkill(s)),
+    isPartiallyVerified: data.is_partially_verified,
+    minCgpa: data.min_cgpa,
+    experienceRequirements: data.experience_requirements,
+    rawDescription: text,
     isDemo: false,
     isLiveWeb: true,
   }

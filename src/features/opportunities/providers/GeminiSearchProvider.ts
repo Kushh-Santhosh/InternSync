@@ -21,30 +21,46 @@ export class GeminiSearchProvider implements OpportunityProvider {
   }
 
   isConfigured(): boolean {
-    return Boolean(this.config.apiKey)
+    return Boolean(this.config.apiKey || typeof window !== 'undefined')
   }
 
   /**
    * Performs live grounded search via server proxy endpoint or direct API
    */
   async search(query: SearchQuery): Promise<RawSearchResult[]> {
+    let serverRes: Response
     try {
-      const serverRes = await fetch('/api/search/live', {
+      serverRes = await fetch('/api/search/live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, provider: 'gemini' }),
       })
-      if (serverRes.ok) {
-        const data = await serverRes.json()
-        if (Array.isArray(data.results)) {
-          return data.results.map((r: any) => ({
-            ...r,
-            source: r.source || 'Google Search Grounding',
-          }))
-        }
-      }
+    } catch (err: unknown) {
+      throw new Error(`Failed to reach Gemini search backend: ${err instanceof Error ? err.message : String(err)}`)
+    }
+
+    let data: any = null
+    try {
+      data = await serverRes.json()
     } catch {
-      // Fallback if server endpoint is unreachable
+      data = {}
+    }
+
+    if (!serverRes.ok) {
+      if (data?.code === 'SEARCH_NOT_CONFIGURED' || serverRes.status === 503) {
+        throw new Error('SEARCH_NOT_CONFIGURED: Gemini search grounding is not configured on the server.')
+      }
+      if (data?.code === 'GEMINI_QUOTA_EXHAUSTED' || serverRes.status === 429) {
+        throw new Error('GEMINI_QUOTA_EXHAUSTED: Gemini search grounding quota exhausted.')
+      }
+      throw new Error(data?.error || `Gemini search service returned status ${serverRes.status}`)
+    }
+
+    if (Array.isArray(data?.results)) {
+      return data.results.map((r: any) => ({
+        ...r,
+        source: r.source || 'Google Gemini Grounding',
+      }))
     }
 
     return []

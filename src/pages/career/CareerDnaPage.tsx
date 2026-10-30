@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
+  Award,
+  Briefcase,
   CheckCircle2,
   Code2,
   Compass,
@@ -516,12 +518,116 @@ export const CareerDnaPage: React.FC = () => {
         )}
       </div>
 
-      {/* SECTION 6: ASSESSMENT SIGNALS */}
+      {/* SECTION 6: WORK & INTERNSHIP EXPERIENCE */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <Briefcase className="w-4 h-4 text-indigo-600" />
+            <span>6. Professional & Internship Experience</span>
+          </h3>
+          <span className="text-xs text-slate-500">
+            {(profile.experiences || []).length} Recorded {(profile.experiences || []).length === 1 ? 'Role' : 'Roles'}
+          </span>
+        </div>
+
+        {(!profile.experiences || profile.experiences.length === 0) ? (
+          <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 bg-white">
+            <Briefcase className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-xs font-semibold text-slate-700">No professional internships recorded yet</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Entry-level opportunities that do not require prior experience will not penalize your fit score.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {profile.experiences.map((exp, idx) => (
+              <div
+                key={exp.id || idx}
+                className="p-5 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">{exp.roleTitle}</h4>
+                    <span className="text-xs font-semibold text-indigo-600 block mt-0.5">
+                      {exp.company}
+                    </span>
+                  </div>
+                  <Badge variant="success" size="sm">
+                    {exp.source === 'resume' ? 'Resume Verified' : 'Confirmed'}
+                  </Badge>
+                </div>
+
+                {exp.duration && (
+                  <span className="text-[11px] font-medium text-slate-500 block">
+                    Duration: {exp.duration}
+                  </span>
+                )}
+
+                <p className="text-xs text-slate-600 leading-relaxed">{exp.summary}</p>
+
+                {exp.responsibilities && exp.responsibilities.length > 0 && (
+                  <div className="space-y-1 pt-2 border-t border-slate-100">
+                    {exp.responsibilities.map((r, i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-slate-600">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>{r}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* SECTION 7: CERTIFICATIONS & CREDENTIALS */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <Award className="w-4 h-4 text-indigo-600" />
+            <span>7. Certifications & Credentials</span>
+          </h3>
+          <span className="text-xs text-slate-500">
+            {(profile.certifications || []).length} Verified {(profile.certifications || []).length === 1 ? 'Credential' : 'Credentials'}
+          </span>
+        </div>
+
+        {(!profile.certifications || profile.certifications.length === 0) ? (
+          <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 bg-white">
+            <Award className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-xs font-semibold text-slate-700">No external certifications recorded</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Add technical certifications or upload certificates to substantiate your skills with accredited proof.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {profile.certifications.map((cert, idx) => (
+              <div
+                key={cert.id || idx}
+                className="p-4 rounded-xl border border-slate-200 bg-white shadow-2xs space-y-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="text-xs font-bold text-slate-900 leading-snug">{cert.name}</h4>
+                  <Badge variant="success" size="sm">Verified</Badge>
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  {cert.issuer && <span>Issuer: {cert.issuer}</span>}
+                  {cert.year && <span> ({cert.year})</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* SECTION 8: ASSESSMENT SIGNALS */}
       <div className="p-6 rounded-2xl border border-indigo-200 bg-indigo-50/40 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-            <span>6. Verified Assessment Signals</span>
+            <span>8. Verified Assessment Signals</span>
           </div>
           <h4 className="text-base font-bold text-slate-900">
             {skills.filter((s) => s.assessmentScore !== undefined).length > 0

@@ -1,6 +1,35 @@
 export type WorkMode = 'remote' | 'hybrid' | 'onsite' | 'any'
 
-export type RecommendationType = 'APPLY NOW' | 'PREPARE FIRST' | 'SKIP'
+export type RecommendationType =
+  | 'APPLY NOW'
+  | 'PREPARE FIRST'
+  | 'SKIP'
+  | 'NOT ELIGIBLE'
+  | 'NEEDS VERIFICATION'
+
+export type EligibilityStatus = 'Eligible' | 'Ineligible' | 'Needs verification' | 'Not specified'
+
+export interface ExperienceItem {
+  id?: string
+  company: string
+  roleTitle: string
+  duration?: string
+  durationMonths?: number
+  summary: string
+  responsibilities?: string[]
+  isVerified?: boolean
+  source?: 'resume' | 'manual'
+}
+
+export interface CertificationItem {
+  id?: string
+  name: string
+  issuer?: string
+  year?: string
+  credentialUrl?: string
+  isVerified?: boolean
+  source?: 'resume' | 'manual'
+}
 
 export type ApplicationStatus =
   | 'saved'
@@ -18,6 +47,7 @@ export interface StudentProfile {
   fullName: string
   username?: string
   email: string
+  phone?: string
   university: string
   degree: string
   branch: string
@@ -41,6 +71,8 @@ export interface StudentProfile {
   academicMetricScale?: string
   conversionRule?: string
   isCurrentYearConfirmed?: boolean
+  experiences?: ExperienceItem[]
+  certifications?: CertificationItem[]
 }
 
 export interface SkillEvidenceItem {
@@ -100,6 +132,10 @@ export interface Opportunity {
   availabilityRequirements?: string
   industry?: string
   companySize?: string
+  minCgpa?: number
+  acceptedBranches?: string[]
+  isPartiallyVerified?: boolean
+  rawDescription?: string
   isDemo?: boolean
   isLiveWeb?: boolean
 }
@@ -121,6 +157,14 @@ export interface MatchResult extends MatchScores {
   studentId: string
   opportunityId: string
   recommendation: RecommendationType
+  isEligible?: boolean
+  eligibilityStatus?: EligibilityStatus
+  skillsMatched?: string[]
+  requiredSkillsMissing?: string[]
+  preferredSkillsMissing?: string[]
+  skillsNeedsImprovement?: string[]
+  unknownCriteria?: string[]
+  explanation?: string
   whyMatched: string[]
   missingSkills: string[]
   evidenceFound: string[]
@@ -136,6 +180,9 @@ export interface SkillGapPlanDay {
   objective: string
   tasks: string[]
   resources: { label: string; url: string }[]
+  estimatedMinutes?: number
+  expectedOutcome?: string
+  completed?: boolean
 }
 
 export interface SkillGapPlan {

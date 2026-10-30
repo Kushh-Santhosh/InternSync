@@ -12,7 +12,9 @@ import {
 import { isSupabaseConfigured, supabase } from '@/lib/supabase/client'
 import { isValidUUID } from '@/lib/utils/uuid'
 import type {
+  CertificationItem,
   EvidenceStrength,
+  ExperienceItem,
   ProjectItem,
   SkillEvidenceItem,
   StudentProfile,
@@ -22,6 +24,7 @@ import type {
 export const ExtractedResumeSchema = z.object({
   fullName: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
   degree: z.string().nullable().optional(),
   branch: z.string().nullable().optional(),
   university: z.string().nullable().optional(),
@@ -88,6 +91,8 @@ export interface DocumentAnalysisResult {
   updatedProfile?: Partial<StudentProfile>
   newSkills: SkillEvidenceItem[]
   newProjects: ProjectItem[]
+  newExperience?: ExperienceItem[]
+  newCertifications?: CertificationItem[]
   summaryNotes: string[]
   ambiguousFields?: { field: string; rawValue: string; reason: string; actionNeeded: string }[]
   storagePath?: string
@@ -262,6 +267,12 @@ export function extractProfileFromResumeText(text: string): Partial<StudentProfi
     updates.email = emailMatch[1]
   }
 
+  // Phone number detection
+  const phoneMatch = text.match(/(?:(?:\+?91[\s-]?)?[6-9]\d{9}|\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b)/)
+  if (phoneMatch) {
+    updates.phone = phoneMatch[0].trim()
+  }
+
   // Academic Degree detection
   const degreePatterns = [
     { regex: /\bB\.?Tech\b/i, degree: 'B.Tech' },
@@ -401,6 +412,31 @@ export async function extractStructuredResumeAI(text: string): Promise<Extracted
 }
 
 /**
+ * Performs optical character recognition on an image or scanned document via backend OCR
+ */
+export async function runOcrOnFile(fileData: ArrayBuffer | Uint8Array, mimeType: string): Promise<string> {
+  const bytes = fileData instanceof Uint8Array ? fileData : new Uint8Array(fileData)
+  let binary = ''
+  const len = bytes.byteLength
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  const base64 = typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(bytes).toString('base64')
+
+  const res = await fetch('/api/ai/ocr', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileBase64: base64, mimeType }),
+  })
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}))
+    throw new Error(errJson.error || `OCR extraction failed with status ${res.status}`)
+  }
+  const data = await res.json()
+  return data.text || ''
+}
+
+/**
  * Validates upload safety, size, and type
  */
 export function validateDocumentFile(file: File): { valid: boolean; error?: string } {
@@ -416,20 +452,25 @@ export function validateDocumentFile(file: File): { valid: boolean; error?: stri
     return { valid: false, error: 'Executable and script files are strictly prohibited.' }
   }
 
-  const allowedExtensions = ['.pdf', '.docx', '.doc', '.pptx', '.ppt', '.txt', '.md']
+  const allowedExtensions = [
+    '.pdf',
+    '.docx',
+    '.doc',
+    '.pptx',
+    '.ppt',
+    '.txt',
+    '.md',
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.webp',
+  ]
   const hasAllowedExt = allowedExtensions.some((ext) => lowerName.endsWith(ext))
   if (!hasAllowedExt) {
     const extMatch = lowerName.lastIndexOf('.') >= 0 ? lowerName.slice(lowerName.lastIndexOf('.')) : 'unknown'
     return {
       valid: false,
-      error: `Unsupported file format "${extMatch}". Please upload a supported PDF, DOCX, PPTX, or TXT file.`
-    }
-  }
-
-  if (file.type.startsWith('image/')) {
-    return {
-      valid: false,
-      error: 'Image-based documents require optical character recognition (OCR). Please upload a PDF, DOCX, PPTX, or TXT document.',
+      error: `Unsupported file format "${extMatch}". Please upload a supported PDF, DOCX, PPTX, TXT, or Image file.`
     }
   }
 
@@ -497,6 +538,16 @@ export async function processUploadedDocument(
         ],
       })
     }
+  } else if (file.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(lowerName)) {
+    const buffer = await file.arrayBuffer()
+    const mime = file.type || (lowerName.endsWith('.png') ? 'image/png' : 'image/jpeg')
+    try {
+      summaryNotes.push('Processing document image via optical character recognition (OCR)...')
+      parsedText = await runOcrOnFile(buffer, mime)
+      summaryNotes.push(`Extracted text via OCR from image "${file.name}"`)
+    } catch {
+      throw new Error('Image-based resumes require optical character recognition (OCR). The OCR service is currently unavailable. Please upload a PDF, DOCX, or TXT file.')
+    }
   } else if (lowerName.endsWith('.docx')) {
     const buffer = await file.arrayBuffer()
     parsedText = await parseDocx(buffer)
@@ -504,13 +555,22 @@ export async function processUploadedDocument(
   } else if (lowerName.endsWith('.pdf')) {
     const buffer = await file.arrayBuffer()
     const pdfResult = await parsePdfDetailed(buffer)
-    if (pdfResult.error) {
+    if (pdfResult.isScanned) {
+      try {
+        summaryNotes.push('Detected scanned image PDF; attempting optical character recognition (OCR)...')
+        parsedText = await runOcrOnFile(buffer, 'application/pdf')
+        summaryNotes.push(`Extracted text via optical character recognition (OCR) from scanned PDF "${file.name}"`)
+      } catch {
+        throw new Error(pdfResult.error || 'This PDF appears to be a scanned image. OCR extraction is currently unavailable. Please upload a standard text PDF or DOCX file.')
+      }
+    } else if (pdfResult.error) {
       throw new Error(pdfResult.error)
+    } else {
+      parsedText = pdfResult.text
+      summaryNotes.push(
+        `Extracted readable text from ${pdfResult.totalPages}-page PDF document "${file.name}"`
+      )
     }
-    parsedText = pdfResult.text
-    summaryNotes.push(
-      `Extracted readable text from ${pdfResult.totalPages}-page PDF document "${file.name}"`
-    )
   } else {
     // Plain text / Markdown
     parsedText = await file.text().catch(() => '')
@@ -523,6 +583,8 @@ export async function processUploadedDocument(
 
   // 3. Profile & Skills Extraction: AI Structured with Deterministic Fallback
   let detectedSkills: { skillName: string; confidence: number; evidenceQuote?: string }[] = []
+  let extractedExperience: ExperienceItem[] = []
+  let extractedCertifications: CertificationItem[] = []
   let aiExtraction: ExtractedResumeData | null = null
 
   if (type === 'resume') {
@@ -606,6 +668,39 @@ export async function processUploadedDocument(
         })
       }
 
+      // Map AI experience
+      if (aiExtraction.experience && Array.isArray(aiExtraction.experience)) {
+        for (const exp of aiExtraction.experience) {
+          if (exp.company && exp.roleTitle) {
+            extractedExperience.push({
+              id: `exp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              company: exp.company,
+              roleTitle: exp.roleTitle,
+              duration: exp.duration,
+              summary: exp.summary || `${exp.roleTitle} at ${exp.company}`,
+              isVerified: true,
+              source: 'resume',
+            })
+          }
+        }
+      }
+
+      // Map AI certifications
+      if (aiExtraction.certifications && Array.isArray(aiExtraction.certifications)) {
+        for (const cert of aiExtraction.certifications) {
+          if (cert.name) {
+            extractedCertifications.push({
+              id: `cert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              name: cert.name,
+              issuer: cert.issuer,
+              year: cert.year,
+              isVerified: true,
+              source: 'resume',
+            })
+          }
+        }
+      }
+
       if (aiExtraction.ambiguousFields && aiExtraction.ambiguousFields.length > 0) {
         for (const amb of aiExtraction.ambiguousFields) {
           summaryNotes.push(
@@ -625,6 +720,45 @@ export async function processUploadedDocument(
           `Identified academic degree: ${profileUpdates.degree} (${profileUpdates.branch || 'Engineering'})`
         )
       }
+
+      // Deterministic experience extraction fallback
+      const expMatch = parsedText.match(/(?:EXPERIENCE|WORK EXPERIENCE|INTERNSHIPS?)[\s\S]{10,600}?(?=(?:EDUCATION|PROJECTS|SKILLS|CERTIFICATIONS|$))/i)
+      if (expMatch) {
+        const lines = expMatch[0].split('\n').map((l) => l.trim()).filter((l) => l.length > 3 && !/^(?:experience|work|internship)/i.test(l))
+        if (lines.length >= 2) {
+          extractedExperience.push({
+            id: `exp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            company: lines[0],
+            roleTitle: lines[1],
+            summary: lines.slice(2, 5).join(' ') || `${lines[1]} at ${lines[0]}`,
+            isVerified: true,
+            source: 'resume',
+          })
+        }
+      }
+
+      // Deterministic certification extraction fallback
+      const certMatch = parsedText.match(/(?:CERTIFICATIONS?|LICENSES?)[\s\S]{10,400}?(?=(?:EDUCATION|PROJECTS|SKILLS|EXPERIENCE|$))/i)
+      if (certMatch) {
+        const lines = certMatch[0].split('\n').map((l) => l.trim()).filter((l) => l.length > 4 && !/^(?:certifications?|licenses?)/i.test(l))
+        for (const line of lines.slice(0, 3)) {
+          extractedCertifications.push({
+            id: `cert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            name: line.replace(/^[-*•]\s*/, ''),
+            isVerified: true,
+            source: 'resume',
+          })
+        }
+      }
+    }
+
+    if (extractedExperience.length > 0) {
+      profileUpdates.experiences = extractedExperience
+      summaryNotes.push(`Extracted ${extractedExperience.length} professional / internship experience record(s).`)
+    }
+    if (extractedCertifications.length > 0) {
+      profileUpdates.certifications = extractedCertifications
+      summaryNotes.push(`Extracted ${extractedCertifications.length} verified certification(s).`)
     }
   } else {
     detectedSkills = extractSkillsFromText(parsedText)
@@ -762,6 +896,8 @@ export async function processUploadedDocument(
     updatedProfile: profileUpdates,
     newSkills: updatedSkills,
     newProjects: extractedProjects,
+    newExperience: extractedExperience,
+    newCertifications: extractedCertifications,
     summaryNotes,
     storagePath,
   }

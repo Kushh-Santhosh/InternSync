@@ -36,6 +36,7 @@ test.describe.serial('Live Vercel Production Acceptance Test Suite', () => {
       auth: { autoRefreshToken: false, persistSession: false },
     })
 
+    try {
       // 1. Create primary genuine test student via official Supabase admin API
       const { data: userRecord, error: createErr } = await adminClient.auth.admin.createUser({
         email: testEmail,

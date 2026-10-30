@@ -21,6 +21,40 @@ export const DEMO_STUDENT_PROFILE: StudentProfile = {
   bio: '3rd-year CS student passionate about applied AI and scalable web applications. Built vector-search study apps and computer vision attendance tools.',
   resumeFileName: 'Rahul_Sharma_Resume_2025.pdf',
   resumeUploadedAt: '2025-03-01T10:30:00Z',
+  experiences: [
+    {
+      id: 'exp-demo-1',
+      company: 'TechCorp Solutions',
+      roleTitle: 'Web Development Intern',
+      duration: 'Jun 2024 - Aug 2024 (3 months)',
+      durationMonths: 3,
+      summary: 'Assisted in developing internal dashboard features and REST API microservices using Python and React.',
+      responsibilities: [
+        'Built full-stack telemetry dashboards with React and Tailwind CSS',
+        'Implemented FastAPI endpoints and automated data ingestion scripts',
+      ],
+      isVerified: true,
+      source: 'resume',
+    },
+  ],
+  certifications: [
+    {
+      id: 'cert-demo-1',
+      name: 'AWS Certified Cloud Practitioner',
+      issuer: 'Amazon Web Services',
+      year: '2024',
+      isVerified: true,
+      source: 'resume',
+    },
+    {
+      id: 'cert-demo-2',
+      name: 'Deep Learning Specialization',
+      issuer: 'DeepLearning.AI / Coursera',
+      year: '2024',
+      isVerified: true,
+      source: 'resume',
+    },
+  ],
 }
 
 export const DEMO_STUDENT_SKILLS: SkillEvidenceItem[] = [

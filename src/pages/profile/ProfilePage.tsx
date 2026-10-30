@@ -28,6 +28,7 @@ export const ProfilePage: React.FC = () => {
     fullName: profile.fullName,
     username: profile.username || '',
     email: isSyntheticEmail(profile.email) ? '' : (profile.email || ''),
+    phone: profile.phone || '',
     avatarUrl: profile.avatarUrl || '',
     university: profile.university,
     degree: profile.degree,
@@ -180,6 +181,19 @@ export const ProfilePage: React.FC = () => {
               placeholder={profile.username ? 'e.g. name@university.edu (optional)' : 'name@university.edu'}
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Phone Number <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <input
+              type="tel"
+              placeholder="+91 98765 43210"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-indigo-500"
             />
           </div>

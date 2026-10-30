@@ -254,6 +254,9 @@ export class OpportunitySearchOrchestrator {
     // In connected mode, server endpoint queries configured providers in bounded parallel
     for (const q of targetQueries) {
       queryTasks.push({ query: q, provider: this.openrouterProvider })
+      if (this.geminiProvider.isConfigured()) {
+        queryTasks.push({ query: q, provider: this.geminiProvider })
+      }
       if (this.adzunaEnabled && this.adzunaProvider.isConfigured()) {
         queryTasks.push({ query: q, provider: this.adzunaProvider })
       }
@@ -262,7 +265,7 @@ export class OpportunitySearchOrchestrator {
     const providerErrors: Error[] = []
     const taskResults = await runWithConcurrency(
       queryTasks,
-      2,
+      3,
       async ({ query, provider }: { query: SearchQuery; provider: OpportunityProvider }) => {
         try {
           const timeoutPromise = new Promise<RawSearchResult[]>((_, reject) =>

@@ -813,8 +813,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDocuments((prev) => [result.document, ...prev])
 
     if (isAuth) {
-      if (result.updatedProfile) {
-        const updated = { ...userProfile, ...result.updatedProfile, id: studentId }
+      if (result.updatedProfile || (result.newExperience && result.newExperience.length > 0) || (result.newCertifications && result.newCertifications.length > 0)) {
+        const updated: StudentProfile = {
+          ...(userProfile || BLANK_STUDENT_PROFILE),
+          ...result.updatedProfile,
+          id: studentId,
+          experiences: [
+            ...(userProfile?.experiences || []),
+            ...(result.newExperience || []),
+          ],
+          certifications: [
+            ...(userProfile?.certifications || []),
+            ...(result.newCertifications || []),
+          ],
+        }
         const ok = await upsertUserProfile(updated)
         if (!ok) {
           console.warn('[Context] Failed to persist extracted profile updates to Supabase.')
@@ -832,8 +844,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } else {
       // In Demo Mode / temporary unauthenticated visitor session: update in-memory state cleanly
-      if (result.updatedProfile) {
-        setUserProfile((prev) => ({ ...prev, ...result.updatedProfile }))
+      if (result.updatedProfile || (result.newExperience && result.newExperience.length > 0) || (result.newCertifications && result.newCertifications.length > 0)) {
+        setUserProfile((prev) => ({
+          ...(prev || BLANK_STUDENT_PROFILE),
+          ...result.updatedProfile,
+          experiences: [
+            ...(prev?.experiences || []),
+            ...(result.newExperience || []),
+          ],
+          certifications: [
+            ...(prev?.certifications || []),
+            ...(result.newCertifications || []),
+          ],
+        }))
       }
       if (result.newSkills.length > 0) {
         setUserSkills(result.newSkills)

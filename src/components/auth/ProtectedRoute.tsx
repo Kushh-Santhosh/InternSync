@@ -14,10 +14,10 @@ interface ProtectedRouteProps {
  * Otherwise redirects to /login preserving intended path.
  */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { currentUser, isDemoMode } = useApp()
+  const { currentUser, isDemoMode, documents } = useApp()
   const location = useLocation()
 
-  if (!currentUser && !isDemoMode) {
+  if (!currentUser && !isDemoMode && documents.length === 0) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 

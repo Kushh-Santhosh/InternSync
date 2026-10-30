@@ -32,7 +32,7 @@ export const ResumeUploadCard: React.FC<ResumeUploadCardProps> = ({
   onSuccess,
 }) => {
   const navigate = useNavigate()
-  const { uploadDocument, searchLiveOpportunities } = useApp()
+  const { uploadDocument, searchLiveOpportunities, currentUser, isDemoMode, enterDemoMode } = useApp()
 
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -77,6 +77,9 @@ export const ResumeUploadCard: React.FC<ResumeUploadCardProps> = ({
 
       // Step 2 & 3: Process document, extract skills, validate project proof
       await uploadDocument(file, 'resume')
+      if (!currentUser && !isDemoMode) {
+        enterDemoMode()
+      }
       setCurrentStep(4)
 
       // Step 4 & 5: Search live opportunities
@@ -123,7 +126,7 @@ export const ResumeUploadCard: React.FC<ResumeUploadCardProps> = ({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,.doc,.docx,.ppt,.pptx,.txt"
+        accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.webp"
         onChange={handleFileChange}
         className="hidden"
       />

@@ -443,7 +443,7 @@ export const SettingsPage: React.FC = () => {
             <label className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer transition-colors shadow-xs">
               <Upload className="w-3.5 h-3.5" />
               <span>{isUploadingDoc ? 'Analyzing Document...' : 'Upload Document'}</span>
-              <input type="file" disabled={isUploadingDoc} onChange={handleFileUpload} accept=".pdf,.doc,.docx,.ppt,.pptx,.txt" className="hidden" />
+              <input type="file" disabled={isUploadingDoc} onChange={handleFileUpload} accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.webp" className="hidden" />
             </label>
           </div>
 

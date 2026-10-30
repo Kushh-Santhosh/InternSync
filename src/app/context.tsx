@@ -685,6 +685,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Active profile, skills, projects based strictly on mode & authenticated user
   const activeProfile = useMemo(() => {
+    // If a custom profile has been uploaded/modified by the student/visitor, prioritize it
+    if (userProfile && (userProfile.fullName || userProfile.degree || (userProfile.experiences && userProfile.experiences.length > 0))) {
+      return {
+        ...userProfile,
+        id: currentUser ? currentUser.id : userProfile.id || 'visitor-session',
+        email: currentUser?.email || userProfile.email,
+        fullName: userProfile.fullName || currentUser?.fullName || 'Student Candidate',
+      }
+    }
     if (isDemoMode) return DEMO_STUDENT_PROFILE
     if (currentUser) {
       return {
@@ -697,8 +706,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return userProfile
   }, [isDemoMode, currentUser, userProfile])
 
-  const activeSkills = isDemoMode ? DEMO_STUDENT_SKILLS : userSkills
-  const activeProjects = isDemoMode ? DEMO_STUDENT_PROJECTS : userProjects
+  const activeSkills = useMemo(() => {
+    if (userSkills && userSkills.length > 0) return userSkills
+    return isDemoMode ? DEMO_STUDENT_SKILLS : userSkills
+  }, [isDemoMode, userSkills])
+
+  const activeProjects = useMemo(() => {
+    if (userProjects && userProjects.length > 0) return userProjects
+    return isDemoMode ? DEMO_STUDENT_PROJECTS : userProjects
+  }, [isDemoMode, userProjects])
 
   // Active opportunities based strictly on mode (real live opportunities only in non-demo mode)
   const activeOpportunities = useMemo(() => {

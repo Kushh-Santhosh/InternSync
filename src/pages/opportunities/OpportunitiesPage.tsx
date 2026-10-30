@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils/cn'
 
 export const OpportunitiesPage: React.FC = () => {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const {
     opportunities,
     matches,
@@ -66,6 +66,12 @@ export const OpportunitiesPage: React.FC = () => {
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(
     searchParams.get('compare') === 'true'
   )
+
+  useEffect(() => {
+    if (searchParams.get('compare') === 'true') {
+      setIsCompareModalOpen(true)
+    }
+  }, [searchParams])
 
   // Filter categories
   const categories = ['all', 'AI/ML', 'Full Stack', 'Frontend', 'Backend', 'Data Science', 'Cloud']
@@ -372,7 +378,14 @@ export const OpportunitiesPage: React.FC = () => {
       {/* 3-Way Opportunity Comparison Modal */}
       <Modal
         isOpen={isCompareModalOpen}
-        onClose={() => setIsCompareModalOpen(false)}
+        onClose={() => {
+          setIsCompareModalOpen(false)
+          if (searchParams.get('compare') === 'true') {
+            const nextParams = new URLSearchParams(searchParams)
+            nextParams.delete('compare')
+            setSearchParams(nextParams, { replace: true })
+          }
+        }}
         title="Side-by-Side Opportunity Comparison"
         description="Compare up to 3 target internships with deterministic fit and eligibility trade-offs."
         maxWidth="4xl"

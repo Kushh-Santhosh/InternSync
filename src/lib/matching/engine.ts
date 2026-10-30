@@ -264,6 +264,11 @@ export function calculateMatch(context: MatchingContext): MatchResult {
       (relevantProjects.length * 35 + strongProjects * 25)
     )
   )
+  if (relevantProjects.length > 0) {
+    whyMatched.push(
+      `Portfolio evidence: ${relevantProjects.length} relevant project(s) demonstrated required tech stack (${relevantProjects.map((p) => p.title).slice(0, 2).join(', ')})`
+    )
+  }
 
   // 4. Education Score (10%)
   const educationScore = degreeEligible ? 95 : 60

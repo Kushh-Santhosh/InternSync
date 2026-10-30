@@ -40,6 +40,12 @@ test.describe.serial('Visible End-to-End Walkthrough & Real Inspection', () => {
     await page.waitForTimeout(800)
     await page.screenshot({ path: path.join(evidenceDir, '02_signup_initial.png') })
 
+    // Switch to Email Sign Up tab to test traditional form validation
+    const emailTab = page.getByRole('button', { name: /Email Sign Up/i })
+    if (await emailTab.isVisible()) {
+      await emailTab.click()
+    }
+
     // Test form submission with empty fields
     await page.click('button[type="submit"]')
     await expect(page.getByText(/Please provide your name and email/i)).toBeVisible()
@@ -64,7 +70,7 @@ test.describe.serial('Visible End-to-End Walkthrough & Real Inspection', () => {
 
     // Test empty login submission
     await page.click('button[type="submit"]')
-    await expect(page.getByText(/Please enter your email address/i)).toBeVisible()
+    await expect(page.getByText(/Please enter your (?:username or )?email address/i)).toBeVisible()
     await page.screenshot({ path: path.join(evidenceDir, '06_login_empty_validation.png') })
 
     // Test non-existent credentials (truthful error when Supabase not configured or bad creds)
